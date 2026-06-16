@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 import os
 import json
 import base64
+from PIL import Image
+from io import BytesIO
 import pandas as pd
 import altair as alt
 import streamlit.components.v1 as components
@@ -52,20 +54,23 @@ def sanitizar_nombre(texto):
     texto = re.sub(r'_+', '_', texto)
     return texto.strip('_')
 
-def convertir_imagen_a_base64(archivo_foto):
-    """Convierte una imagen subida por st.file_uploader a un Data URL Base64 para almacenar en Google Sheets."""
+def convertir_imagen_a_base64(archivo_foto, max_dimension=400, calidad=70):
+    """Convierte y comprime una imagen subida a un Data URL Base64 optimizado para Google Sheets (máx 50,000 chars por celda)."""
     if archivo_foto is None:
         return None
     try:
-        _, ext = os.path.splitext(archivo_foto.name)
-        if not ext:
-            ext = ".png"
-        ext = ext.lower().replace(".", "")
-        if ext == "jpg":
-            ext = "jpeg"
-        datos = archivo_foto.getbuffer()
-        encoded = base64.b64encode(datos).decode("utf-8")
-        return f"data:image/{ext};base64,{encoded}"
+        img = Image.open(archivo_foto)
+        # Convertir a RGB si tiene canal alfa (PNG con transparencia)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        # Redimensionar manteniendo proporción
+        img.thumbnail((max_dimension, max_dimension), Image.LANCZOS)
+        # Comprimir como JPEG
+        buffer = BytesIO()
+        img.save(buffer, format="JPEG", quality=calidad, optimize=True)
+        buffer.seek(0)
+        encoded = base64.b64encode(buffer.read()).decode("utf-8")
+        return f"data:image/jpeg;base64,{encoded}"
     except Exception as e:
         st.error(f"Error al codificar la imagen a Base64: {e}")
         return None
