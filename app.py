@@ -37,17 +37,8 @@ RUTA_CSS = os.path.join(BASE_DIR, "estilos.css")
 RUTA_HTML = os.path.join(BASE_DIR, "boleta_plantilla.html")
 URL_BANNER_LOCAL = os.path.join(BASE_DIR, "Captura de pantalla 2026-05-24 090610.png")
 
-# Ruta de persistencia para Hugging Face Spaces (/data/) o respaldo local
-if os.path.exists("/data") and os.access("/data", os.W_OK):
-    RUTA_DB = "/data/catalogo.db"
-    CARPETA_IMAGENES = "/data/imagenes_productos"
-else:
-    RUTA_DB = os.path.join(BASE_DIR, "catalogo.db")
-    CARPETA_IMAGENES = os.path.join(BASE_DIR, "imagenes_productos")
-
-# Inicialización de base de datos SQLite y directorio de imágenes
-database.inicializar_db(RUTA_DB)
-os.makedirs(CARPETA_IMAGENES, exist_ok=True)
+# Inicialización de la conexión a Google Sheets (base de datos en la nube)
+database.inicializar_db()
 
 # ============================================================================
 # 2. FUNCIONES AUXILIARES PARA MANEJO DE IMÁGENES Y STRINGS
@@ -61,28 +52,22 @@ def sanitizar_nombre(texto):
     texto = re.sub(r'_+', '_', texto)
     return texto.strip('_')
 
-def guardar_imagen_disco(archivo_foto, nombre_producto):
-    """Guarda físicamente la imagen subida en la carpeta imagenes_productos/ y retorna la ruta."""
+def convertir_imagen_a_base64(archivo_foto):
+    """Convierte una imagen subida por st.file_uploader a un Data URL Base64 para almacenar en Google Sheets."""
     if archivo_foto is None:
         return None
-    carpeta_destino = CARPETA_IMAGENES
-    os.makedirs(carpeta_destino, exist_ok=True)
-    
-    _, ext = os.path.splitext(archivo_foto.name)
-    if not ext:
-        ext = ".png"
-        
-    nombre_sanitizado = sanitizar_nombre(nombre_producto)
-    timestamp = int(datetime.now().timestamp())
-    nombre_archivo = f"{nombre_sanitizado}_{timestamp}{ext.lower()}"
-    ruta_completa = os.path.join(carpeta_destino, nombre_archivo)
-    
     try:
-        with open(ruta_completa, "wb") as f:
-            f.write(archivo_foto.getbuffer())
-        return ruta_completa
+        _, ext = os.path.splitext(archivo_foto.name)
+        if not ext:
+            ext = ".png"
+        ext = ext.lower().replace(".", "")
+        if ext == "jpg":
+            ext = "jpeg"
+        datos = archivo_foto.getbuffer()
+        encoded = base64.b64encode(datos).decode("utf-8")
+        return f"data:image/{ext};base64,{encoded}"
     except Exception as e:
-        st.error(f"Error al guardar la imagen en disco: {e}")
+        st.error(f"Error al codificar la imagen a Base64: {e}")
         return None
 
 def obtener_src_foto(ruta_foto):
@@ -115,10 +100,10 @@ def obtener_src_foto(ruta_foto):
 # ============================================================================
 # 3. INICIALIZACIÓN DE VARIABLES REACTIVAS DE SESIÓN (ESTADOS DEL SISTEMA)
 # ============================================================================
-# Sincronización en cada rerun con SQLite para multiusuario en PythonAnywhere
-st.session_state.menu_dinamico = database.obtener_menu(RUTA_DB)
-st.session_state.historial_ordenes = database.obtener_ordenes(RUTA_DB)
-st.session_state.lista_categorias = ["Todos"] + database.obtener_categorias(RUTA_DB)
+# Sincronización en cada rerun con Google Sheets
+st.session_state.menu_dinamico = database.obtener_menu()
+st.session_state.historial_ordenes = database.obtener_ordenes()
+st.session_state.lista_categorias = ["Todos"] + database.obtener_categorias()
 
 if "carrito" not in st.session_state:
     st.session_state.carrito = []
@@ -308,7 +293,7 @@ if es_admin:
                 
                 if st.button("➕ CREAR NUEVA SECCIÓN", use_container_width=True, key="btn_create_cat"):
                     if nueva_cat and nueva_cat != "Todos":
-                        exito = database.crear_categoria(RUTA_DB, nueva_cat)
+                        exito = database.crear_categoria(None, nueva_cat)
                         if exito:
                             st.success(f"✔ ¡Sección '{nueva_cat}' integrada con éxito!")
                             st.rerun()
@@ -333,7 +318,7 @@ if es_admin:
                 
                 if st.button("🗑️ ELIMINAR SECCIÓN SELECCIONADA", use_container_width=True, key="btn_delete_cat"):
                     if cat_a_borrar:
-                        database.eliminar_categoria(RUTA_DB, cat_a_borrar)
+                        database.eliminar_categoria(None, cat_a_borrar)
                         if st.session_state.categoria_activa == cat_a_borrar:
                             st.session_state.categoria_activa = "Todos"
                             
@@ -362,13 +347,10 @@ if es_admin:
         if st.button("🚀 GUARDAR E INTEGRAR NUEVO PRODUCTO", use_container_width=True):
             if nuevo_nombre:
                 if nuevo_nombre not in st.session_state.menu_dinamico:
-                    if archivo_foto is not None:
-                        ruta_foto = guardar_imagen_disco(archivo_foto, nuevo_nombre)
-                    else:
-                        ruta_foto = None
+                    ruta_foto = convertir_imagen_a_base64(archivo_foto)
 
                     database.guardar_producto(
-                        db_path=RUTA_DB,
+                        db_path=None,
                         nombre=nuevo_nombre,
                         precio=nuevo_precio,
                         icono=nuevo_icono,
@@ -509,21 +491,18 @@ if es_admin:
     # 12. MANEJADOR OPERATIVO DE PERSISTENCIA SEGURA
     # ============================================================================
     if eliminar_producto is not None:
-        database.eliminar_producto(RUTA_DB, eliminar_producto)
+        database.eliminar_producto(None, eliminar_producto)
         st.success(f"✔ ¡Producto '{eliminar_producto}' eliminado con éxito!")
         st.rerun()
 
     if st.button("💾 CONFIRMAR Y SINCRONIZAR CAMBIOS DE LA CARTA", use_container_width=True):
-        # Sincronizamos los cambios al almacenamiento de la base de datos
+        # Sincronizamos los cambios al almacenamiento de Google Sheets
         for prod_key, info_actualizada in cambios_detectados.items():
             archivo_subido = st.session_state.get(f"f_up_{prod_key}")
-            if archivo_subido is not None:
-                ruta_foto = guardar_imagen_disco(archivo_subido, prod_key)
-            else:
-                ruta_foto = None
+            ruta_foto = convertir_imagen_a_base64(archivo_subido)
                 
             database.guardar_producto(
-                db_path=RUTA_DB,
+                db_path=None,
                 nombre=prod_key,
                 precio=info_actualizada["precio"],
                 icono=info_actualizada["icono"],
@@ -823,10 +802,10 @@ else:
                     prod_comprado = item["producto"]
                     cant_comprada = item["cantidad"]
                     nuevo_stock = max(0, st.session_state.menu_dinamico[prod_comprado].get("stock", 10) - cant_comprada)
-                    database.actualizar_stock(RUTA_DB, prod_comprado, nuevo_stock)
+                    database.actualizar_stock(None, prod_comprado, nuevo_stock)
                 
                 database.crear_orden(
-                    db_path=RUTA_DB,
+                    db_path=None,
                     fecha_hora=fecha_actual,
                     nro_boleta=correlativo_sunat,
                     detalle_articulos=resumen_articulos_linea,
