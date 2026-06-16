@@ -35,16 +35,28 @@
     1. BLINDAJE ANTI-MODO CLARO Y ARQUITECTURA VISUAL GLOBAL
    ============================================================================ */
 
-html, body, .stApp, 
+html, body, 
 [data-testid="stAppViewContainer"], 
 [data-testid="stMainBlockContainer"], 
 [data-testid="stVerticalBlock"] {
-    background-color: #0e0e10 !important;
+    background-color: #0a0a0f !important;
     color: #ffffff !important;
 }
 
-.stApp, :app {
+/* Fondo premium con gradientes radiales y patrón de puntos */
+.stApp {
+    background: 
+        radial-gradient(ellipse at 15% 10%, rgba(243, 156, 18, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 85% 20%, rgba(142, 68, 173, 0.06) 0%, transparent 45%),
+        radial-gradient(ellipse at 50% 80%, rgba(231, 76, 60, 0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 10% 90%, rgba(52, 152, 219, 0.04) 0%, transparent 40%),
+        radial-gradient(circle at 50% 50%, rgba(243, 156, 18, 0.02) 0%, transparent 70%),
+        radial-gradient(circle 1px at center, rgba(255,255,255,0.03) 1px, transparent 1px) !important;
+    background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 30px 30px !important;
+    background-color: #0a0a0f !important;
+    background-attachment: fixed !important;
     font-family: 'Outfit', 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+    min-height: 100vh !important;
 }
 
 /* Scrollbar personalizado */
