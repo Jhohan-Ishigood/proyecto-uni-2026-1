@@ -2,12 +2,17 @@ import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 
+# Caché de lectura en segundos (evita sobrepasar la cuota de Google Sheets API)
+TTL_LECTURA = 10
+
 def get_connection():
     """Retorna la conexión a Google Sheets."""
     return st.connection("gsheets", type=GSheetsConnection)
 
 def inicializar_db(db_path=None):
-    """Crea las hojas necesarias en Google Sheets si no existen."""
+    """Crea las hojas necesarias en Google Sheets si no existen. Solo se ejecuta una vez por sesión."""
+    if st.session_state.get("_db_inicializada", False):
+        return
     try:
         conn = get_connection()
         
@@ -15,14 +20,14 @@ def inicializar_db(db_path=None):
         
         # 1. Asegurar hoja 'categorias'
         try:
-            df_test = conn.read(worksheet="categorias", ttl=0)
+            conn.read(worksheet="categorias", ttl=TTL_LECTURA)
         except Exception:
             df_cat = pd.DataFrame({"nombre": ["Parrillas", "Hamburguesas", "Bebidas", "Combos"]})
             conn.create(worksheet="categorias", data=df_cat)
             
         # 2. Asegurar hoja 'productos'
         try:
-            df_test = conn.read(worksheet="productos", ttl=0)
+            conn.read(worksheet="productos", ttl=TTL_LECTURA)
         except Exception:
             productos_defecto = [
                 {"nombre": "Hamburguesa", "precio": 18.0, "icono": "🍔", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 15, "categoria": "Hamburguesas"},
@@ -35,10 +40,12 @@ def inicializar_db(db_path=None):
 
         # 3. Asegurar hoja 'ordenes'
         try:
-            df_test = conn.read(worksheet="ordenes", ttl=0)
+            conn.read(worksheet="ordenes", ttl=TTL_LECTURA)
         except Exception:
             df_ord = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "detalle_articulos", "entrega", "metodo_pago", "total"])
             conn.create(worksheet="ordenes", data=df_ord)
+        
+        st.session_state["_db_inicializada"] = True
     except Exception as e:
         st.error(f"Error al inicializar Google Sheets (Verifica tus secrets y permisos de cuenta de servicio): {e}")
 
@@ -47,7 +54,7 @@ def obtener_categorias(db_path=None):
     """Obtiene la lista de todas las categorías reales desde Google Sheets."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="categorias", ttl=0)
+        df = conn.read(worksheet="categorias", ttl=TTL_LECTURA)
         if df.empty or "nombre" not in df.columns:
             return []
         return df["nombre"].dropna().astype(str).tolist()
@@ -96,7 +103,7 @@ def obtener_menu(db_path=None):
     """Retorna los productos en un diccionario con la estructura original del menú dinámico."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="productos", ttl=0)
+        df = conn.read(worksheet="productos", ttl=TTL_LECTURA)
         if df.empty or "nombre" not in df.columns:
             return {}
             
@@ -192,7 +199,7 @@ def obtener_ordenes(db_path=None):
     """Retorna el historial completo de boletas/órdenes."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="ordenes", ttl=0)
+        df = conn.read(worksheet="ordenes", ttl=TTL_LECTURA)
         if df.empty or "nro_boleta" not in df.columns:
             return []
             
