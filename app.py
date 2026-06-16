@@ -194,6 +194,31 @@ if os.path.exists(RUTA_CSS):
     with open(RUTA_CSS, "r", encoding="utf-8") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
+# Inyección directa del fondo visual premium (no depende de pseudo-elementos CSS)
+st.markdown("""
+<div id="fondo-premium" style="
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    pointer-events: none;
+    z-index: 0;
+    background:
+        radial-gradient(ellipse 700px 600px at 5% 0%, rgba(243, 156, 18, 0.28) 0%, transparent 70%),
+        radial-gradient(ellipse 600px 700px at 95% 5%, rgba(142, 68, 173, 0.22) 0%, transparent 65%),
+        radial-gradient(ellipse 800px 500px at 50% 90%, rgba(192, 57, 43, 0.20) 0%, transparent 65%),
+        radial-gradient(ellipse 500px 500px at 3% 95%, rgba(41, 128, 185, 0.18) 0%, transparent 60%),
+        radial-gradient(ellipse 900px 900px at 50% 40%, rgba(243, 156, 18, 0.10) 0%, transparent 70%);
+    animation: auroraMovimiento 18s ease-in-out infinite alternate;
+"></div>
+<style>
+@keyframes auroraMovimiento {
+    0% { opacity: 0.85; filter: hue-rotate(0deg); }
+    50% { opacity: 1; filter: hue-rotate(8deg); }
+    100% { opacity: 0.85; filter: hue-rotate(-5deg); }
+}
+</style>
+""", unsafe_allow_html=True)
+
 # Inyección limpia del sello de creador adaptado al flujo estructural
 st.markdown("<div class='sello-creador'>Pagina desarrollada por: Jhohan--Patrick--Eros--Jack--Carlos (Grupo 5) 😎</div>", unsafe_allow_html=True)
 
