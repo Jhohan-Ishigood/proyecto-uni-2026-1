@@ -9,6 +9,29 @@ def get_connection():
     """Retorna la conexión a Google Sheets."""
     return st.connection("gsheets", type=GSheetsConnection)
 
+def _convertir_tipo(valor, tipo, default=None):
+    """Función auxiliar para convertir tipos de datos de forma robusta."""
+    if valor is None or (isinstance(valor, float) and pd.isna(valor)):
+        return default
+    
+    valor_str = str(valor).strip()
+    if valor_str.lower() == "nan" or valor_str == "":
+        return default
+    
+    try:
+        if tipo == "float":
+            return float(valor_str)
+        elif tipo == "int":
+            return int(float(valor_str))
+        elif tipo == "bool":
+            return valor_str.lower() not in ["0", "false", "no"]
+        elif tipo == "str":
+            return valor_str
+    except (ValueError, TypeError):
+        return default
+    
+    return default
+
 def inicializar_db(db_path=None):
     """Crea las hojas necesarias en Google Sheets si no existen. Solo se ejecuta una vez por sesión."""
     if st.session_state.get("_db_inicializada", False):
@@ -16,7 +39,7 @@ def inicializar_db(db_path=None):
     try:
         conn = get_connection()
         
-        FOTO_DEFECTO = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='8.5' cy='8.5' r='1.5'/><polyline points='21 15 16 10 5 21'/></svg>"
+        FOTO_DEFECTO = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><path d='M8 14s1.5 2 4 2 4-2 4-2'></path><line x1='9' y1='9' x2='9.01' y2='9'></line><line x1='15' y1='9' x2='15.01' y2='9'></line></svg>"
         
         # 1. Asegurar hoja 'categorias'
         try:
@@ -109,27 +132,16 @@ def obtener_menu(db_path=None):
             
         menu = {}
         for _, row in df.iterrows():
-            nombre = str(row["nombre"]).strip()
-            if not nombre or nombre == "nan":
+            nombre = _convertir_tipo(row.get("nombre"), "str", default=None)
+            if not nombre:
                 continue
             
-            precio = float(row.get("precio", 0.0))
-            icono = str(row.get("icono", "🍔"))
-            
-            disponibilidad_val = row.get("disponible", 1)
-            if isinstance(disponibilidad_val, str):
-                disponible = disponibilidad_val.lower() not in ["0", "false", "no"]
-            else:
-                disponible = bool(disponibilidad_val)
-                
-            foto = str(row.get("foto", ""))
-            if foto == "nan":
-                foto = ""
-                
-            stock = int(row.get("stock", 0)) if pd.notna(row.get("stock")) else 0
-            categoria = str(row.get("categoria", ""))
-            if categoria == "nan":
-                categoria = ""
+            precio = _convertir_tipo(row.get("precio"), "float", default=10.0)
+            icono = _convertir_tipo(row.get("icono"), "str", default="🍔")
+            disponible = _convertir_tipo(row.get("disponible"), "bool", default=True)
+            foto = _convertir_tipo(row.get("foto"), "str", default="")
+            stock = _convertir_tipo(row.get("stock"), "int", default=0)
+            categoria = _convertir_tipo(row.get("categoria"), "str", default="")
             
             menu[nombre] = {
                 "precio": precio,
@@ -157,26 +169,26 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
         # Verificar si ya existe
         if nombre in df["nombre"].astype(str).values:
             idx = df[df["nombre"].astype(str) == nombre].index[0]
-            df.at[idx, "precio"] = float(precio)
-            df.at[idx, "icono"] = icono
+            df.at[idx, "precio"] = _convertir_tipo(precio, "float", default=10.0)
+            df.at[idx, "icono"] = _convertir_tipo(icono, "str", default="🍔")
             df.at[idx, "disponible"] = disponibilidad_val
-            df.at[idx, "stock"] = int(stock)
-            df.at[idx, "categoria"] = categoria_nombre
+            df.at[idx, "stock"] = _convertir_tipo(stock, "int", default=0)
+            df.at[idx, "categoria"] = _convertir_tipo(categoria_nombre, "str", default="")
             if foto_ruta:
                 df.at[idx, "foto"] = foto_ruta
         else:
             if not foto_ruta:
-                FOTO_DEFECTO = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='8.5' cy='8.5' r='1.5'/><polyline points='21 15 16 10 5 21'/></svg>"
+                FOTO_DEFECTO = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><path d='M8 14s1.5 2 4 2 4-2 4-2'></path><line x1='9' y1='9' x2='9.01' y2='9'></line><line x1='15' y1='9' x2='15.01' y2='9'></line></svg>"
                 foto_ruta = FOTO_DEFECTO
                 
             new_row = pd.DataFrame([{
                 "nombre": nombre,
-                "precio": float(precio),
-                "icono": icono,
+                "precio": _convertir_tipo(precio, "float", default=10.0),
+                "icono": _convertir_tipo(icono, "str", default="🍔"),
                 "disponible": disponibilidad_val,
                 "foto": foto_ruta,
-                "stock": int(stock),
-                "categoria": categoria_nombre
+                "stock": _convertir_tipo(stock, "int", default=0),
+                "categoria": _convertir_tipo(categoria_nombre, "str", default="")
             }])
             df = pd.concat([df, new_row], ignore_index=True)
             
@@ -206,17 +218,17 @@ def obtener_ordenes(db_path=None):
         ordenes = []
         df_sorted = df.iloc[::-1]  # Invertir para mostrar las más recientes primero
         for _, row in df_sorted.iterrows():
-            nro_boleta = str(row.get("nro_boleta", ""))
-            if not nro_boleta or nro_boleta == "nan":
+            nro_boleta = _convertir_tipo(row.get("nro_boleta"), "str", default=None)
+            if not nro_boleta:
                 continue
                 
             ordenes.append({
-                "Fecha y Hora": str(row.get("fecha_hora", "")),
+                "Fecha y Hora": _convertir_tipo(row.get("fecha_hora"), "str", default=""),
                 "Nro. Boleta": nro_boleta,
-                "Detalle Artículos": str(row.get("detalle_articulos", "")),
-                "Entrega": str(row.get("entrega", "")),
-                "Método Pago": str(row.get("metodo_pago", "")),
-                "Total": str(row.get("total", ""))
+                "Detalle Artículos": _convertir_tipo(row.get("detalle_articulos"), "str", default=""),
+                "Entrega": _convertir_tipo(row.get("entrega"), "str", default=""),
+                "Método Pago": _convertir_tipo(row.get("metodo_pago"), "str", default=""),
+                "Total": _convertir_tipo(row.get("total"), "str", default="")
             })
         return ordenes
     except Exception as e:
@@ -251,7 +263,7 @@ def actualizar_stock(db_path, nombre, stock_restante):
         df = conn.read(worksheet="productos", ttl=0)
         if not df.empty and "nombre" in df.columns and nombre in df["nombre"].astype(str).values:
             idx = df[df["nombre"].astype(str) == nombre].index[0]
-            df.at[idx, "stock"] = int(stock_restante)
+            df.at[idx, "stock"] = _convertir_tipo(stock_restante, "int", default=0)
             conn.update(worksheet="productos", data=df)
     except Exception as e:
         st.error(f"Error actualizando stock en GSheets: {e}")
