@@ -23,6 +23,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+st.markdown('<meta name="description" content="El Gran Búfalo - Sistema de pedidos online. Parrillas, hamburguesas y más. Delivery disponible.">', unsafe_allow_html=True)
+
 # Determinación dinámica y automática de la ruta raíz en servidores de producción
 BASE_DIR = ""
 OPCIONES_CARPETA = [
@@ -53,6 +55,26 @@ def sanitizar_nombre(texto):
     texto = re.sub(r'[^a-z0-9_]', '_', texto)
     texto = re.sub(r'_+', '_', texto)
     return texto.strip('_')
+
+def render_stepper(paso_actual):
+    """Renderiza un stepper visual de progreso para el flujo del cliente."""
+    pasos = [("🛒", "Selección"), ("💳", "Pago"), ("✅", "Listo")]
+    html = "<div style='display:flex; justify-content:center; align-items:center; gap:0; margin:20px 0 30px 0;'>"
+    for i, (icono, nombre) in enumerate(pasos):
+        activo = i < paso_actual
+        actual = i == paso_actual - 1
+        color = '#f39c12' if activo else '#333'
+        bg = 'rgba(243,156,18,0.15)' if actual else 'transparent'
+        border = '2px solid #f39c12' if actual else '2px solid #333'
+        html += f"<div style='display:flex;align-items:center;'>"
+        html += f"<div style='width:50px;height:50px;border-radius:50%;background:{bg};border:{border};display:flex;align-items:center;justify-content:center;font-size:22px;'>{icono}</div>"
+        html += f"<span style='margin-left:8px;color:{color};font-weight:700;font-size:14px;'>{nombre}</span>"
+        if i < len(pasos) - 1:
+            line_color = '#f39c12' if activo else '#333'
+            html += f"<div style='width:60px;height:2px;background:{line_color};margin:0 10px;'></div>"
+        html += "</div>"
+    html += "</div>"
+    st.markdown(html, unsafe_allow_html=True)
 
 def convertir_imagen_a_base64(archivo_foto, max_dimension=400, calidad=70):
     """Convierte y comprime una imagen subida a un Data URL Base64 optimizado para Google Sheets (máx 50,000 chars por celda)."""
@@ -396,6 +418,14 @@ if es_admin:
         if st.session_state.categoria_activa == "Todos" or st.session_state.categoria_activa == cat_prod:
             productos_filtrados_admin.append(prod)
 
+    # Alertas de stock bajo
+    productos_stock_bajo = [p for p, info in st.session_state.menu_dinamico.items() if info.get('stock', 0) <= 3 and info.get('stock', 0) > 0]
+    productos_agotados = [p for p, info in st.session_state.menu_dinamico.items() if info.get('stock', 0) == 0]
+    if productos_stock_bajo:
+        st.warning(f"⚠️ Stock bajo ({len(productos_stock_bajo)}): {', '.join(productos_stock_bajo)}")
+    if productos_agotados:
+        st.error(f"🚫 Agotados ({len(productos_agotados)}): {', '.join(productos_agotados)}")
+
     # ============================================================================
     # 11. PANEL DE CONTROL DE ADMINISTRACIÓN - BUCLE DE EDICIÓN RESPONSIVO INDEPENDIENTE
     # ============================================================================
@@ -537,6 +567,23 @@ if es_admin:
         st.markdown(f"<div style='background-color: #1c1c1c; padding: 20px; border-radius: 8px; border-left: 5px solid #27ae60; box-shadow: 0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0; font-size:14px; color:#aaa; font-weight:bold;'>💰 RECAUDACIÓN TOTAL ACUMULADA</p><h2 style='margin:5px 0 0 0; color:#fff; font-size:32px;'>S/{total_caja:.2f}</h2></div>", unsafe_allow_html=True)
     with col_kpi2:
         st.markdown(f"<div style='background-color: #1c1c1c; padding: 20px; border-radius: 8px; border-left: 5px solid #f39c12; box-shadow: 0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0; font-size:14px; color:#aaa; font-weight:bold;'>📦 ÓRDENES HISTÓRICAS PROCESADAS</p><h2 style='margin:5px 0 0 0; color:#fff; font-size:32px;'>{total_pedidos} Pedidos</h2></div>", unsafe_allow_html=True)
+
+    col_kpi3, col_kpi4 = st.columns(2)
+    ticket_promedio = total_caja / total_pedidos if total_pedidos > 0 else 0
+    with col_kpi3:
+        st.markdown(f"<div style='background-color:#1c1c1c;padding:20px;border-radius:8px;border-left:5px solid #8e44ad;box-shadow:0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0;font-size:14px;color:#aaa;font-weight:bold;'>🎯 TICKET PROMEDIO</p><h2 style='margin:5px 0 0 0;color:#fff;font-size:32px;'>S/{ticket_promedio:.2f}</h2></div>", unsafe_allow_html=True)
+    
+    # Hora pico
+    horas_pedidos = {}
+    for orden in st.session_state.historial_ordenes:
+        try:
+            hora = orden.get('Fecha y Hora', '').split(' ')[1].split(':')[0]
+            horas_pedidos[hora] = horas_pedidos.get(hora, 0) + 1
+        except (IndexError, KeyError):
+            pass
+    hora_pico = max(horas_pedidos, key=horas_pedidos.get) if horas_pedidos else "--"
+    with col_kpi4:
+        st.markdown(f"<div style='background-color:#1c1c1c;padding:20px;border-radius:8px;border-left:5px solid #3498db;box-shadow:0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0;font-size:14px;color:#aaa;font-weight:bold;'>⏰ HORA PICO</p><h2 style='margin:5px 0 0 0;color:#fff;font-size:32px;'>{hora_pico}:00 hrs</h2></div>", unsafe_allow_html=True)
         
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### 📈 ANALÍTICA: UNIDADES VENDIDAS DE LA JORNADA")
@@ -589,6 +636,20 @@ if es_admin:
         st.markdown(f"<div style='background-color:#1a1a1a; padding:15px; border-radius:6px; border:1px solid #333; text-align:center;'><span style='font-size:24px;'>📱</span><p style='margin:5px 0 0 0; font-size:13px; color:#888;'>YAPE</p><h4 style='margin:5px 0 0 0; color:#27ae60;'>S/{metodos_pagos['Yape']:.2f}</h4></div>", unsafe_allow_html=True)
     with col_tj:
         st.markdown(f"<div style='background-color:#1a1a1a; padding:15px; border-radius:6px; border:1px solid #333; text-align:center;'><span style='font-size:24px;'>💳</span><p style='margin:5px 0 0 0; font-size:13px; color:#888;'>TARJETA</p><h4 style='margin:5px 0 0 0; color:#27ae60;'>S/{metodos_pagos['Tarjeta']:.2f}</h4></div>", unsafe_allow_html=True)
+
+    if sum(metodos_pagos.values()) > 0:
+        st.markdown("<br>", unsafe_allow_html=True)
+        df_pagos = pd.DataFrame({
+            'Método': list(metodos_pagos.keys()),
+            'Monto': list(metodos_pagos.values())
+        })
+        pie = alt.Chart(df_pagos).mark_arc(innerRadius=50, outerRadius=120).encode(
+            theta=alt.Theta('Monto:Q'),
+            color=alt.Color('Método:N', scale=alt.Scale(domain=['Efectivo','Yape','Tarjeta'], range=['#27ae60','#8e44ad','#3498db']), legend=alt.Legend(titleColor='#fff', labelColor='#fff')),
+            tooltip=['Método:N', alt.Tooltip('Monto:Q', format='.2f')]
+        ).properties(width=350, height=300, title=alt.TitleParams('Distribución de Pagos', color='#f39c12', fontSize=16))
+        st.altair_chart(pie, use_container_width=True)
+
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 else:
     # ============================================================================
@@ -635,6 +696,7 @@ else:
     # 16. ENTORNO CLIENTE - PANTALLA 2: CATÁLOGO DINÁMICO DE PRODUCTOS
     # ============================================================================
     elif st.session_state.pantalla_actual == "catalogo" and not st.session_state.pedido_guardado:
+        render_stepper(1)
         st.markdown("\n<h2 class='titulo-principal'>SISTEMA DE PEDIDOS GRAN BÚFALO</h2>", unsafe_allow_html=True)
         st.text(f"Fecha y hora oficial de Perú (GMT-5): {fecha_actual}\n")
         
@@ -654,6 +716,9 @@ else:
             if st.session_state.categoria_activa == "Todos" or st.session_state.categoria_activa == cat_prod:
                 productos_filtrados.append(prod)
 
+        # Determinar producto más vendido
+        producto_mas_vendido = max(conteos_productos, key=conteos_productos.get) if conteos_productos and max(conteos_productos.values()) > 0 else None
+
         col1, col2 = st.columns(2, gap="medium")
         cantidades_ingresadas = {}
         
@@ -667,6 +732,8 @@ else:
             
             with target_col:
                 if esta_disponible:
+                    if prod == producto_mas_vendido:
+                        st.markdown("<div style='background:linear-gradient(135deg,#f39c12,#e67e22);color:#fff;padding:4px 12px;border-radius:20px;display:inline-block;font-size:12px;font-weight:800;margin-bottom:5px;'>👑 MÁS VENDIDO</div>", unsafe_allow_html=True)
                     url_imagen_plato = info.get("foto", "")
                     src_imagen_plato = obtener_src_foto(url_imagen_plato)
                     st.markdown(f"""<img src="{src_imagen_plato}" style="width:100%; height:200px; object-fit:cover; border-radius:12px 12px 0px 0px; box-shadow: 0px 4px 12px rgba(0,0,0,0.6); display:block; margin:0; padding:0;">""", unsafe_allow_html=True)
@@ -711,6 +778,7 @@ else:
     # 17. ENTORNO CLIENTE - PANTALLA 3: PASARELA Y COMPROBACIÓN DE DATOS
     # ============================================================================
     else:
+        render_stepper(2)
         st.html("<div style='height: 15px;'></div>")
         st.subheader("📦 GESTIÓN DE ENTREGA Y PAGO")
         
@@ -800,6 +868,7 @@ else:
             else:
                 st.success("PAGO REALIZADO CORRECTAMENTE - Pedido registrado exitosamente")
                 st.balloons()
+                render_stepper(3)
                 st.markdown("### 🧾 COMPROBANTE EMITIDO")
                 
                 correlativo_sunat = f"B001-{st.session_state.numero_boleta:06d}"
@@ -857,6 +926,12 @@ else:
                 else:
                     st.error("⚠️ Error: No se pudo encontrar 'boleta_plantilla.html'.")
                 
+        st.markdown("---")
+        if st.button("⬅️ VOLVER AL CATÁLOGO", use_container_width=True, key="btn_volver_catalogo"):
+            st.session_state.pedido_guardado = False
+            st.session_state.pantalla_actual = "catalogo"
+            st.rerun()
+
         if st.session_state.pedido_guardado:
             if st.button("🔄 Crear una nueva orden", use_container_width=True, key="btn_nueva_orden_final"):
                 st.session_state.carrito = []
