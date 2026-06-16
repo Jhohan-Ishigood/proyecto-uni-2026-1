@@ -105,10 +105,12 @@ def obtener_src_foto(ruta_foto):
 # ============================================================================
 # 3. INICIALIZACIÓN DE VARIABLES REACTIVAS DE SESIÓN (ESTADOS DEL SISTEMA)
 # ============================================================================
-# Sincronización en cada rerun con Google Sheets
-st.session_state.menu_dinamico = database.obtener_menu()
-st.session_state.historial_ordenes = database.obtener_ordenes()
-st.session_state.lista_categorias = ["Todos"] + database.obtener_categorias()
+# Carga inicial de datos (solo una vez por sesión, o cuando se fuerza recarga)
+if "menu_dinamico" not in st.session_state or st.session_state.get("_forzar_recarga", False):
+    st.session_state.menu_dinamico = database.obtener_menu()
+    st.session_state.historial_ordenes = database.obtener_ordenes()
+    st.session_state.lista_categorias = ["Todos"] + database.obtener_categorias()
+    st.session_state["_forzar_recarga"] = False
 
 if "carrito" not in st.session_state:
     st.session_state.carrito = []
@@ -301,6 +303,7 @@ if es_admin:
                         exito = database.crear_categoria(None, nueva_cat)
                         if exito:
                             st.success(f"✔ ¡Sección '{nueva_cat}' integrada con éxito!")
+                            st.session_state["_forzar_recarga"] = True
                             st.rerun()
                         else:
                             st.error("⚠️ Error: Esta categoría ya existe en el menú.")
@@ -328,6 +331,7 @@ if es_admin:
                             st.session_state.categoria_activa = "Todos"
                             
                         st.warning(f"🗑️ Sección '{cat_a_borrar}' removida físicamente de la carta.")
+                        st.session_state["_forzar_recarga"] = True
                         st.rerun()
     # ============================================================================
     # 9. PANEL DE CONTROL DE ADMINISTRACIÓN - INSERCIÓN DE PRODUCTOS MULTIMEDIA
@@ -365,6 +369,7 @@ if es_admin:
                         categoria_nombre=nueva_categoria_asociada
                     )
                     st.success(f"✔ ¡{nuevo_icono} {nuevo_nombre} integrado con éxito en '{nueva_categoria_asociada}'!")
+                    st.session_state["_forzar_recarga"] = True
                     st.rerun()
                 else:
                     st.error("⚠️ Error: Ese producto ya existe en la carta actual.")
@@ -498,6 +503,7 @@ if es_admin:
     if eliminar_producto is not None:
         database.eliminar_producto(None, eliminar_producto)
         st.success(f"✔ ¡Producto '{eliminar_producto}' eliminado con éxito!")
+        st.session_state["_forzar_recarga"] = True
         st.rerun()
 
     if st.button("💾 CONFIRMAR Y SINCRONIZAR CAMBIOS DE LA CARTA", use_container_width=True):
@@ -517,6 +523,7 @@ if es_admin:
                 categoria_nombre=info_actualizada["categoria"]
             )
         st.success("✔ ¡Cambios guardados físicamente con éxito!")
+        st.session_state["_forzar_recarga"] = True
         st.rerun()
 
     # ============================================================================
@@ -707,8 +714,15 @@ else:
         st.html("<div style='height: 15px;'></div>")
         st.subheader("📦 GESTIÓN DE ENTREGA Y PAGO")
         
+        if not st.session_state.carrito:
+            st.warning("No hay productos en el carrito. Volviendo al inicio...")
+            st.session_state.pantalla_actual = "bienvenida"
+            st.session_state.pedido_guardado = False
+            st.rerun()
+        
         for item in st.session_state.carrito:
-            icono_p = st.session_state.menu_dinamico[item['producto']]['icono']
+            info_prod = st.session_state.menu_dinamico.get(item['producto'], {})
+            icono_p = info_prod.get('icono', '🍔')
             st.markdown(f"""
                 <div style="background-color: #1e1e24; border-left: 4px solid #f39c12; padding: 12px 16px; border-radius: 8px; color: #ffffff; font-size: 16px; font-weight: 700; margin-bottom: 10px; box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.5);">
                     {icono_p} {item['producto']} x{item['cantidad']} &nbsp;|&nbsp; Subtotal: S/{item['subtotal']:.2f}
