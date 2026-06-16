@@ -58,26 +58,26 @@ html, body,
 [data-testid="stAppViewContainer"], 
 [data-testid="stMainBlockContainer"], 
 [data-testid="stVerticalBlock"] {
-    background-color: #0b0d17 !important;
+    background-color: #0f0a1a !important;
     color: #ffffff !important;
 }
 
-/* Fondo premium con gradientes VISIBLES, malla y aurora animada */
+/* Fondo premium púrpura oscuro con gradientes magenta */
 .stApp {
-    background-color: #0b0d17 !important;
+    background-color: #0f0a1a !important;
     background-image:
-        /* Orbe ámbar superior izquierdo - VISIBLE */
-        radial-gradient(ellipse 600px 500px at 8% 5%, rgba(243, 156, 18, 0.22) 0%, transparent 70%),
+        /* Orbe magenta superior izquierdo */
+        radial-gradient(ellipse 600px 500px at 8% 5%, rgba(233, 30, 140, 0.18) 0%, transparent 70%),
         /* Orbe púrpura superior derecho */
-        radial-gradient(ellipse 500px 600px at 92% 8%, rgba(142, 68, 173, 0.18) 0%, transparent 65%),
-        /* Orbe carmesí centro inferior */
-        radial-gradient(ellipse 700px 500px at 50% 85%, rgba(231, 76, 60, 0.16) 0%, transparent 65%),
-        /* Orbe azul inferior izquierdo */
-        radial-gradient(ellipse 400px 400px at 5% 90%, rgba(52, 152, 219, 0.14) 0%, transparent 60%),
-        /* Orbe dorado difuso central */
-        radial-gradient(ellipse 800px 800px at 50% 40%, rgba(243, 156, 18, 0.08) 0%, transparent 70%),
+        radial-gradient(ellipse 500px 600px at 92% 8%, rgba(156, 39, 176, 0.15) 0%, transparent 65%),
+        /* Orbe magenta centro inferior */
+        radial-gradient(ellipse 700px 500px at 50% 85%, rgba(233, 30, 140, 0.12) 0%, transparent 65%),
+        /* Orbe violeta inferior izquierdo */
+        radial-gradient(ellipse 400px 400px at 5% 90%, rgba(103, 58, 183, 0.14) 0%, transparent 60%),
+        /* Orbe púrpura difuso central */
+        radial-gradient(ellipse 800px 800px at 50% 40%, rgba(156, 39, 176, 0.05) 0%, transparent 70%),
         /* Patrón de malla de puntos */
-        radial-gradient(circle 1.2px at center, rgba(255, 255, 255, 0.06) 1px, transparent 1px) !important;
+        radial-gradient(circle 1.2px at center, rgba(255, 255, 255, 0.04) 1px, transparent 1px) !important;
     background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 32px 32px !important;
     background-attachment: fixed !important;
     font-family: 'Outfit', 'Segoe UI', system-ui, -apple-system, sans-serif !important;
@@ -96,15 +96,15 @@ html, body,
     pointer-events: none !important;
     z-index: 0 !important;
     background:
-        radial-gradient(ellipse 50% 40% at 20% 20%, rgba(243, 156, 18, 0.12) 0%, transparent 100%),
-        radial-gradient(ellipse 45% 50% at 80% 30%, rgba(142, 68, 173, 0.10) 0%, transparent 100%),
-        radial-gradient(ellipse 55% 35% at 60% 80%, rgba(231, 76, 60, 0.09) 0%, transparent 100%) !important;
+        radial-gradient(ellipse 50% 40% at 20% 20%, rgba(233, 30, 140, 0.10) 0%, transparent 100%),
+        radial-gradient(ellipse 45% 50% at 80% 30%, rgba(156, 39, 176, 0.08) 0%, transparent 100%),
+        radial-gradient(ellipse 55% 35% at 60% 80%, rgba(103, 58, 183, 0.07) 0%, transparent 100%) !important;
     background-size: 200% 200% !important;
     animation: auroraShift 20s ease-in-out infinite !important;
     opacity: 1 !important;
 }
 
-/* Orbes flotantes decorativos */
+/* Orbe flotante decorativo */
 .stApp::after {
     content: '' !important;
     position: fixed !important;
@@ -113,7 +113,7 @@ html, body,
     width: 350px !important;
     height: 350px !important;
     border-radius: 50% !important;
-    background: radial-gradient(circle, rgba(243, 156, 18, 0.10) 0%, transparent 70%) !important;
+    background: radial-gradient(circle, rgba(233, 30, 140, 0.08) 0%, transparent 70%) !important;
     pointer-events: none !important;
     z-index: 0 !important;
     animation: floatOrb1 15s ease-in-out infinite !important;
@@ -122,7 +122,7 @@ html, body,
 
 /* Scrollbar personalizado */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #0b0d17; }
+::-webkit-scrollbar-track { background: #0f0a1a; }
 ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #f39c12; }
 
@@ -194,10 +194,10 @@ section[data-testid="stSidebar"] button[kind="headerNoPadding"]::after,
    ============================================================================ */
 
 section[data-testid="stSidebar"] {
-    background: rgba(17, 17, 19, 0.85) !important;
+    background: rgba(15, 10, 26, 0.92) !important;
     backdrop-filter: blur(16px) !important;
     -webkit-backdrop-filter: blur(16px) !important;
-    border-right: 1px solid rgba(243, 156, 18, 0.15) !important;
+    border-right: 1px solid rgba(233, 30, 140, 0.12) !important;
 }
 
 section[data-testid="stSidebar"] button[kind="headerNoPadding"] {
@@ -447,45 +447,98 @@ div.stAlert:has(svg[data-testid="stNotificationIconSuccess"]) {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: wrap !important;
-        gap: 10px !important;
+        gap: 8px !important;
         width: 100% !important;
     }
     [data-testid="stHorizontalBlock"] > div,
     [data-testid="stHorizontalBlock"] > div[data-testid="column"],
     [data-testid="stHorizontalBlock"] * .stColumn {
-        width: calc(50% - 6px) !important;
-        min-width: calc(50% - 6px) !important;
-        max-width: calc(50% - 6px) !important;
-        flex: 1 1 calc(50% - 6px) !important;
+        width: calc(50% - 5px) !important;
+        min-width: calc(50% - 5px) !important;
+        max-width: calc(50% - 5px) !important;
+        flex: 1 1 calc(50% - 5px) !important;
     }
     .product-title {
-        font-size: 14px !important;
+        font-size: 13px !important;
         font-weight: 800 !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
     }
     .product-card-bottom {
-        padding: 10px 12px !important;
+        padding: 8px 10px !important;
         flex-direction: column !important; 
         align-items: flex-start !important;
-        gap: 4px !important;
+        gap: 3px !important;
     }
     .titulo-principal {
-        font-size: 26px !important;
+        font-size: 22px !important;
     }
     .product-price {
-        font-size: 18px !important;
+        font-size: 16px !important;
+    }
+    .sello-creador {
+        font-size: 11px !important;
+        margin-left: 10px !important;
+        margin-top: 25px !important;
+    }
+    /* Stepper no se desborda */
+    .stepper-container {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding: 5px 0 !important;
+    }
+    /* Heading general más compacto */
+    h2, [data-testid="stMarkdownContainer"] h2 {
+        font-size: 20px !important;
+    }
+    h3, [data-testid="stMarkdownContainer"] h3 {
+        font-size: 17px !important;
+    }
+    /* Métrica más compacta */
+    div[data-testid="stMetricValue"],
+    [data-testid="stMetricValue"] {
+        font-size: 32px !important;
+        padding: 8px 16px !important;
+    }
+    /* Botones más compactos */
+    div[data-testid="stMainBlockContainer"] div.stButton > button {
+        font-size: 16px !important;
+        padding: 10px 16px !important;
+    }
+    div.stButton:has(button[key*="btn_empezar_pedido"]) > button {
+        font-size: 20px !important;
+    }
+    /* Labels y textos de formularios */
+    div[data-testid="stRadio"] label,
+    div[data-testid="stSelectbox"] label,
+    div[data-testid="stTextInput"] label,
+    div[data-testid="stNumberInput"] label {
+        font-size: 13px !important;
     }
 }
 
 @media (max-width: 480px) {
     .titulo-principal {
-        font-size: 22px !important;
+        font-size: 19px !important;
     }
     .block-container {
-        padding-left: 10px !important;
-        padding-right: 10px !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+    }
+    .product-title {
+        font-size: 12px !important;
+    }
+    .product-price {
+        font-size: 14px !important;
+    }
+    div[data-testid="stMetricValue"],
+    [data-testid="stMetricValue"] {
+        font-size: 26px !important;
+        padding: 6px 12px !important;
+    }
+    div[data-testid="stMainBlockContainer"] div.stButton > button {
+        font-size: 14px !important;
     }
 }
 
