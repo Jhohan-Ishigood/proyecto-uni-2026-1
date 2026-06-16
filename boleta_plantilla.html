@@ -1,0 +1,112 @@
+<!-- ============================================================================
+    1. CABECERA MULTIMEDIA E IMPORTACIÓN DE DEPENDENCIAS (CDN MASTER OFICIAL)
+    ============================================================================ -->
+<script src="https://cloudflare.com"></script>
+
+<!-- ============================================================================
+    2. VISTA DE IMPRESIÓN: CONTENEDOR DE TICKET FÍSICO REALISTA POS
+    ============================================================================ -->
+<!-- CORREGIDO: Retiramos el emoji del texto final para evitar el bloqueo del motor gráfico -->
+<div id="ticket" style="
+    background-color: #fffdf6; 
+    color: #111111; 
+    font-family: 'Courier New', Courier, monospace; 
+    font-size: 14px;
+    font-weight: bold;
+    padding: 25px; 
+    width: 380px; 
+    border-top: 4px solid #f39c12; 
+    border-bottom: 3px dashed #bbb; 
+    box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.5);
+    white-space: pre-wrap;
+    line-height: 1.5;
+    margin: 10px auto 25px auto;
+    border-radius: 2px;
+">==============================================
+            EL GRAN BÚFALO E.I.R.L.
+            RUC: 20608247140
+            ║█│█║▌│█║▌│║▌║▌█║│▌║█│
+    Av. La Revolución Nro. 1821 P.J. Almirante Grau
+            El Porvenir - Trujillo
+==============================================
+        BOLETA DE VENTA ELECTRÓNICA          
+            SERIE: {{ SERIE_BOLETA }}
+----------------------------------------------
+Fecha y hora: {{ FECHA_HORA }}
+Tipo Entrega: {{ TIPO_ENTREGA }}
+Forma de Pago: {{ METODO_PAGO }}
+----------------------------------------------
+{{ DETALLE_PRODUCTOS }}
+----------------------------------------------
+TOTAL A PAGAR:            S/{{ TOTAL_FINAL }}
+==============================================
+Muchas gracias por su compra, vuelva pronto!
+</div>
+
+<!-- ============================================================================
+    3. PASARELA DIGITAL: BOTÓN DE DESCARGA DIRECTA A FOTO (PNG)
+    ============================================================================ -->
+<button onclick="descargarTicketFoto()" style="
+    background: linear-gradient(135deg, #27ae60, #1e8449);
+    color: white; 
+    border: none; 
+    padding: 14px 20px; 
+    font-size: 15px; 
+    font-family: 'Trebuchet MS', sans-serif;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-radius: 6px; 
+    cursor: pointer;
+    width: 100%;
+    max-width: 430px;
+    margin: 0 auto;
+    display: block;
+    box-shadow: 0px 5px 15px rgba(39, 174, 96, 0.3);
+    transition: all 0.3s ease;
+">📥 DESCARGAR COMPROBANTE (FOTO PNG)</button>
+
+<!-- ============================================================================
+    4. CONTROLADOR LÓGICO (JAVASCRIPT INTERNO REFORZADO)
+    ============================================================================ -->
+<script>
+window.scrollTo({top: 0, behavior: 'instant'});
+if (window.parent) {
+    window.parent.scrollTo({top: 0, behavior: 'instant'});
+}
+
+function descargarTicketFoto() {
+    const elemento = document.getElementById('ticket');
+    const boton = document.querySelector('button');
+    const textoOriginal = boton.innerHTML;
+    
+    boton.innerHTML = "⏳ GENERANDO FOTO...";
+    boton.style.pointerEvents = "none"; // Desactiva clics repetidos
+
+    // Configuración máster optimizada para ignorar fallos de renderizado
+    html2canvas(elemento, { 
+        scale: 3, 
+        backgroundColor: "#fffdf6",
+        logging: false,
+        useCORS: false,         // Desactivamos CORS para que no busque servidores de emojis externos
+        allowTaint: true        // Permite capturar el lienzo aunque tenga caracteres del sistema
+    }).then(canvas => {
+        const imagenBase64 = canvas.toDataURL('image/png');
+        
+        const enlaceDescarga = document.createElement('a');
+        enlaceDescarga.download = 'Boleta_Gran_Buffalo.png';
+        enlaceDescarga.href = imagenBase64;
+        
+        document.body.appendChild(enlaceDescarga);
+        enlaceDescarga.click();
+        document.body.removeChild(enlaceDescarga);
+        
+        boton.innerHTML = textoOriginal;
+        boton.style.pointerEvents = "auto";
+    }).catch(err => {
+        boton.innerHTML = textoOriginal;
+        boton.style.pointerEvents = "auto";
+        alert("Error al procesar. Intente nuevamente.");
+    });
+}
+</script>
