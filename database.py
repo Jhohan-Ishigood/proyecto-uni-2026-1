@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
-import gspread
-import os
 
 def get_connection():
     """Retorna la conexión a Google Sheets."""
@@ -12,24 +10,20 @@ def inicializar_db(db_path=None):
     """Crea las hojas necesarias en Google Sheets si no existen."""
     try:
         conn = get_connection()
-        client = conn.client
-        spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
-        spreadsheet = client.open_by_url(spreadsheet_url)
+        
+        FOTO_DEFECTO = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='8.5' cy='8.5' r='1.5'/><polyline points='21 15 16 10 5 21'/></svg>"
         
         # 1. Asegurar hoja 'categorias'
         try:
-            spreadsheet.worksheet("categorias")
-        except gspread.exceptions.WorksheetNotFound:
-            spreadsheet.add_worksheet(title="categorias", rows="100", cols="2")
+            df_test = conn.read(worksheet="categorias", ttl=0)
+        except Exception:
             df_cat = pd.DataFrame({"nombre": ["Parrillas", "Hamburguesas", "Bebidas", "Combos"]})
-            conn.update(worksheet="categorias", data=df_cat)
+            conn.create(worksheet="categorias", data=df_cat)
             
         # 2. Asegurar hoja 'productos'
         try:
-            spreadsheet.worksheet("productos")
-        except gspread.exceptions.WorksheetNotFound:
-            spreadsheet.add_worksheet(title="productos", rows="100", cols="7")
-            FOTO_DEFECTO = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='8.5' cy='8.5' r='1.5'/><polyline points='21 15 16 10 5 21'/></svg>"
+            df_test = conn.read(worksheet="productos", ttl=0)
+        except Exception:
             productos_defecto = [
                 {"nombre": "Hamburguesa", "precio": 18.0, "icono": "🍔", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 15, "categoria": "Hamburguesas"},
                 {"nombre": "Carne a la parrilla", "precio": 35.0, "icono": "🥩", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 10, "categoria": "Parrillas"},
@@ -37,17 +31,17 @@ def inicializar_db(db_path=None):
                 {"nombre": "Combo Buffalo", "precio": 25.0, "icono": "🎁", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 8, "categoria": "Combos"}
             ]
             df_prod = pd.DataFrame(productos_defecto)
-            conn.update(worksheet="productos", data=df_prod)
+            conn.create(worksheet="productos", data=df_prod)
 
         # 3. Asegurar hoja 'ordenes'
         try:
-            spreadsheet.worksheet("ordenes")
-        except gspread.exceptions.WorksheetNotFound:
-            spreadsheet.add_worksheet(title="ordenes", rows="1000", cols="6")
+            df_test = conn.read(worksheet="ordenes", ttl=0)
+        except Exception:
             df_ord = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "detalle_articulos", "entrega", "metodo_pago", "total"])
-            conn.update(worksheet="ordenes", data=df_ord)
+            conn.create(worksheet="ordenes", data=df_ord)
     except Exception as e:
         st.error(f"Error al inicializar Google Sheets (Verifica tus secrets y permisos de cuenta de servicio): {e}")
+
 
 def obtener_categorias(db_path=None):
     """Obtiene la lista de todas las categorías reales desde Google Sheets."""
