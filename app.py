@@ -422,43 +422,38 @@ st.markdown("""
 st.markdown("<div class='sello-creador'>Pagina desarrollada por: Jhohan--Patrick--Eros--Jack--Carlos (Grupo 5) 😎</div>", unsafe_allow_html=True)
 
 # ============================================================================
+# HEADER GLOBAL: PERFIL DE USUARIO EN PARTE SUPERIOR (MOBILE FRIENDLY)
+# ============================================================================
+with st.container():
+    if st.session_state.user_info:
+        u_info = st.session_state.user_info
+        db_user = database.obtener_usuario(u_info.get('email', ''))
+        compras = db_user.get("compras_realizadas", 0) if db_user else 0
+        faltan = 3 - (compras % 3)
+        
+        c1, c2, c3 = st.columns([1.5, 5, 3], vertical_alignment="center")
+        with c1:
+            st.markdown(f"<img src='{u_info.get('picture', '')}' style='border-radius:50%; width:100%; max-width:50px; border: 2px solid #f39c12;'>", unsafe_allow_html=True)
+        with c2:
+            st.markdown(f"<div style='line-height:1.2;'><span style='font-size:16px; font-weight:bold; color:#fff;'>Hola, {u_info.get('name', '').split(' ')[0]}</span><br><span style='font-size:12px; color:#aaa;'>🏆 {compras} compras (Faltan {faltan} para tu cupón)</span></div>", unsafe_allow_html=True)
+        with c3:
+            if st.button("Cerrar Sesión", use_container_width=True, key="btn_logout_top"):
+                st.session_state.user_info = None
+                st.rerun()
+    else:
+        c1, c2 = st.columns([6, 4], vertical_alignment="center")
+        with c1:
+            st.markdown("<div style='font-size:14px; font-weight:bold; color:#fff; line-height:1.2;'>🎁 ¡Inicia sesión y obtén<br><span style='color:#f39c12;'>15% Dcto en tu 1era compra!</span></div>", unsafe_allow_html=True)
+        with c2:
+            auth_url = get_google_auth_url()
+            st.markdown(f'<a href="{auth_url}" target="_blank" style="display:inline-block; width:100%; text-align:center; background-color:#fff; color:#111; padding:8px 0; border-radius:4px; text-decoration:none; font-weight:bold; font-size:13px;">Iniciar Sesión</a>', unsafe_allow_html=True)
+    st.markdown("<hr style='margin-top:10px; margin-bottom:15px; border-color:#333;'>", unsafe_allow_html=True)
+
+# ============================================================================
 # 6. BARRA LATERAL (SIDEBAR POS): GESTIÓN INTERNA Y AUTENTICACIÓN
 # ============================================================================
 st.sidebar.markdown("<h2 style='text-align: center; color: #f39c12;'>🥩 El Gran Búfalo</h2>", unsafe_allow_html=True)
 st.sidebar.markdown("<p style='text-align: center; font-size: 13px; color: #aaa;'>Especialistas en carnes y parrillas premium al carbón de manera artesanal.</p>", unsafe_allow_html=True)
-st.sidebar.markdown("---")
-
-# ============================================================================
-# 6.1 PERFIL DE USUARIO CLIENTE (GOOGLE OAUTH)
-# ============================================================================
-if st.session_state.user_info:
-    # Mostrar perfil del usuario
-    u_info = st.session_state.user_info
-    st.sidebar.markdown("#### 👤 MI PERFIL")
-    col_p1, col_p2 = st.sidebar.columns([1, 3])
-    with col_p1:
-        st.markdown(f"<img src='{u_info.get('picture', '')}' style='border-radius:50%; width:100%;'>", unsafe_allow_html=True)
-    with col_p2:
-        st.markdown(f"**{u_info.get('name', '')}**")
-        st.caption(f"{u_info.get('email', '')}")
-    
-    # Obtener info de la BD para mostrar compras/puntos
-    db_user = database.obtener_usuario(u_info.get('email', ''))
-    if db_user:
-        compras = db_user.get("compras_realizadas", 0)
-        st.sidebar.info(f"🏆 Compras realizadas: **{compras}**")
-        faltan = 3 - (compras % 3)
-        st.sidebar.caption(f"A {faltan} compras de tu próximo cupón de S/10.")
-    
-    if st.sidebar.button("Cerrar Sesión", use_container_width=True):
-        st.session_state.user_info = None
-        st.rerun()
-else:
-    st.sidebar.markdown("#### 👤 CLIENTE FRECUENTE")
-    st.sidebar.info("¡Inicia sesión para obtener **15% de descuento** en tu primera compra y sumar puntos para premios!", icon="🎁")
-    auth_url = get_google_auth_url()
-    st.sidebar.markdown(f'<a href="{auth_url}" target="_blank" style="display:inline-block; width:100%; text-align:center; background-color:#ffffff; color:#444; border:1px solid #ddd; padding:8px 0; border-radius:4px; text-decoration:none; font-weight:bold; font-family:sans-serif;">Continúa con Google</a>', unsafe_allow_html=True)
-
 st.sidebar.markdown("---")
 
 # Control del estado visual del formulario de inicio de sesión
