@@ -85,7 +85,7 @@ def get_google_token(code):
     res = requests.post(token_url, data=data)
     if res.status_code == 200:
         return res.json()
-    return None
+    return {"error_status": res.status_code, "error_response": res.text}
 
 def get_google_user_info(access_token):
     user_info_url = "https://www.googleapis.com/oauth2/v1/userinfo"
