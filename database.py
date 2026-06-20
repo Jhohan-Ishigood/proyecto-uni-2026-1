@@ -103,7 +103,7 @@ def crear_categoria(db_path, nombre):
     """Crea una nueva categoría."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="categorias", ttl=0)
+        df = conn.read(worksheet="categorias", ttl=1)
         if df.empty or "nombre" not in df.columns:
             df = pd.DataFrame(columns=["nombre"])
         
@@ -123,13 +123,13 @@ def eliminar_categoria(db_path, nombre):
     try:
         conn = get_connection()
         # 1. Eliminar categoría de la hoja de categorías
-        df_cat = conn.read(worksheet="categorias", ttl=0)
+        df_cat = conn.read(worksheet="categorias", ttl=1)
         if not df_cat.empty and "nombre" in df_cat.columns:
             df_cat = df_cat[df_cat["nombre"].astype(str).str.strip() != nombre.strip()]
             conn.update(worksheet="categorias", data=df_cat)
             
         # 2. Actualizar productos asociados para limpiar su categoría
-        df_prod = conn.read(worksheet="productos", ttl=0)
+        df_prod = conn.read(worksheet="productos", ttl=1)
         if not df_prod.empty and "categoria" in df_prod.columns:
             df_prod.loc[df_prod["categoria"].astype(str).str.strip() == nombre.strip(), "categoria"] = ""
             conn.update(worksheet="productos", data=df_prod)
@@ -174,7 +174,7 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
     """Crea o actualiza un producto en Google Sheets."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="productos", ttl=0)
+        df = conn.read(worksheet="productos", ttl=1)
         if df.empty or "nombre" not in df.columns:
             df = pd.DataFrame(columns=["nombre", "precio", "icono", "disponible", "foto", "stock", "categoria"])
             
@@ -216,7 +216,7 @@ def eliminar_producto(db_path, nombre):
     """Elimina un producto por su nombre."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="productos", ttl=0)
+        df = conn.read(worksheet="productos", ttl=1)
         if not df.empty and "nombre" in df.columns:
             df = df[df["nombre"].astype(str) != nombre]
             conn.update(worksheet="productos", data=df)
@@ -257,7 +257,7 @@ def crear_orden(db_path, fecha_hora, nro_boleta, detalle_articulos, entrega, met
     """Inserta una nueva orden en el historial de Google Sheets."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="ordenes", ttl=0)
+        df = conn.read(worksheet="ordenes", ttl=1)
         if df.empty or "nro_boleta" not in df.columns:
             df = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "detalle_articulos", "entrega", "metodo_pago", "total"])
             
@@ -280,7 +280,7 @@ def actualizar_stock(db_path, nombre, stock_restante):
     """Actualiza el stock de un producto específico."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="productos", ttl=0)
+        df = conn.read(worksheet="productos", ttl=1)
         if not df.empty and "nombre" in df.columns and nombre in df["nombre"].astype(str).values:
             idx = df[df["nombre"].astype(str) == nombre].index[0]
             df.at[idx, "stock"] = _convertir_tipo(stock_restante, "int", default=0)
@@ -296,7 +296,7 @@ def crear_calificacion(db_path, fecha_hora, nro_boleta, calificacion, comentario
     """Registra una calificación del cliente (1-5 estrellas) con comentario opcional."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="calificaciones", ttl=0)
+        df = conn.read(worksheet="calificaciones", ttl=1)
         if df.empty or "nro_boleta" not in df.columns:
             df = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "calificacion", "comentario"])
         
@@ -338,7 +338,7 @@ def registrar_log(db_path, fecha_hora, nivel, mensaje, detalle=""):
     """Registra un evento en la hoja de logs para auditoría."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="logs", ttl=0)
+        df = conn.read(worksheet="logs", ttl=1)
         if df.empty or "mensaje" not in df.columns:
             df = pd.DataFrame(columns=["fecha_hora", "nivel", "mensaje", "detalle"])
         

@@ -84,7 +84,7 @@ def generar_numero_boleta(historial_ordenes):
 
 def validar_carrito_con_stock(carrito):
     """Relee el menú sin caché y confirma que el carrito todavía tenga stock suficiente."""
-    menu_actualizado = database.obtener_menu(ttl=0)
+    menu_actualizado = database.obtener_menu(ttl=1)
     errores = []
 
     for item in carrito:
@@ -1258,7 +1258,7 @@ else:
                     st.session_state["_forzar_recarga"] = True
                     st.stop()
 
-                historial_actualizado = database.obtener_ordenes(ttl=0)
+                historial_actualizado = database.obtener_ordenes(ttl=1)
                 numero_boleta_actual = generar_numero_boleta(historial_actualizado)
                 correlativo_sunat = f"B001-{numero_boleta_actual:06d}"
                 detalle_productos_txt = ""
@@ -1306,8 +1306,8 @@ else:
                 st.session_state.boleta_emitida = True
                 st.session_state.numero_boleta = numero_boleta_actual
                 st.session_state.correlativo_sunat = correlativo_sunat
-                st.session_state.menu_dinamico = database.obtener_menu(ttl=0)
-                st.session_state.historial_ordenes = database.obtener_ordenes(ttl=0)
+                st.session_state.menu_dinamico = database.obtener_menu(ttl=1)
+                st.session_state.historial_ordenes = database.obtener_ordenes(ttl=1)
                 st.success("PAGO REALIZADO CORRECTAMENTE - Pedido registrado exitosamente")
                 st.balloons()
                 render_stepper(3)
