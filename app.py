@@ -450,7 +450,7 @@ else:
     st.sidebar.markdown("#### 👤 CLIENTE FRECUENTE")
     st.sidebar.info("¡Inicia sesión para obtener **15% de descuento** en tu primera compra y sumar puntos para premios!", icon="🎁")
     auth_url = get_google_auth_url()
-    st.sidebar.markdown(f'<a href="{auth_url}" target="_self" style="display:inline-block; width:100%; text-align:center; background-color:#ffffff; color:#444; border:1px solid #ddd; padding:8px 0; border-radius:4px; text-decoration:none; font-weight:bold; font-family:sans-serif;">Continúa con Google</a>', unsafe_allow_html=True)
+    st.sidebar.markdown(f'<a href="{auth_url}" target="_top" style="display:inline-block; width:100%; text-align:center; background-color:#ffffff; color:#444; border:1px solid #ddd; padding:8px 0; border-radius:4px; text-decoration:none; font-weight:bold; font-family:sans-serif;">Continúa con Google</a>', unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 
