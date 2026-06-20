@@ -324,6 +324,7 @@ if "code" in st.query_params:
     code = st.query_params["code"]
     st.query_params.clear() # Limpiar la URL para seguridad y estética
     token_data = get_google_token(code)
+    
     if token_data and "access_token" in token_data:
         user_info = get_google_user_info(token_data["access_token"])
         if user_info:
@@ -339,6 +340,10 @@ if "code" in st.query_params:
                     st.toast(f"¡Te regalamos 15% Dcto! Tu cupón: {cupon}", icon="🎉")
             else:
                 st.toast(f"¡Hola de nuevo, {nombre}!", icon="👋")
+        else:
+            st.error("Error al obtener el perfil de usuario de Google.")
+    else:
+        st.error(f"Error al intercambiar el token con Google. Verifica que el Client Secret en Streamlit Cloud sea correcto. Respuesta: {token_data}")
 
 # Anclaje y sincronización de reloj oficial para Perú (GMT-5)
 zona_peru = timezone(timedelta(hours=-5))
