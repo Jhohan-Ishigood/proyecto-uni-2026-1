@@ -46,11 +46,7 @@ URL_BANNER_LOCAL = os.path.join(BASE_DIR, "Captura de pantalla 2026-05-24 090610
 WHATSAPP_NEGOCIO = "51982174847"
 HORA_APERTURA = 8
 HORA_CIERRE = 23
-CODIGOS_CUPON = {
-    "BUFFALO10": {"tipo": "porcentaje", "valor": 0.10, "descripcion": "10% de descuento"},
-    "DELIVERYFREE": {"tipo": "delivery", "valor": 6.0, "descripcion": "Delivery gratis"},
-    "COMBO5": {"tipo": "monto", "valor": 5.0, "descripcion": "S/5.00 de descuento"},
-}
+
 MIN_SEGUNDOS_ENTRE_BOLETAS = 10  # Rate limiting: mínimo de segundos entre emisiones
 
 # Inicialización de la conexión a Google Sheets (base de datos en la nube)
@@ -119,9 +115,13 @@ def calcular_descuento(codigo, subtotal, costo_delivery, total_items):
     if not codigo_normalizado:
         return 0.0, ""
 
-    cupon = CODIGOS_CUPON.get(codigo_normalizado)
+    cupones_db = database.obtener_cupones(ttl=0)
+    cupon = cupones_db.get(codigo_normalizado)
     if not cupon:
         return 0.0, "Código de cupón no válido."
+    
+    if not cupon.get("activo", True):
+        return 0.0, "Este cupón ya no está activo."
 
     if codigo_normalizado == "COMBO5" and total_items < 3:
         return 0.0, "COMBO5 requiere al menos 3 productos."
@@ -716,6 +716,53 @@ if es_admin:
             st.success("✔ ¡Cambios guardados físicamente con éxito!")
             st.session_state["_forzar_recarga"] = True
             st.rerun()
+
+    # ============================================================================
+    # 12.5 PANEL DE CONTROL DE ADMINISTRACIÓN - GESTIÓN DE CUPONES
+    # ============================================================================
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("### 🎫 GESTIÓN DE CUPONES")
+    
+    with st.expander("Añadir / Editar Cupones", expanded=False):
+        c_col1, c_col2, c_col3, c_col4 = st.columns(4)
+        with c_col1:
+            nuevo_codigo = st.text_input("Código del cupón (ej. VERANO20)").strip().upper()
+        with c_col2:
+            nuevo_tipo = st.selectbox("Tipo de descuento", ["porcentaje", "monto", "delivery"])
+        with c_col3:
+            nuevo_valor = st.number_input("Valor (ej. 0.2 para 20%, o 10.0 para S/10)", min_value=0.0, step=0.1)
+        with c_col4:
+            nueva_desc = st.text_input("Descripción breve")
+            
+        if st.button("➕ Guardar Cupón", use_container_width=True):
+            if nuevo_codigo and nuevo_valor > 0:
+                if database.crear_cupon(nuevo_codigo, nuevo_tipo, nuevo_valor, nueva_desc, activo=True):
+                    st.success(f"Cupón {nuevo_codigo} guardado.")
+                    st.rerun()
+            else:
+                st.error("Ingrese código y valor mayor a 0.")
+                
+        st.markdown("#### Cupones Actuales")
+        cupones_db = database.obtener_cupones(ttl=0)
+        if cupones_db:
+            for cod, datos in cupones_db.items():
+                col_c1, col_c2, col_c3, col_c4 = st.columns([2, 3, 1, 1])
+                with col_c1:
+                    st.markdown(f"**{cod}**")
+                    st.caption(f"{datos['tipo']} - {datos['valor']}")
+                with col_c2:
+                    st.write(datos["descripcion"])
+                with col_c3:
+                    estado = st.toggle("Activo", value=bool(datos["activo"]), key=f"tgl_{cod}")
+                    if estado != bool(datos["activo"]):
+                        database.actualizar_estado_cupon(cod, estado)
+                        st.rerun()
+                with col_c4:
+                    if st.button("🗑️", key=f"del_cup_{cod}"):
+                        database.eliminar_cupon(cod)
+                        st.rerun()
+        else:
+            st.info("No hay cupones registrados.")
 
     # ============================================================================
     # 13. PANEL DE CONTROL DE ADMINISTRACIÓN - AUDITORÍA FINANCIERA Y ANALÍTICA

@@ -82,6 +82,18 @@ def inicializar_db(db_path=None):
             df_logs = pd.DataFrame(columns=["fecha_hora", "nivel", "mensaje", "detalle"])
             conn.create(worksheet="logs", data=df_logs)
         
+        # 6. Asegurar hoja 'cupones'
+        try:
+            conn.read(worksheet="cupones", ttl=TTL_LECTURA)
+        except Exception:
+            cupones_defecto = [
+                {"codigo": "BUFFALO10", "tipo": "porcentaje", "valor": 0.10, "descripcion": "10% de descuento", "activo": 1},
+                {"codigo": "DELIVERYFREE", "tipo": "delivery", "valor": 6.0, "descripcion": "Delivery gratis", "activo": 1},
+                {"codigo": "COMBO5", "tipo": "monto", "valor": 5.0, "descripcion": "S/5.00 de descuento", "activo": 1}
+            ]
+            df_cupones = pd.DataFrame(cupones_defecto)
+            conn.create(worksheet="cupones", data=df_cupones)
+        
         st.session_state["_db_inicializada"] = True
     except Exception as e:
         st.error(f"Error al inicializar Google Sheets (Verifica tus secrets y permisos de cuenta de servicio): {e}")
@@ -352,4 +364,89 @@ def registrar_log(db_path, fecha_hora, nivel, mensaje, detalle=""):
         conn.update(worksheet="logs", data=df)
         return True
     except Exception:
+        return False
+
+# ============================================================================
+# FUNCIONES PARA GESTIÓN DE CUPONES
+# ============================================================================
+
+def obtener_cupones(ttl=TTL_LECTURA):
+    """Retorna los cupones desde Google Sheets como un diccionario."""
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="cupones", ttl=ttl)
+        if df.empty or "codigo" not in df.columns:
+            return {}
+            
+        cupones = {}
+        for _, row in df.iterrows():
+            codigo = _convertir_tipo(row.get("codigo"), "str", default=None)
+            if not codigo:
+                continue
+            
+            tipo = _convertir_tipo(row.get("tipo"), "str", default="monto")
+            valor = _convertir_tipo(row.get("valor"), "float", default=0.0)
+            descripcion = _convertir_tipo(row.get("descripcion"), "str", default="")
+            activo = _convertir_tipo(row.get("activo"), "bool", default=True)
+            
+            cupones[codigo] = {
+                "tipo": tipo,
+                "valor": valor,
+                "descripcion": descripcion,
+                "activo": activo
+            }
+        return cupones
+    except Exception as e:
+        st.error(f"Error obteniendo cupones: {e}")
+        return {}
+
+def crear_cupon(codigo, tipo, valor, descripcion, activo=True):
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="cupones", ttl=1)
+        if df.empty or "codigo" not in df.columns:
+            df = pd.DataFrame(columns=["codigo", "tipo", "valor", "descripcion", "activo"])
+        
+        # Eliminar si existe para reemplazarlo
+        df = df[df["codigo"].astype(str).str.strip().str.upper() != codigo.strip().upper()]
+        
+        new_row = pd.DataFrame([{
+            "codigo": codigo.strip().upper(),
+            "tipo": tipo,
+            "valor": float(valor),
+            "descripcion": descripcion,
+            "activo": int(activo)
+        }])
+        
+        updated_df = pd.concat([df, new_row], ignore_index=True)
+        conn.update(worksheet="cupones", data=updated_df)
+        return True
+    except Exception as e:
+        st.error(f"Error creando cupón: {e}")
+        return False
+
+def eliminar_cupon(codigo):
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="cupones", ttl=1)
+        if not df.empty and "codigo" in df.columns:
+            df_filtered = df[df["codigo"].astype(str).str.strip().str.upper() != codigo.strip().upper()]
+            conn.update(worksheet="cupones", data=df_filtered)
+        return True
+    except Exception as e:
+        st.error(f"Error eliminando cupón: {e}")
+        return False
+
+def actualizar_estado_cupon(codigo, activo):
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="cupones", ttl=1)
+        if not df.empty and "codigo" in df.columns:
+            mask = df["codigo"].astype(str).str.strip().str.upper() == codigo.strip().upper()
+            if mask.any():
+                df.loc[mask, "activo"] = int(activo)
+                conn.update(worksheet="cupones", data=df)
+        return True
+    except Exception as e:
+        st.error(f"Error actualizando estado del cupón: {e}")
         return False
