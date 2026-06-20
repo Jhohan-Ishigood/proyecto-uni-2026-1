@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
+import datetime
 
 # Caché de lectura en segundos (evita sobrepasar la cuota de Google Sheets API)
 TTL_LECTURA = 60
@@ -93,6 +94,13 @@ def inicializar_db(db_path=None):
             df_cupones = pd.DataFrame(cupones_defecto)
             conn.create(worksheet="cupones", data=df_cupones)
         
+        # 7. Asegurar hoja 'usuarios' (Para Fidelidad / Login)
+        try:
+            conn.read(worksheet="usuarios", ttl=TTL_LECTURA)
+        except Exception:
+            df_usuarios = pd.DataFrame(columns=["email", "nombre", "foto", "compras_realizadas", "fecha_registro"])
+            conn.create(worksheet="usuarios", data=df_usuarios)
+            
         st.session_state["_db_inicializada"] = True
     except Exception as e:
         st.error(f"Error al inicializar Google Sheets (Verifica tus secrets y permisos de cuenta de servicio): {e}")
@@ -448,4 +456,88 @@ def actualizar_estado_cupon(codigo, activo):
         return True
     except Exception as e:
         st.error(f"Error actualizando estado del cupón: {e}")
+        return False
+
+# ============================================================================
+# FUNCIONES PARA GESTIÓN DE USUARIOS Y FIDELIDAD
+# ============================================================================
+
+def obtener_usuario(email):
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="usuarios", ttl=1)
+        if df.empty or "email" not in df.columns:
+            return None
+        
+        mask = df["email"].astype(str).str.strip().str.lower() == email.strip().lower()
+        if mask.any():
+            user_data = df[mask].iloc[0].to_dict()
+            return user_data
+        return None
+    except Exception as e:
+        st.error(f"Error obteniendo usuario: {e}")
+        return None
+
+def registrar_usuario(email, nombre, foto):
+    try:
+        usuario_existente = obtener_usuario(email)
+        if usuario_existente:
+            return False # Ya existe
+
+        conn = get_connection()
+        df = conn.read(worksheet="usuarios", ttl=1)
+        if df.empty or "email" not in df.columns:
+            df = pd.DataFrame(columns=["email", "nombre", "foto", "compras_realizadas", "fecha_registro"])
+            
+        new_row = pd.DataFrame([{
+            "email": email.strip().lower(),
+            "nombre": nombre,
+            "foto": foto,
+            "compras_realizadas": 0,
+            "fecha_registro": str(datetime.datetime.now())
+        }])
+        
+        updated_df = pd.concat([df, new_row], ignore_index=True)
+        conn.update(worksheet="usuarios", data=updated_df)
+        
+        # Otorgar cupón de bienvenida automáticamente
+        codigo_bienvenida = f"BIENVENIDO-{nombre.split(' ')[0].upper()}"
+        crear_cupon(
+            codigo=codigo_bienvenida, 
+            tipo="porcentaje", 
+            valor=0.15, 
+            descripcion=f"15% Dcto. por primera vez. Solo para {email}", 
+            activo=True
+        )
+        return codigo_bienvenida
+    except Exception as e:
+        st.error(f"Error registrando usuario: {e}")
+        return False
+
+def incrementar_compra_usuario(email):
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="usuarios", ttl=1)
+        if not df.empty and "email" in df.columns:
+            mask = df["email"].astype(str).str.strip().str.lower() == email.strip().lower()
+            if mask.any():
+                # Incrementar compras
+                compras_actuales = int(df.loc[mask, "compras_realizadas"].iloc[0] or 0)
+                df.loc[mask, "compras_realizadas"] = compras_actuales + 1
+                conn.update(worksheet="usuarios", data=df)
+                
+                # Sistema de recompensas
+                if (compras_actuales + 1) % 3 == 0:
+                    codigo_premio = f"PREMIO{compras_actuales + 1}-{email.split('@')[0].upper()}"
+                    crear_cupon(
+                        codigo=codigo_premio,
+                        tipo="monto",
+                        valor=10.0,
+                        descripcion=f"S/10 Dcto. por ser cliente frecuente. Para {email}",
+                        activo=True
+                    )
+                    return codigo_premio
+        return False
+    except Exception as e:
+        st.error(f"Error incrementando compra: {e}")
         return False

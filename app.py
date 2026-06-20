@@ -17,6 +17,8 @@ import unicodedata
 from urllib.parse import quote
 from difflib import SequenceMatcher
 import database
+import requests
+import urllib.parse
 
 # Configuración inicial del lienzo responsivo de la aplicación
 st.set_page_config(
@@ -51,6 +53,47 @@ MIN_SEGUNDOS_ENTRE_BOLETAS = 10  # Rate limiting: mínimo de segundos entre emis
 
 # Inicialización de la conexión a Google Sheets (base de datos en la nube)
 database.inicializar_db()
+
+# ============================================================================
+# 1.5 GOOGLE OAUTH CONFIGURATION
+# ============================================================================
+GOOGLE_CLIENT_ID = "370627253754-bbk3sri9i6ou057ikrbpt72j9rhfo7qv.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
+REDIRECT_URI = "https://proyecto-uni-2026-1.streamlit.app/"
+
+def get_google_auth_url():
+    auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
+    params = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+        "prompt": "consent"
+    }
+    return f"{auth_url}?{urllib.parse.urlencode(params)}"
+
+def get_google_token(code):
+    token_url = "https://oauth2.googleapis.com/token"
+    data = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "code": code,
+        "redirect_uri": REDIRECT_URI,
+        "grant_type": "authorization_code"
+    }
+    res = requests.post(token_url, data=data)
+    if res.status_code == 200:
+        return res.json()
+    return None
+
+def get_google_user_info(access_token):
+    user_info_url = "https://www.googleapis.com/oauth2/v1/userinfo"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    res = requests.get(user_info_url, headers=headers)
+    if res.status_code == 200:
+        return res.json()
+    return None
 
 # ============================================================================
 # 2. FUNCIONES AUXILIARES PARA MANEJO DE IMÁGENES Y STRINGS
@@ -271,6 +314,32 @@ if "ultima_boleta_time" not in st.session_state:
 if st.session_state.categoria_activa not in st.session_state.lista_categorias:
     st.session_state.categoria_activa = "Todos"
 
+if "user_info" not in st.session_state:
+    st.session_state.user_info = None
+
+# ============================================================================
+# 3.5 MANEJO DE CALLBACK OAUTH (GOOGLE LOGIN)
+# ============================================================================
+if "code" in st.query_params:
+    code = st.query_params["code"]
+    st.query_params.clear() # Limpiar la URL para seguridad y estética
+    token_data = get_google_token(code)
+    if token_data and "access_token" in token_data:
+        user_info = get_google_user_info(token_data["access_token"])
+        if user_info:
+            st.session_state.user_info = user_info
+            email = user_info.get("email")
+            nombre = user_info.get("name")
+            foto = user_info.get("picture")
+            
+            db_user = database.obtener_usuario(email)
+            if not db_user:
+                cupon = database.registrar_usuario(email, nombre, foto)
+                if cupon:
+                    st.toast(f"¡Te regalamos 15% Dcto! Tu cupón: {cupon}", icon="🎉")
+            else:
+                st.toast(f"¡Hola de nuevo, {nombre}!", icon="👋")
+
 # Anclaje y sincronización de reloj oficial para Perú (GMT-5)
 zona_peru = timezone(timedelta(hours=-5))
 ahora_peru = datetime.now(zona_peru)
@@ -350,6 +419,39 @@ st.markdown("<div class='sello-creador'>Pagina desarrollada por: Jhohan--Patrick
 # ============================================================================
 st.sidebar.markdown("<h2 style='text-align: center; color: #f39c12;'>🥩 El Gran Búfalo</h2>", unsafe_allow_html=True)
 st.sidebar.markdown("<p style='text-align: center; font-size: 13px; color: #aaa;'>Especialistas en carnes y parrillas premium al carbón de manera artesanal.</p>", unsafe_allow_html=True)
+st.sidebar.markdown("---")
+
+# ============================================================================
+# 6.1 PERFIL DE USUARIO CLIENTE (GOOGLE OAUTH)
+# ============================================================================
+if st.session_state.user_info:
+    # Mostrar perfil del usuario
+    u_info = st.session_state.user_info
+    st.sidebar.markdown("#### 👤 MI PERFIL")
+    col_p1, col_p2 = st.sidebar.columns([1, 3])
+    with col_p1:
+        st.markdown(f"<img src='{u_info.get('picture', '')}' style='border-radius:50%; width:100%;'>", unsafe_allow_html=True)
+    with col_p2:
+        st.markdown(f"**{u_info.get('name', '')}**")
+        st.caption(f"{u_info.get('email', '')}")
+    
+    # Obtener info de la BD para mostrar compras/puntos
+    db_user = database.obtener_usuario(u_info.get('email', ''))
+    if db_user:
+        compras = db_user.get("compras_realizadas", 0)
+        st.sidebar.info(f"🏆 Compras realizadas: **{compras}**")
+        faltan = 3 - (compras % 3)
+        st.sidebar.caption(f"A {faltan} compras de tu próximo cupón de S/10.")
+    
+    if st.sidebar.button("Cerrar Sesión", use_container_width=True):
+        st.session_state.user_info = None
+        st.rerun()
+else:
+    st.sidebar.markdown("#### 👤 CLIENTE FRECUENTE")
+    st.sidebar.info("¡Inicia sesión para obtener **15% de descuento** en tu primera compra y sumar puntos para premios!", icon="🎁")
+    auth_url = get_google_auth_url()
+    st.sidebar.markdown(f'<a href="{auth_url}" target="_self" style="display:inline-block; width:100%; text-align:center; background-color:#ffffff; color:#444; border:1px solid #ddd; padding:8px 0; border-radius:4px; text-decoration:none; font-weight:bold; font-family:sans-serif;">Continúa con Google</a>', unsafe_allow_html=True)
+
 st.sidebar.markdown("---")
 
 # Control del estado visual del formulario de inicio de sesión
@@ -1178,9 +1280,21 @@ else:
         st.caption(f"Tiempo estimado: {tiempo_estimado_texto(tiene_delivery)}")
 
         total_items_checkout = sum(int(item["cantidad"]) for item in st.session_state.carrito)
+        
+        valor_cupon_defecto = st.session_state.cupon_aplicado
+        if st.session_state.user_info and not valor_cupon_defecto:
+            db_user = database.obtener_usuario(st.session_state.user_info.get("email", ""))
+            if db_user:
+                nombre_pila = db_user.get("nombre", "").split(" ")[0].upper()
+                cupon_bienvenida = f"BIENVENIDO-{nombre_pila}"
+                cupones_bd = database.obtener_cupones(ttl=0)
+                if cupon_bienvenida in cupones_bd and cupones_bd[cupon_bienvenida]["activo"]:
+                    valor_cupon_defecto = cupon_bienvenida
+                    st.session_state.cupon_aplicado = cupon_bienvenida
+
         st.session_state.cupon_aplicado = st.text_input(
             "Cupón de descuento",
-            value=st.session_state.cupon_aplicado,
+            value=valor_cupon_defecto,
             placeholder="BUFFALO10, DELIVERYFREE o COMBO5",
         ).strip().upper()
         descuento, mensaje_cupon = calcular_descuento(
@@ -1334,6 +1448,19 @@ else:
                 if not orden_creada:
                     st.error("⚠️ No se pudo registrar la orden. Revise la conexión con Google Sheets.")
                     st.stop()
+
+                # Fidelidad: si está logueado, sumar compra
+                if st.session_state.user_info:
+                    email_usuario = st.session_state.user_info.get("email")
+                    if email_usuario:
+                        # Si usó el cupón de bienvenida o premio, vamos a desactivarlo para que no lo vuelva a usar
+                        if st.session_state.cupon_aplicado and (st.session_state.cupon_aplicado.startswith("BIENVENIDO-") or st.session_state.cupon_aplicado.startswith("PREMIO")):
+                            database.actualizar_estado_cupon(st.session_state.cupon_aplicado, False)
+                            
+                        # Incrementar compra
+                        nuevo_premio = database.incrementar_compra_usuario(email_usuario)
+                        if nuevo_premio:
+                            st.toast(f"¡Felicidades! Desbloqueaste un nuevo premio: {nuevo_premio}", icon="🎁")
 
                 st.session_state.ultima_boleta_time = tiempo_actual_ts
                 st.session_state.boleta_emitida = True
