@@ -506,8 +506,8 @@ div.stAlert:has(svg[data-testid="stNotificationIconSuccess"]) {
     /* Métrica más compacta */
     div[data-testid="stMetricValue"],
     [data-testid="stMetricValue"] {
-        font-size: 32px !important;
-        padding: 8px 16px !important;
+        font-size: 22px !important;
+        padding: 6px 10px !important;
     }
     /* Botones más compactos */
     div[data-testid="stMainBlockContainer"] div.stButton > button {
@@ -543,8 +543,8 @@ div.stAlert:has(svg[data-testid="stNotificationIconSuccess"]) {
     }
     div[data-testid="stMetricValue"],
     [data-testid="stMetricValue"] {
-        font-size: 24px !important;
-        padding: 4px 10px !important;
+        font-size: 16px !important;
+        padding: 4px 6px !important;
     }
     div[data-testid="stMainBlockContainer"] div.stButton > button {
         font-size: 13px !important;
@@ -735,18 +735,23 @@ div[data-testid="stMetricLabel"] p,
 
 div[data-testid="stMetricValue"],
 [data-testid="stMetricValue"] {
-    font-size: 46px !important;
+    font-size: 32px !important;
     font-weight: 900 !important;
     color: #2ecc71 !important;
     font-family: 'Outfit', sans-serif !important;
     text-shadow: 0px 0px 15px rgba(46, 204, 113, 0.6) !important;
     background-color: #130e22 !important;
-    padding: 12px 25px !important;
+    padding: 10px 15px !important;
     border-radius: 12px !important;
     display: inline-block !important;
     border: 2px solid #2ecc71 !important;
     opacity: 1 !important;
     box-shadow: 0px 4px 20px rgba(46, 204, 113, 0.15) !important;
+    word-break: break-all !important;
+    white-space: normal !important;
+    text-align: center !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
 }
 
 div[data-testid="stMetricValue"] > div,

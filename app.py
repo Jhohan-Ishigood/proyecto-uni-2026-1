@@ -167,19 +167,19 @@ def construir_mensaje_whatsapp(correlativo, carrito, total, entrega, cliente, te
 def render_stepper(paso_actual):
     """Renderiza un stepper visual de progreso para el flujo del cliente."""
     pasos = [("🛒", "Selección"), ("💳", "Pago"), ("✅", "Listo")]
-    html = "<div style='display:flex; justify-content:center; align-items:center; gap:0; margin:20px 0 30px 0;'>"
+    html = "<div style='display:flex; justify-content:center; align-items:center; gap:0; margin:10px 0 20px 0;'>"
     for i, (icono, nombre) in enumerate(pasos):
         activo = i < paso_actual
         actual = i == paso_actual - 1
-        color = '#f39c12' if activo else '#333'
+        color = '#f39c12' if activo else '#666'
         bg = 'rgba(243,156,18,0.15)' if actual else 'transparent'
-        border = '2px solid #f39c12' if actual else '2px solid #333'
+        border = '2px solid #f39c12' if actual else '2px solid #444'
         html += f"<div style='display:flex;align-items:center;'>"
-        html += f"<div style='width:50px;height:50px;border-radius:50%;background:{bg};border:{border};display:flex;align-items:center;justify-content:center;font-size:22px;'>{icono}</div>"
-        html += f"<span style='margin-left:8px;color:{color};font-weight:700;font-size:14px;'>{nombre}</span>"
+        html += f"<div style='width:32px;height:32px;border-radius:50%;background:{bg};border:{border};display:flex;align-items:center;justify-content:center;font-size:14px;'>{icono}</div>"
+        html += f"<span style='margin-left:6px;color:{color};font-weight:700;font-size:12px;'>{nombre}</span>"
         if i < len(pasos) - 1:
-            line_color = '#f39c12' if activo else '#333'
-            html += f"<div style='width:60px;height:2px;background:{line_color};margin:0 10px;'></div>"
+            line_color = '#f39c12' if activo else '#444'
+            html += f"<div style='width:30px;height:2px;background:{line_color};margin:0 6px;'></div>"
         html += "</div>"
     html += "</div>"
     st.markdown(html, unsafe_allow_html=True)
