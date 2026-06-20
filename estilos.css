@@ -58,34 +58,31 @@ html, body,
 [data-testid="stAppViewContainer"], 
 [data-testid="stMainBlockContainer"], 
 [data-testid="stVerticalBlock"] {
-    background-color: #0f0a1a !important;
+    background-color: #0c0c0c !important;
     color: #ffffff !important;
 }
 
-/* Fondo premium púrpura oscuro con gradientes magenta */
+/* Fondo estilo portafolio Jhohan Oficial: oscuro con resplandor dorado y cuadrícula */
 .stApp {
-    background-color: #0f0a1a !important;
+    background-color: #0c0c0c !important;
     background-image:
-        /* Orbe magenta superior izquierdo */
-        radial-gradient(ellipse 600px 500px at 8% 5%, rgba(233, 30, 140, 0.18) 0%, transparent 70%),
-        /* Orbe púrpura superior derecho */
-        radial-gradient(ellipse 500px 600px at 92% 8%, rgba(156, 39, 176, 0.15) 0%, transparent 65%),
-        /* Orbe magenta centro inferior */
-        radial-gradient(ellipse 700px 500px at 50% 85%, rgba(233, 30, 140, 0.12) 0%, transparent 65%),
-        /* Orbe violeta inferior izquierdo */
-        radial-gradient(ellipse 400px 400px at 5% 90%, rgba(103, 58, 183, 0.14) 0%, transparent 60%),
-        /* Orbe púrpura difuso central */
-        radial-gradient(ellipse 800px 800px at 50% 40%, rgba(156, 39, 176, 0.05) 0%, transparent 70%),
-        /* Patrón de malla de puntos */
-        radial-gradient(circle 1.2px at center, rgba(255, 255, 255, 0.04) 1px, transparent 1px) !important;
-    background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 32px 32px !important;
+        /* Resplandor amarillo/naranja central y superior */
+        radial-gradient(ellipse 800px 600px at 50% 10%, rgba(243, 156, 18, 0.15) 0%, transparent 70%),
+        /* Resplandor lateral tenue */
+        radial-gradient(ellipse 600px 500px at -10% 40%, rgba(241, 196, 15, 0.08) 0%, transparent 65%),
+        /* Resplandor lateral derecho */
+        radial-gradient(ellipse 600px 500px at 110% 60%, rgba(230, 126, 34, 0.08) 0%, transparent 65%),
+        /* Patrón de cuadrícula estilo malla técnica */
+        linear-gradient(rgba(243, 156, 18, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(243, 156, 18, 0.04) 1px, transparent 1px) !important;
+    background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px !important;
     background-attachment: fixed !important;
     font-family: 'Outfit', 'Segoe UI', system-ui, -apple-system, sans-serif !important;
     min-height: 100vh !important;
     position: relative !important;
 }
 
-/* Aurora animada flotante via pseudo-elemento */
+/* Aurora animada flotante via pseudo-elemento (Tonos cálidos/dorados) */
 .stApp::before {
     content: '' !important;
     position: fixed !important;
@@ -96,15 +93,15 @@ html, body,
     pointer-events: none !important;
     z-index: 0 !important;
     background:
-        radial-gradient(ellipse 50% 40% at 20% 20%, rgba(233, 30, 140, 0.10) 0%, transparent 100%),
-        radial-gradient(ellipse 45% 50% at 80% 30%, rgba(156, 39, 176, 0.08) 0%, transparent 100%),
-        radial-gradient(ellipse 55% 35% at 60% 80%, rgba(103, 58, 183, 0.07) 0%, transparent 100%) !important;
+        radial-gradient(ellipse 50% 40% at 20% 20%, rgba(243, 156, 18, 0.06) 0%, transparent 100%),
+        radial-gradient(ellipse 45% 50% at 80% 30%, rgba(241, 196, 15, 0.05) 0%, transparent 100%),
+        radial-gradient(ellipse 55% 35% at 60% 80%, rgba(230, 126, 34, 0.04) 0%, transparent 100%) !important;
     background-size: 200% 200% !important;
     animation: auroraShift 20s ease-in-out infinite !important;
     opacity: 1 !important;
 }
 
-/* Orbe flotante decorativo */
+/* Orbe flotante decorativo (Amarillo/Oro) */
 .stApp::after {
     content: '' !important;
     position: fixed !important;
@@ -113,7 +110,7 @@ html, body,
     width: 350px !important;
     height: 350px !important;
     border-radius: 50% !important;
-    background: radial-gradient(circle, rgba(233, 30, 140, 0.08) 0%, transparent 70%) !important;
+    background: radial-gradient(circle, rgba(241, 196, 15, 0.07) 0%, transparent 70%) !important;
     pointer-events: none !important;
     z-index: 0 !important;
     animation: floatOrb1 15s ease-in-out infinite !important;
