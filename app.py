@@ -59,6 +59,8 @@ database.inicializar_db()
 # ============================================================================
 GOOGLE_CLIENT_ID = "370627253754-bbk3sri9i6ou057ikrbpt72j9rhfo7qv.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
+if not GOOGLE_CLIENT_SECRET and "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+    GOOGLE_CLIENT_SECRET = st.secrets["connections"]["gsheets"].get("GOOGLE_CLIENT_SECRET", "")
 REDIRECT_URI = "https://proyecto-uni-2026-1.streamlit.app/"
 
 def get_google_auth_url():
