@@ -34,8 +34,7 @@ def _convertir_tipo(valor, tipo, default=None):
 
 def inicializar_db(db_path=None):
     """Crea las hojas necesarias en Google Sheets si no existen. Solo se ejecuta una vez por sesión."""
-    if st.session_state.get("_db_inicializada", False):
-        return
+    # Quitamos el early return para que siempre verifique (es rápido gracias al caché ttl)
     try:
         conn = get_connection()
         
