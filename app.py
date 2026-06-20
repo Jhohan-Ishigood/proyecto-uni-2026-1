@@ -868,20 +868,6 @@ else:
     # 15. ENTORNO CLIENTE - PANTALLA 1: BIENVENIDA MULTIMEDIA PREMIUM
     # ============================================================================
     if st.session_state.pantalla_actual == "bienvenida":
-        if os.path.exists(URL_BANNER_LOCAL):
-            with open(URL_BANNER_LOCAL, "rb") as image_file:
-                encoded_string = base64.b64encode(image_file.read()).decode()
-            st.markdown(f"""
-                <style>
-                .stApp {{
-                    background-image: linear-gradient(rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0.82)), url("data:image/png;base64,{encoded_string}");
-                    background-size: cover !important;
-                    background-position: center !important;
-                    background-repeat: no-repeat !important;
-                    background-attachment: fixed !important;
-                }}
-                </style>
-            """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("<h2 class='titulo-principal'>SISTEMA DE PEDIDOS GRAN BÚFALO</h2>", unsafe_allow_html=True)
         st.markdown("<br><p style='text-align: center; font-size: 24px; font-weight: bold; color: #f39c12;'>🔥 Bienvenidos al templo de la buena carne 🔥</p>", unsafe_allow_html=True)

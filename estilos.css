@@ -54,11 +54,16 @@
     1. BLINDAJE ANTI-MODO CLARO Y ARQUITECTURA VISUAL GLOBAL
    ============================================================================ */
 
-html, body, 
+html, body {
+    background-color: #0c0c0c !important;
+    color: #ffffff !important;
+}
+
 [data-testid="stAppViewContainer"], 
 [data-testid="stMainBlockContainer"], 
 [data-testid="stVerticalBlock"] {
-    background-color: #0c0c0c !important;
+    background: transparent !important;
+    background-color: transparent !important;
     color: #ffffff !important;
 }
 
