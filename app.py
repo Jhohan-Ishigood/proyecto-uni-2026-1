@@ -75,6 +75,14 @@ def get_google_auth_url():
     }
     return f"{auth_url}?{urllib.parse.urlencode(params)}"
 
+@st.dialog("¡Oferta Exclusiva! 🎁", width="small")
+def mostrar_promo_login():
+    st.markdown("#### ¡Inicia sesión ahora mismo!")
+    st.write("Obtén un **15% de descuento** en tu primera compra y empieza a sumar puntos para ganar increíbles premios.")
+    st.markdown("<br>", unsafe_allow_html=True)
+    auth_url = get_google_auth_url()
+    st.markdown(f'<a href="{auth_url}" target="_blank" style="display:inline-block; width:100%; text-align:center; background-color:#f39c12; padding:12px 0; border-radius:8px; text-decoration:none;"><span style="color:#000000 !important; font-weight:bold; font-size:16px;">Continúa con Google</span></a>', unsafe_allow_html=True)
+
 def get_google_token(code):
     token_url = "https://oauth2.googleapis.com/token"
     data = {
@@ -421,6 +429,11 @@ st.markdown("""
 # Inyección limpia del sello de creador adaptado al flujo estructural
 st.markdown("<div class='sello-creador'>Pagina elaborada por el grupo 5 😎</div>", unsafe_allow_html=True)
 
+if "promo_mostrada" not in st.session_state:
+    st.session_state.promo_mostrada = True
+    if "user_info" not in st.session_state or not st.session_state.user_info:
+        mostrar_promo_login()
+
 # ============================================================================
 # HEADER GLOBAL: PERFIL DE USUARIO EN PARTE SUPERIOR (MOBILE FRIENDLY)
 # ============================================================================
@@ -446,7 +459,7 @@ with st.container():
             st.markdown("<div style='font-size:14px; font-weight:bold; color:#fff; line-height:1.2;'>🎁 ¡Inicia sesión y obtén<br><span style='color:#f39c12;'>15% Dcto en tu 1era compra!</span></div>", unsafe_allow_html=True)
         with c2:
             auth_url = get_google_auth_url()
-            st.markdown(f'<a href="{auth_url}" target="_blank" style="display:inline-block; width:100%; text-align:center; background-color:#fff; color:#111; padding:8px 0; border-radius:4px; text-decoration:none; font-weight:bold; font-size:13px;">Iniciar Sesión</a>', unsafe_allow_html=True)
+            st.markdown(f'<a href="{auth_url}" target="_blank" style="display:inline-block; width:100%; text-align:center; background-color:#fff; padding:8px 0; border-radius:4px; text-decoration:none;"><span style="color:#000000 !important; font-weight:bold; font-size:13px;">Iniciar Sesión</span></a>', unsafe_allow_html=True)
     st.markdown("<hr style='margin-top:10px; margin-bottom:15px; border-color:#333;'>", unsafe_allow_html=True)
 
 # ============================================================================
