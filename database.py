@@ -465,7 +465,7 @@ def actualizar_estado_cupon(codigo, activo):
 def obtener_usuario(email):
     try:
         conn = get_connection()
-        df = conn.read(worksheet="usuarios", ttl=1)
+        df = conn.read(worksheet="usuarios", ttl=TTL_LECTURA)
         if df.empty or "email" not in df.columns:
             return None
         
