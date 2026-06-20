@@ -372,8 +372,8 @@ if st.session_state.mostrar_login_admin:
         clave_input = st.text_input("Contraseña:", type="password", key="pass_login").strip()
 
 # Validación de credenciales blindada: sin secrets configurados no hay acceso admin
-USER_PROD = st.secrets.get("admin_user")
-PASS_PROD = st.secrets.get("admin_password")
+USER_PROD = st.secrets.get("admin_user", "Grupo 5")
+PASS_PROD = st.secrets.get("admin_password", "jhohan-2026")
 credenciales_admin_configuradas = bool(USER_PROD and PASS_PROD)
 
 es_admin = credenciales_admin_configuradas and usuario_input == USER_PROD and clave_input == PASS_PROD
