@@ -1439,12 +1439,14 @@ else:
                 tipo_entrega_db = f"DELIVERY ({direccion_delivery})" if tiene_delivery else "LOCAL"
                 tipo_entrega_html = escapar_html(tipo_entrega_db)
                 
-                stock_actualizado = True
+                actualizaciones_stock = {}
                 for item in st.session_state.carrito:
                     prod_comprado = item["producto"]
-                    cant_comprada = item["cantidad"]
-                    nuevo_stock = int(menu_actualizado[prod_comprado].get("stock", 0)) - int(cant_comprada)
-                    stock_actualizado = database.actualizar_stock(None, prod_comprado, nuevo_stock) and stock_actualizado
+                    cant_comprada = int(item["cantidad"])
+                    nuevo_stock = max(0, int(menu_actualizado[prod_comprado].get("stock", 0)) - cant_comprada)
+                    actualizaciones_stock[prod_comprado] = nuevo_stock
+                
+                stock_actualizado = database.actualizar_stock_multiple(None, actualizaciones_stock)
 
                 if not stock_actualizado:
                     st.error("⚠️ No se pudo actualizar el stock. La orden no fue registrada.")

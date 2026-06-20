@@ -295,21 +295,25 @@ def crear_orden(db_path, fecha_hora, nro_boleta, detalle_articulos, entrega, met
         st.error(f"Error registrando orden en GSheets: {e}")
         return False
 
-def actualizar_stock(db_path, nombre, stock_restante):
-    """Actualiza el stock de un producto específico."""
+def actualizar_stock_multiple(db_path, actualizaciones_dict):
+    """Actualiza el stock de múltiples productos en una sola lectura/escritura."""
     try:
         conn = get_connection()
         df = conn.read(worksheet="productos", ttl=1)
-        if not df.empty and "nombre" in df.columns and nombre in df["nombre"].astype(str).values:
-            idx = df[df["nombre"].astype(str) == nombre].index[0]
-            df.at[idx, "stock"] = _convertir_tipo(stock_restante, "int", default=0)
+        if not df.empty and "nombre" in df.columns:
+            for nombre, stock_restante in actualizaciones_dict.items():
+                if nombre in df["nombre"].astype(str).values:
+                    idx = df[df["nombre"].astype(str) == nombre].index[0]
+                    df.at[idx, "stock"] = _convertir_tipo(stock_restante, "int", default=0)
             conn.update(worksheet="productos", data=df)
             return True
-        st.error(f"No se encontró el producto '{nombre}' para actualizar stock.")
         return False
     except Exception as e:
         st.error(f"Error actualizando stock en GSheets: {e}")
         return False
+
+def actualizar_stock(db_path, nombre, stock_restante):
+    return actualizar_stock_multiple(db_path, {nombre: stock_restante})
 
 def crear_calificacion(db_path, fecha_hora, nro_boleta, calificacion, comentario):
     """Registra una calificación del cliente (1-5 estrellas) con comentario opcional."""
