@@ -725,14 +725,14 @@ if es_admin:
 
     col_kpi1, col_kpi2 = st.columns(2)
     with col_kpi1:
-        st.markdown(f"<div style='background-color: #1a1028; padding: 20px; border-radius: 8px; border-left: 5px solid #27ae60; box-shadow: 0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0; font-size:14px; color:#aaa; font-weight:bold;'>💰 RECAUDACIÓN TOTAL ACUMULADA</p><h2 style='margin:5px 0 0 0; color:#fff; font-size:32px;'>S/{total_caja:.2f}</h2></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background-color: #151515; padding: 20px; border-radius: 8px; border-left: 5px solid #27ae60; box-shadow: 0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0; font-size:14px; color:#aaa; font-weight:bold;'>💰 RECAUDACIÓN TOTAL ACUMULADA</p><h2 style='margin:5px 0 0 0; color:#fff; font-size:32px;'>S/{total_caja:.2f}</h2></div>", unsafe_allow_html=True)
     with col_kpi2:
-        st.markdown(f"<div style='background-color: #1a1028; padding: 20px; border-radius: 8px; border-left: 5px solid #f39c12; box-shadow: 0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0; font-size:14px; color:#aaa; font-weight:bold;'>📦 ÓRDENES HISTÓRICAS PROCESADAS</p><h2 style='margin:5px 0 0 0; color:#fff; font-size:32px;'>{total_pedidos} Pedidos</h2></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background-color: #151515; padding: 20px; border-radius: 8px; border-left: 5px solid #f39c12; box-shadow: 0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0; font-size:14px; color:#aaa; font-weight:bold;'>📦 ÓRDENES HISTÓRICAS PROCESADAS</p><h2 style='margin:5px 0 0 0; color:#fff; font-size:32px;'>{total_pedidos} Pedidos</h2></div>", unsafe_allow_html=True)
 
     col_kpi3, col_kpi4 = st.columns(2)
     ticket_promedio = total_caja / total_pedidos if total_pedidos > 0 else 0
     with col_kpi3:
-        st.markdown(f"<div style='background-color:#1a1028;padding:20px;border-radius:8px;border-left:5px solid #8e44ad;box-shadow:0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0;font-size:14px;color:#aaa;font-weight:bold;'>🎯 TICKET PROMEDIO</p><h2 style='margin:5px 0 0 0;color:#fff;font-size:32px;'>S/{ticket_promedio:.2f}</h2></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background-color:#151515;padding:20px;border-radius:8px;border-left:5px solid #d35400;box-shadow:0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0;font-size:14px;color:#aaa;font-weight:bold;'>🎯 TICKET PROMEDIO</p><h2 style='margin:5px 0 0 0;color:#fff;font-size:32px;'>S/{ticket_promedio:.2f}</h2></div>", unsafe_allow_html=True)
     
     # Hora pico
     horas_pedidos = {}
@@ -744,7 +744,7 @@ if es_admin:
             pass
     hora_pico = max(horas_pedidos, key=horas_pedidos.get) if horas_pedidos else "--"
     with col_kpi4:
-        st.markdown(f"<div style='background-color:#1a1028;padding:20px;border-radius:8px;border-left:5px solid #3498db;box-shadow:0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0;font-size:14px;color:#aaa;font-weight:bold;'>⏰ HORA PICO</p><h2 style='margin:5px 0 0 0;color:#fff;font-size:32px;'>{hora_pico}:00 hrs</h2></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background-color:#151515;padding:20px;border-radius:8px;border-left:5px solid #3498db;box-shadow:0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0;font-size:14px;color:#aaa;font-weight:bold;'>⏰ HORA PICO</p><h2 style='margin:5px 0 0 0;color:#fff;font-size:32px;'>{hora_pico}:00 hrs</h2></div>", unsafe_allow_html=True)
 
     fecha_reporte = st.date_input("Filtrar reporte por fecha", value=ahora_peru.date(), key="fecha_reporte_admin")
     ordenes_fecha = []
@@ -811,7 +811,7 @@ if es_admin:
             pass
     if horas_pedidos:
         df_horas = pd.DataFrame(list(horas_pedidos.items()), columns=['Hora', 'Pedidos']).sort_values('Hora')
-        line_chart = alt.Chart(df_horas).mark_line(point=True, color='#e91e8c', strokeWidth=3).encode(
+        line_chart = alt.Chart(df_horas).mark_line(point=True, color='#f39c12', strokeWidth=3).encode(
             x=alt.X('Hora:N', title='Hora del Día'),
             y=alt.Y('Pedidos:Q', title='Cantidad de Pedidos')
         ).properties(height=250)
@@ -843,11 +843,11 @@ if es_admin:
     
     col_ef, col_yp, col_tj = st.columns(3)
     with col_ef:
-        st.markdown(f"<div style='background-color:#1a1028; padding:15px; border-radius:6px; border:1px solid #333; text-align:center;'><span style='font-size:24px;'>💵</span><p style='margin:5px 0 0 0; font-size:13px; color:#888;'>EFECTIVO</p><h4 style='margin:5px 0 0 0; color:#27ae60;'>S/{metodos_pagos['Efectivo']:.2f}</h4></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background-color:#151515; padding:15px; border-radius:6px; border:1px solid #333; text-align:center;'><span style='font-size:24px;'>💵</span><p style='margin:5px 0 0 0; font-size:13px; color:#888;'>EFECTIVO</p><h4 style='margin:5px 0 0 0; color:#27ae60;'>S/{metodos_pagos['Efectivo']:.2f}</h4></div>", unsafe_allow_html=True)
     with col_yp:
-        st.markdown(f"<div style='background-color:#1a1028; padding:15px; border-radius:6px; border:1px solid #333; text-align:center;'><span style='font-size:24px;'>📱</span><p style='margin:5px 0 0 0; font-size:13px; color:#888;'>YAPE</p><h4 style='margin:5px 0 0 0; color:#27ae60;'>S/{metodos_pagos['Yape']:.2f}</h4></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background-color:#151515; padding:15px; border-radius:6px; border:1px solid #333; text-align:center;'><span style='font-size:24px;'>📱</span><p style='margin:5px 0 0 0; font-size:13px; color:#888;'>YAPE</p><h4 style='margin:5px 0 0 0; color:#27ae60;'>S/{metodos_pagos['Yape']:.2f}</h4></div>", unsafe_allow_html=True)
     with col_tj:
-        st.markdown(f"<div style='background-color:#1a1028; padding:15px; border-radius:6px; border:1px solid #333; text-align:center;'><span style='font-size:24px;'>💳</span><p style='margin:5px 0 0 0; font-size:13px; color:#888;'>TARJETA</p><h4 style='margin:5px 0 0 0; color:#27ae60;'>S/{metodos_pagos['Tarjeta']:.2f}</h4></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background-color:#151515; padding:15px; border-radius:6px; border:1px solid #333; text-align:center;'><span style='font-size:24px;'>💳</span><p style='margin:5px 0 0 0; font-size:13px; color:#888;'>TARJETA</p><h4 style='margin:5px 0 0 0; color:#27ae60;'>S/{metodos_pagos['Tarjeta']:.2f}</h4></div>", unsafe_allow_html=True)
 
     if sum(metodos_pagos.values()) > 0:
         st.markdown("<br>", unsafe_allow_html=True)
@@ -857,7 +857,7 @@ if es_admin:
         })
         pie = alt.Chart(df_pagos).mark_arc(innerRadius=50, outerRadius=120).encode(
             theta=alt.Theta('Monto:Q'),
-            color=alt.Color('Método:N', scale=alt.Scale(domain=['Efectivo','Yape','Tarjeta'], range=['#27ae60','#8e44ad','#3498db']), legend=alt.Legend(titleColor='#fff', labelColor='#fff')),
+            color=alt.Color('Método:N', scale=alt.Scale(domain=['Efectivo','Yape','Tarjeta'], range=['#27ae60','#d35400','#3498db']), legend=alt.Legend(titleColor='#fff', labelColor='#fff')),
             tooltip=['Método:N', alt.Tooltip('Monto:Q', format='.2f')]
         ).properties(width=350, height=300, title=alt.TitleParams('Distribución de Pagos', color='#f39c12', fontSize=16))
         st.altair_chart(pie, use_container_width=True)
@@ -1019,7 +1019,7 @@ else:
                     st.markdown("<br>", unsafe_allow_html=True)
                 else:
                     st.markdown(f"""<div style="width:100%; height:200px; background-color:#222; border-radius:12px 12px 0px 0px; display:flex; align-items:center; justify-content:center;"><span style="font-size:50px; filter:grayscale(100%);">{icono_html}</span></div>""", unsafe_allow_html=True)
-                    st.markdown(f"<div style='background-color:#1a1028; padding:20px; border-radius:0px 0px 12px 12px; border:2px solid #ff4b4b; text-align:center; margin-bottom:25px;'><p style='color: #ff4b4b; font-size:18px; font-weight: bold; margin:0;'>❌ {prod_html}<br>(AGOTADO)</p></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='background-color:#151515; padding:20px; border-radius:0px 0px 12px 12px; border:2px solid #ff4b4b; text-align:center; margin-bottom:25px;'><p style='color: #ff4b4b; font-size:18px; font-weight: bold; margin:0;'>❌ {prod_html}<br>(AGOTADO)</p></div>", unsafe_allow_html=True)
         st.markdown("---")
         resumen_previo = []
         total_previo = 0.0
@@ -1176,10 +1176,10 @@ else:
                 src_imagen_qr = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='8.5' cy='8.5' r='1.5'/><polyline points='21 15 16 10 5 21'/></svg>"
 
             st.markdown(f"""
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 25px auto; max-width: 450px; background-color: #1e1e24; padding: 25px; border-radius: 16px; border: 2px solid #8e44ad; box-shadow: 0px 8px 25px rgba(142, 68, 173, 0.25); text-align: center;">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 25px auto; max-width: 450px; background-color: #151515; padding: 25px; border-radius: 16px; border: 2px solid #d35400; box-shadow: 0px 8px 25px rgba(142, 68, 173, 0.25); text-align: center;">
                     <p style="color: #aaaaaa; font-size: 14px; margin-bottom: 15px; font-weight: bold;">[!] Escanee con la cámara de su celular para pagar:</p>
                     <img src="{src_imagen_qr}" style="width: 260px; height: 260px; object-fit: contain; border-radius: 12px; box-shadow: 0px 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px;" />
-                    <span style="color: #8e44ad; font-size: 14px; font-weight: bold; letter-spacing: 1px;">🟣 CÓDIGO QR DE YAPE OFICIAL</span>
+                    <span style="color: #d35400; font-size: 14px; font-weight: bold; letter-spacing: 1px;">🟣 CÓDIGO QR DE YAPE OFICIAL</span>
                 </div>
             """, unsafe_allow_html=True)
 
