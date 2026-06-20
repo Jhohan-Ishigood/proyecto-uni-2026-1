@@ -132,6 +132,13 @@ html, body,
     padding-top: 25px !important;
     position: relative !important;
     z-index: 1 !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+}
+
+html, body, .stApp {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
 }
 
 /* Títulado Principal con Degradado - Fuente Premium */
@@ -457,6 +464,7 @@ div.stAlert:has(svg[data-testid="stNotificationIconSuccess"]) {
         min-width: calc(50% - 5px) !important;
         max-width: calc(50% - 5px) !important;
         flex: 1 1 calc(50% - 5px) !important;
+        box-sizing: border-box !important;
     }
     .product-title {
         font-size: 13px !important;
@@ -466,16 +474,16 @@ div.stAlert:has(svg[data-testid="stNotificationIconSuccess"]) {
         text-overflow: ellipsis !important;
     }
     .product-card-bottom {
-        padding: 8px 10px !important;
+        padding: 5px 8px !important;
         flex-direction: column !important; 
         align-items: flex-start !important;
-        gap: 3px !important;
+        gap: 2px !important;
     }
     .titulo-principal {
-        font-size: 22px !important;
+        font-size: 20px !important;
     }
     .product-price {
-        font-size: 16px !important;
+        font-size: 15px !important;
     }
     .sello-creador {
         font-size: 11px !important;
@@ -520,25 +528,27 @@ div.stAlert:has(svg[data-testid="stNotificationIconSuccess"]) {
 
 @media (max-width: 480px) {
     .titulo-principal {
-        font-size: 19px !important;
+        font-size: 18px !important;
     }
     .block-container {
-        padding-left: 8px !important;
-        padding-right: 8px !important;
+        padding-left: 5px !important;
+        padding-right: 5px !important;
+        padding-top: 15px !important;
     }
     .product-title {
-        font-size: 12px !important;
+        font-size: 11px !important;
     }
     .product-price {
-        font-size: 14px !important;
+        font-size: 13px !important;
     }
     div[data-testid="stMetricValue"],
     [data-testid="stMetricValue"] {
-        font-size: 26px !important;
-        padding: 6px 12px !important;
+        font-size: 24px !important;
+        padding: 4px 10px !important;
     }
     div[data-testid="stMainBlockContainer"] div.stButton > button {
-        font-size: 14px !important;
+        font-size: 13px !important;
+        padding: 8px 12px !important;
     }
 }
 
