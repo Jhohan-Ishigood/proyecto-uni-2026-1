@@ -3,7 +3,7 @@ import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 
 # Caché de lectura en segundos (evita sobrepasar la cuota de Google Sheets API)
-TTL_LECTURA = 10
+TTL_LECTURA = 60
 
 def get_connection():
     """Retorna la conexión a Google Sheets."""
@@ -67,6 +67,20 @@ def inicializar_db(db_path=None):
         except Exception:
             df_ord = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "detalle_articulos", "entrega", "metodo_pago", "total"])
             conn.create(worksheet="ordenes", data=df_ord)
+            
+        # 4. Asegurar hoja 'calificaciones'
+        try:
+            conn.read(worksheet="calificaciones", ttl=TTL_LECTURA)
+        except Exception:
+            df_cal = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "calificacion", "comentario"])
+            conn.create(worksheet="calificaciones", data=df_cal)
+
+        # 5. Asegurar hoja 'logs'
+        try:
+            conn.read(worksheet="logs", ttl=TTL_LECTURA)
+        except Exception:
+            df_logs = pd.DataFrame(columns=["fecha_hora", "nivel", "mensaje", "detalle"])
+            conn.create(worksheet="logs", data=df_logs)
         
         st.session_state["_db_inicializada"] = True
     except Exception as e:
@@ -122,11 +136,11 @@ def eliminar_categoria(db_path, nombre):
     except Exception as e:
         st.error(f"Error eliminando categoría en GSheets: {e}")
 
-def obtener_menu(db_path=None):
+def obtener_menu(db_path=None, ttl=TTL_LECTURA):
     """Retorna los productos en un diccionario con la estructura original del menú dinámico."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="productos", ttl=TTL_LECTURA)
+        df = conn.read(worksheet="productos", ttl=ttl)
         if df.empty or "nombre" not in df.columns:
             return {}
             
@@ -193,8 +207,10 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
             df = pd.concat([df, new_row], ignore_index=True)
             
         conn.update(worksheet="productos", data=df)
+        return True
     except Exception as e:
         st.error(f"Error guardando producto en GSheets: {e}")
+        return False
 
 def eliminar_producto(db_path, nombre):
     """Elimina un producto por su nombre."""
@@ -204,14 +220,16 @@ def eliminar_producto(db_path, nombre):
         if not df.empty and "nombre" in df.columns:
             df = df[df["nombre"].astype(str) != nombre]
             conn.update(worksheet="productos", data=df)
+        return True
     except Exception as e:
         st.error(f"Error eliminando producto de GSheets: {e}")
+        return False
 
-def obtener_ordenes(db_path=None):
+def obtener_ordenes(db_path=None, ttl=TTL_LECTURA):
     """Retorna el historial completo de boletas/órdenes."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="ordenes", ttl=TTL_LECTURA)
+        df = conn.read(worksheet="ordenes", ttl=ttl)
         if df.empty or "nro_boleta" not in df.columns:
             return []
             
@@ -253,8 +271,10 @@ def crear_orden(db_path, fecha_hora, nro_boleta, detalle_articulos, entrega, met
         }])
         df = pd.concat([df, new_row], ignore_index=True)
         conn.update(worksheet="ordenes", data=df)
+        return True
     except Exception as e:
         st.error(f"Error registrando orden en GSheets: {e}")
+        return False
 
 def actualizar_stock(db_path, nombre, stock_restante):
     """Actualiza el stock de un producto específico."""
@@ -265,5 +285,71 @@ def actualizar_stock(db_path, nombre, stock_restante):
             idx = df[df["nombre"].astype(str) == nombre].index[0]
             df.at[idx, "stock"] = _convertir_tipo(stock_restante, "int", default=0)
             conn.update(worksheet="productos", data=df)
+            return True
+        st.error(f"No se encontró el producto '{nombre}' para actualizar stock.")
+        return False
     except Exception as e:
         st.error(f"Error actualizando stock en GSheets: {e}")
+        return False
+
+def crear_calificacion(db_path, fecha_hora, nro_boleta, calificacion, comentario):
+    """Registra una calificación del cliente (1-5 estrellas) con comentario opcional."""
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="calificaciones", ttl=0)
+        if df.empty or "nro_boleta" not in df.columns:
+            df = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "calificacion", "comentario"])
+        
+        new_row = pd.DataFrame([{
+            "fecha_hora": fecha_hora,
+            "nro_boleta": nro_boleta,
+            "calificacion": int(calificacion),
+            "comentario": str(comentario or ""),
+        }])
+        df = pd.concat([df, new_row], ignore_index=True)
+        conn.update(worksheet="calificaciones", data=df)
+        return True
+    except Exception as e:
+        st.error(f"Error registrando calificación en GSheets: {e}")
+        return False
+
+def obtener_calificaciones(db_path=None, ttl=None):
+    """Retorna todas las calificaciones registradas."""
+    if ttl is None:
+        ttl = TTL_LECTURA
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="calificaciones", ttl=ttl)
+        if df.empty or "calificacion" not in df.columns:
+            return []
+        calificaciones = []
+        for _, row in df.iterrows():
+            calificaciones.append({
+                "fecha_hora": str(row.get("fecha_hora", "")),
+                "nro_boleta": str(row.get("nro_boleta", "")),
+                "calificacion": int(row.get("calificacion", 0)),
+                "comentario": str(row.get("comentario", "")),
+            })
+        return calificaciones
+    except Exception:
+        return []
+
+def registrar_log(db_path, fecha_hora, nivel, mensaje, detalle=""):
+    """Registra un evento en la hoja de logs para auditoría."""
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="logs", ttl=0)
+        if df.empty or "mensaje" not in df.columns:
+            df = pd.DataFrame(columns=["fecha_hora", "nivel", "mensaje", "detalle"])
+        
+        new_row = pd.DataFrame([{
+            "fecha_hora": fecha_hora,
+            "nivel": str(nivel),
+            "mensaje": str(mensaje),
+            "detalle": str(detalle or ""),
+        }])
+        df = pd.concat([df, new_row], ignore_index=True)
+        conn.update(worksheet="logs", data=df)
+        return True
+    except Exception:
+        return False

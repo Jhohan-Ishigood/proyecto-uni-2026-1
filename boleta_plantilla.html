@@ -1,12 +1,11 @@
 <!-- ============================================================================
     1. CABECERA MULTIMEDIA E IMPORTACIÓN DE DEPENDENCIAS (CDN MASTER OFICIAL)
     ============================================================================ -->
-<script src="https://cloudflare.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" referrerpolicy="no-referrer"></script>
 
 <!-- ============================================================================
     2. VISTA DE IMPRESIÓN: CONTENEDOR DE TICKET FÍSICO REALISTA POS
     ============================================================================ -->
-<!-- CORREGIDO: Retiramos el emoji del texto final para evitar el bloqueo del motor gráfico -->
 <div id="ticket" style="
     background-color: #fffdf6; 
     color: #111111; 
@@ -14,7 +13,8 @@
     font-size: 14px;
     font-weight: bold;
     padding: 25px; 
-    width: 380px; 
+    width: 380px;
+    max-width: 100%;
     border-top: 4px solid #f39c12; 
     border-bottom: 3px dashed #bbb; 
     box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.5);
@@ -22,6 +22,7 @@
     line-height: 1.5;
     margin: 10px auto 25px auto;
     border-radius: 2px;
+    box-sizing: border-box;
 ">==============================================
             EL GRAN BÚFALO E.I.R.L.
             RUC: 20608247140
@@ -59,7 +60,7 @@ Muchas gracias por su compra, vuelva pronto!
     border-radius: 6px; 
     cursor: pointer;
     width: 100%;
-    max-width: 430px;
+    max-width: 380px;
     margin: 0 auto;
     display: block;
     box-shadow: 0px 5px 15px rgba(39, 174, 96, 0.3);
@@ -76,6 +77,11 @@ if (window.parent) {
 }
 
 function descargarTicketFoto() {
+    if (typeof html2canvas === 'undefined') {
+        alert("No se pudo cargar el generador de imagen. Revise su conexión e intente nuevamente.");
+        return;
+    }
+
     const elemento = document.getElementById('ticket');
     const boton = document.querySelector('button');
     const textoOriginal = boton.innerHTML;

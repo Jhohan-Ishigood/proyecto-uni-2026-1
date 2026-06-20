@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import os
 import json
 import base64
+import html as html_lib
 from PIL import Image
 from io import BytesIO
 import pandas as pd
@@ -13,6 +14,8 @@ import altair as alt
 import streamlit.components.v1 as components
 import re
 import unicodedata
+from urllib.parse import quote
+from difflib import SequenceMatcher
 import database
 
 # Configuración inicial del lienzo responsivo de la aplicación
@@ -40,6 +43,15 @@ for carpeta in OPCIONES_CARPETA:
 RUTA_CSS = os.path.join(BASE_DIR, "estilos.css")
 RUTA_HTML = os.path.join(BASE_DIR, "boleta_plantilla.html")
 URL_BANNER_LOCAL = os.path.join(BASE_DIR, "Captura de pantalla 2026-05-24 090610.png")
+WHATSAPP_NEGOCIO = "51982174847"
+HORA_APERTURA = 8
+HORA_CIERRE = 23
+CODIGOS_CUPON = {
+    "BUFFALO10": {"tipo": "porcentaje", "valor": 0.10, "descripcion": "10% de descuento"},
+    "DELIVERYFREE": {"tipo": "delivery", "valor": 6.0, "descripcion": "Delivery gratis"},
+    "COMBO5": {"tipo": "monto", "valor": 5.0, "descripcion": "S/5.00 de descuento"},
+}
+MIN_SEGUNDOS_ENTRE_BOLETAS = 10  # Rate limiting: mínimo de segundos entre emisiones
 
 # Inicialización de la conexión a Google Sheets (base de datos en la nube)
 database.inicializar_db()
@@ -55,6 +67,102 @@ def sanitizar_nombre(texto):
     texto = re.sub(r'[^a-z0-9_]', '_', texto)
     texto = re.sub(r'_+', '_', texto)
     return texto.strip('_')
+
+def escapar_html(valor):
+    """Escapa texto dinámico antes de insertarlo en HTML renderizado por Streamlit."""
+    return html_lib.escape(str(valor), quote=True)
+
+def generar_numero_boleta(historial_ordenes):
+    """Calcula el siguiente correlativo desde el mayor número de boleta existente."""
+    mayor = 0
+    for orden in historial_ordenes:
+        nro_boleta = str(orden.get("Nro. Boleta", ""))
+        match = re.search(r"(\d+)$", nro_boleta)
+        if match:
+            mayor = max(mayor, int(match.group(1)))
+    return mayor + 1
+
+def validar_carrito_con_stock(carrito):
+    """Relee el menú sin caché y confirma que el carrito todavía tenga stock suficiente."""
+    menu_actualizado = database.obtener_menu(ttl=0)
+    errores = []
+
+    for item in carrito:
+        producto = item["producto"]
+        cantidad = int(item["cantidad"])
+        info = menu_actualizado.get(producto)
+
+        if not info:
+            errores.append(f"'{producto}' ya no existe en la carta.")
+            continue
+
+        stock_actual = int(info.get("stock", 0))
+        if not info.get("disponible", False):
+            errores.append(f"'{producto}' ya no está disponible.")
+        elif stock_actual < cantidad:
+            errores.append(f"'{producto}' solo tiene {stock_actual} unidad(es) disponibles.")
+
+    return len(errores) == 0, menu_actualizado, errores
+
+def pedidos_abiertos(ahora):
+    """Valida horario operativo local y pausa manual de pedidos."""
+    return HORA_APERTURA <= ahora.hour < HORA_CIERRE and not st.session_state.get("pedidos_pausados", False)
+
+def tiempo_estimado_texto(tiene_delivery=False):
+    return "30-45 min" if tiene_delivery else "15-20 min"
+
+def normalizar_telefono(texto):
+    return re.sub(r"\D+", "", texto or "")
+
+def calcular_descuento(codigo, subtotal, costo_delivery, total_items):
+    codigo_normalizado = (codigo or "").strip().upper()
+    if not codigo_normalizado:
+        return 0.0, ""
+
+    cupon = CODIGOS_CUPON.get(codigo_normalizado)
+    if not cupon:
+        return 0.0, "Código de cupón no válido."
+
+    if codigo_normalizado == "COMBO5" and total_items < 3:
+        return 0.0, "COMBO5 requiere al menos 3 productos."
+
+    if cupon["tipo"] == "porcentaje":
+        descuento = subtotal * cupon["valor"]
+    elif cupon["tipo"] == "delivery":
+        descuento = min(costo_delivery, cupon["valor"])
+    else:
+        descuento = min(subtotal + costo_delivery, cupon["valor"])
+
+    return round(descuento, 2), f"{codigo_normalizado}: {cupon['descripcion']}"
+
+def recalcular_carrito(carrito):
+    total = 0.0
+    carrito_limpio = []
+    for item in carrito:
+        producto = item["producto"]
+        cantidad = int(item["cantidad"])
+        if cantidad <= 0 or producto not in st.session_state.menu_dinamico:
+            continue
+        precio = float(st.session_state.menu_dinamico[producto]["precio"])
+        subtotal = precio * cantidad
+        carrito_limpio.append({"producto": producto, "cantidad": cantidad, "subtotal": subtotal})
+        total += subtotal
+    return carrito_limpio, total
+
+def construir_mensaje_whatsapp(correlativo, carrito, total, entrega, cliente, telefono):
+    lineas = [
+        "Hola, El Gran Bufalo.",
+        f"Pedido {correlativo}:",
+    ]
+    for item in carrito:
+        lineas.append(f"- {item['cantidad']}x {item['producto']} = S/{item['subtotal']:.2f}")
+    lineas.extend([
+        f"Entrega: {entrega}",
+        f"Cliente: {cliente or 'No indicado'}",
+        f"Telefono: {telefono or 'No indicado'}",
+        f"Total: S/{total:.2f}",
+    ])
+    return f"https://wa.me/{WHATSAPP_NEGOCIO}?text={quote(chr(10).join(lineas))}"
 
 def render_stepper(paso_actual):
     """Renderiza un stepper visual de progreso para el flujo del cliente."""
@@ -140,10 +248,24 @@ if "total_acumulado" not in st.session_state:
     st.session_state.total_acumulado = 0.0
 if "pedido_guardado" not in st.session_state:
     st.session_state.pedido_guardado = False
+if "boleta_emitida" not in st.session_state:
+    st.session_state.boleta_emitida = False
 if "pantalla_actual" not in st.session_state:
     st.session_state.pantalla_actual = "bienvenida"
 if "categoria_activa" not in st.session_state:
     st.session_state.categoria_activa = "Todos"
+if "pedidos_pausados" not in st.session_state:
+    st.session_state.pedidos_pausados = False
+if "cliente_nombre" not in st.session_state:
+    st.session_state.cliente_nombre = ""
+if "cliente_telefono" not in st.session_state:
+    st.session_state.cliente_telefono = ""
+if "cupon_aplicado" not in st.session_state:
+    st.session_state.cupon_aplicado = ""
+if "favoritos" not in st.session_state:
+    st.session_state.favoritos = set()
+if "ultima_boleta_time" not in st.session_state:
+    st.session_state.ultima_boleta_time = 0
 
 # Defensa contra categorías activas eliminadas
 if st.session_state.categoria_activa not in st.session_state.lista_categorias:
@@ -151,7 +273,9 @@ if st.session_state.categoria_activa not in st.session_state.lista_categorias:
 
 # Anclaje y sincronización de reloj oficial para Perú (GMT-5)
 zona_peru = timezone(timedelta(hours=-5))
-fecha_actual = datetime.now(zona_peru).strftime("%d/%m/%Y %H:%M:%S")
+ahora_peru = datetime.now(zona_peru)
+fecha_actual = ahora_peru.strftime("%d/%m/%Y %H:%M:%S")
+servicio_abierto = pedidos_abiertos(ahora_peru)
 
 # ============================================================================
 # 4. MOTOR DE ANALÍTICA COMERCIAL Y PROCESAMIENTO DE KPI'S
@@ -166,7 +290,8 @@ metodos_pagos = {"Efectivo": 0.0, "Yape": 0.0, "Tarjeta": 0.0}
 # Procesamiento del historial de transacciones en la base de datos JSON
 for orden in st.session_state.historial_ordenes:
     try:
-        monto_num = float(orden["Total"].replace("S/", "").strip())
+        total_str = str(orden.get("Total", "0")).replace("S/", "").strip()
+        monto_num = float(total_str) if total_str and total_str != "nan" else 0.0
         total_caja += monto_num
         
         if orden["Método Pago"] in metodos_pagos:
@@ -186,9 +311,7 @@ for orden in st.session_state.historial_ordenes:
         pass  # Evita que una orden corrupta detenga el software
 
 # Generación del número correlativo automático para la siguiente boleta
-st.session_state.numero_boleta = total_pedidos + 1
-# ============================================================================
-# 5. INJECTION EXTERNA DE MARCA Y REGLAS DE DISEÑO DE AUTORÍA
+st.session_state.numero_boleta = generar_numero_boleta(st.session_state.historial_ordenes)
 # ============================================================================
 if os.path.exists(RUTA_CSS):
     with open(RUTA_CSS, "r", encoding="utf-8") as f:
@@ -248,15 +371,18 @@ if st.session_state.mostrar_login_admin:
         usuario_input = st.text_input("Nombre de Usuario:", key="user_login").strip()
         clave_input = st.text_input("Contraseña:", type="password", key="pass_login").strip()
 
-# Validación de credenciales blindada (Usa Streamlit Secrets o respaldo local)
-USER_PROD = st.secrets.get("admin_user", "Grupo 5")
-PASS_PROD = st.secrets.get("admin_password", "jhohan-2026")
+# Validación de credenciales blindada: sin secrets configurados no hay acceso admin
+USER_PROD = st.secrets.get("admin_user")
+PASS_PROD = st.secrets.get("admin_password")
+credenciales_admin_configuradas = bool(USER_PROD and PASS_PROD)
 
-es_admin = (usuario_input == USER_PROD and clave_input == PASS_PROD)
+es_admin = credenciales_admin_configuradas and usuario_input == USER_PROD and clave_input == PASS_PROD
 
 # Retroalimentación interactiva del estado del usuario
 if es_admin:
     st.sidebar.success("✔ Modo Administrador Activo")
+elif st.session_state.mostrar_login_admin and not credenciales_admin_configuradas:
+    st.sidebar.warning("Admin no configurado. Agregue admin_user y admin_password en Streamlit Secrets.")
 elif usuario_input or clave_input:
     st.sidebar.error("❌ Credenciales incorrectas")
 
@@ -326,6 +452,13 @@ if es_admin or (st.session_state.pantalla_actual == "catalogo" and not st.sessio
 if es_admin:
     st.markdown("<h1 class='titulo-principal'>📊 PANEL DE ADMINISTRACIÓN</h1>", unsafe_allow_html=True)
     st.info(f"📋 **Reporte Gerencial del Grupo 5** — Sincronizado en tiempo real: {fecha_actual}")
+    st.session_state.pedidos_pausados = st.toggle(
+        "Pausar recepción de pedidos de clientes",
+        value=st.session_state.pedidos_pausados,
+        help="Bloquea temporalmente nuevos pedidos sin modificar la carta.",
+    )
+    if st.session_state.pedidos_pausados:
+        st.warning("La recepción de pedidos está pausada para esta sesión.")
     st.markdown("<br>", unsafe_allow_html=True)
 
     # Bloque expandible de control de pestañas y categorías
@@ -405,7 +538,7 @@ if es_admin:
                 if nuevo_nombre not in st.session_state.menu_dinamico:
                     ruta_foto = convertir_imagen_a_base64(archivo_foto)
 
-                    database.guardar_producto(
+                    exito_guardado = database.guardar_producto(
                         db_path=None,
                         nombre=nuevo_nombre,
                         precio=nuevo_precio,
@@ -415,9 +548,10 @@ if es_admin:
                         stock=int(nuevo_stock),
                         categoria_nombre=nueva_categoria_asociada
                     )
-                    st.success(f"✔ ¡{nuevo_icono} {nuevo_nombre} integrado con éxito en '{nueva_categoria_asociada}'!")
-                    st.session_state["_forzar_recarga"] = True
-                    st.rerun()
+                    if exito_guardado:
+                        st.success(f"✔ ¡{nuevo_icono} {nuevo_nombre} integrado con éxito en '{nueva_categoria_asociada}'!")
+                        st.session_state["_forzar_recarga"] = True
+                        st.rerun()
                 else:
                     st.error("⚠️ Error: Ese producto ya existe en la carta actual.")
             else:
@@ -556,18 +690,19 @@ if es_admin:
     # 12. MANEJADOR OPERATIVO DE PERSISTENCIA SEGURA
     # ============================================================================
     if eliminar_producto is not None:
-        database.eliminar_producto(None, eliminar_producto)
-        st.success(f"✔ ¡Producto '{eliminar_producto}' eliminado con éxito!")
-        st.session_state["_forzar_recarga"] = True
-        st.rerun()
+        if database.eliminar_producto(None, eliminar_producto):
+            st.success(f"✔ ¡Producto '{eliminar_producto}' eliminado con éxito!")
+            st.session_state["_forzar_recarga"] = True
+            st.rerun()
 
     if st.button("💾 CONFIRMAR Y SINCRONIZAR CAMBIOS DE LA CARTA", use_container_width=True):
         # Sincronizamos los cambios al almacenamiento de Google Sheets
+        todos_guardados = True
         for prod_key, info_actualizada in cambios_detectados.items():
             archivo_subido = st.session_state.get(f"f_up_{prod_key}")
             ruta_foto = convertir_imagen_a_base64(archivo_subido)
                 
-            database.guardar_producto(
+            todos_guardados = database.guardar_producto(
                 db_path=None,
                 nombre=prod_key,
                 precio=info_actualizada["precio"],
@@ -576,10 +711,11 @@ if es_admin:
                 foto_ruta=ruta_foto,
                 stock=info_actualizada["stock"],
                 categoria_nombre=info_actualizada["categoria"]
-            )
-        st.success("✔ ¡Cambios guardados físicamente con éxito!")
-        st.session_state["_forzar_recarga"] = True
-        st.rerun()
+            ) and todos_guardados
+        if todos_guardados:
+            st.success("✔ ¡Cambios guardados físicamente con éxito!")
+            st.session_state["_forzar_recarga"] = True
+            st.rerun()
 
     # ============================================================================
     # 13. PANEL DE CONTROL DE ADMINISTRACIÓN - AUDITORÍA FINANCIERA Y ANALÍTICA
@@ -609,6 +745,29 @@ if es_admin:
     hora_pico = max(horas_pedidos, key=horas_pedidos.get) if horas_pedidos else "--"
     with col_kpi4:
         st.markdown(f"<div style='background-color:#1a1028;padding:20px;border-radius:8px;border-left:5px solid #3498db;box-shadow:0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0;font-size:14px;color:#aaa;font-weight:bold;'>⏰ HORA PICO</p><h2 style='margin:5px 0 0 0;color:#fff;font-size:32px;'>{hora_pico}:00 hrs</h2></div>", unsafe_allow_html=True)
+
+    fecha_reporte = st.date_input("Filtrar reporte por fecha", value=ahora_peru.date(), key="fecha_reporte_admin")
+    ordenes_fecha = []
+    for orden in st.session_state.historial_ordenes:
+        try:
+            fecha_orden = datetime.strptime(orden.get("Fecha y Hora", "")[:10], "%d/%m/%Y").date()
+            if fecha_orden == fecha_reporte:
+                ordenes_fecha.append(orden)
+        except ValueError:
+            continue
+
+    ventas_fecha = 0.0
+    for orden in ordenes_fecha:
+        try:
+            ventas_fecha += float(orden["Total"].replace("S/", "").strip())
+        except (ValueError, KeyError):
+            pass
+    ticket_fecha = ventas_fecha / len(ordenes_fecha) if ordenes_fecha else 0.0
+
+    col_dia1, col_dia2, col_dia3 = st.columns(3)
+    col_dia1.metric("Ventas del día", f"S/{ventas_fecha:.2f}")
+    col_dia2.metric("Pedidos del día", len(ordenes_fecha))
+    col_dia3.metric("Ticket promedio día", f"S/{ticket_fecha:.2f}")
         
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### 📈 ANALÍTICA: UNIDADES VENDIDAS DE LA JORNADA")
@@ -638,6 +797,25 @@ if es_admin:
     texto_etiquetas = barras.mark_text(align='center', baseline='bottom', dy=-5, color='#ffffff', fontSize=13, fontWeight='bold').encode(text='Cantidad:Q')
     grafico_final = (barras + texto_etiquetas).properties(width=600, height=320).configure_view(strokeWidth=0).configure_axis(domainWidth=1, domainColor='#444444')
     st.altair_chart(grafico_final, use_container_width=True)
+    
+    # Tendencia por horas
+    st.markdown("### 📈 TENDENCIA DE VENTAS POR HORA")
+    horas_pedidos = {}
+    for orden in st.session_state.historial_ordenes:
+        try:
+            # Buscar llave "Fecha y Hora" o la equivalente en keys
+            llave_fecha = "Fecha y Hora" if "Fecha y Hora" in orden else list(orden.keys())[0]
+            hora = orden[llave_fecha].split(" ")[1].split(":")[0]
+            horas_pedidos[hora] = horas_pedidos.get(hora, 0) + 1
+        except Exception:
+            pass
+    if horas_pedidos:
+        df_horas = pd.DataFrame(list(horas_pedidos.items()), columns=['Hora', 'Pedidos']).sort_values('Hora')
+        line_chart = alt.Chart(df_horas).mark_line(point=True, color='#e91e8c', strokeWidth=3).encode(
+            x=alt.X('Hora:N', title='Hora del Día'),
+            y=alt.Y('Pedidos:Q', title='Cantidad de Pedidos')
+        ).properties(height=250)
+        st.altair_chart(line_chart, use_container_width=True)
 
     # ============================================================================
     # 14. PANEL DE CONTROL DE ADMINISTRACIÓN - BITÁCORA HISTÓRICA DE PEDIDOS
@@ -646,6 +824,15 @@ if es_admin:
     st.markdown("### 🕒 BITÁCORA: CONTROL HISTÓRICO DE PEDIDOS")
     if st.session_state.historial_ordenes:
         df_historial = pd.DataFrame(st.session_state.historial_ordenes)
+        csv_data = df_historial.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 EXPORTAR HISTORIAL A CSV",
+            data=csv_data,
+            file_name=f"historial_{fecha_actual.split(' ')[0].replace('/','-')}.csv",
+            mime="text/csv",
+            use_container_width=True,
+            key="btn_export_historial"
+        )
         df_historial.columns = ["🕒 FECHA Y HORA", "🧾 NRO. BOLETA", "📦 DETALLE ARTÍCULOS", "🛵 ENTREGA", "💳 MÉTODO PAGO", "💰 TOTAL"]
         st.dataframe(df_historial, use_container_width=True, hide_index=True)
     else:
@@ -699,10 +886,22 @@ else:
         st.markdown("<h2 class='titulo-principal'>SISTEMA DE PEDIDOS GRAN BÚFALO</h2>", unsafe_allow_html=True)
         st.markdown("<br><p style='text-align: center; font-size: 24px; font-weight: bold; color: #f39c12;'>🔥 Bienvenidos al templo de la buena carne 🔥</p>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; font-size: 18px; color: #ffffff;'>¿Desea registrar un nuevo pedido de nuestra deliciosa parrilla?</p>", unsafe_allow_html=True)
+        estado_servicio = "ABIERTO" if servicio_abierto else "CERRADO"
+        color_estado = "#2ecc71" if servicio_abierto else "#e74c3c"
+        st.markdown(
+            f"<div class='status-strip' style='border-color:{color_estado};'>"
+            f"<strong style='color:{color_estado};'>{estado_servicio}</strong>"
+            f"<span>Atención: {HORA_APERTURA}:00 - {HORA_CIERRE}:00 | Recojo 15-20 min | Delivery 30-45 min</span>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        if not servicio_abierto:
+            st.warning("Los pedidos están deshabilitados por horario de atención o pausa operativa.")
         st.markdown("<br>", unsafe_allow_html=True)
         
-        if st.button("🛒 EMPEZAR MI PEDIDO", use_container_width=True, key="btn_empezar_pedido_master"):
+        if st.button("🛒 EMPEZAR MI PEDIDO", use_container_width=True, key="btn_empezar_pedido_master", disabled=not servicio_abierto):
             st.session_state.pantalla_actual = "catalogo"
+            st.session_state.boleta_emitida = False
             st.rerun()
             
         # Bloque de Redes Sociales Corporativas de El Gran Búfalo
@@ -727,9 +926,26 @@ else:
         
         st.subheader(f"🍽️ SELECCIÓN DE {st.session_state.categoria_activa.upper()}")
         st.info("Ingrese las cantidades de los productos que desea llevar:")
+        if not servicio_abierto:
+            st.warning("El catálogo está visible, pero no se pueden confirmar pedidos fuera del horario de atención.")
+
+        col_filtro1, col_filtro2 = st.columns(2)
+        with col_filtro1:
+            filtro_catalogo = st.selectbox(
+                "Filtro rápido",
+                ["Todos", "Disponibles", "Últimas unidades", "Agotados", "Más vendido"],
+                key="filtro_catalogo_cliente",
+            )
+        with col_filtro2:
+            orden_catalogo = st.selectbox(
+                "Ordenar por",
+                ["Carta original", "Menor precio", "Mayor precio", "Mayor stock"],
+                key="orden_catalogo_cliente",
+            )
 
         productos_lista = list(st.session_state.menu_dinamico.keys())
         productos_filtrados = []
+        producto_mas_vendido = max(conteos_productos, key=conteos_productos.get) if conteos_productos and max(conteos_productos.values()) > 0 else None
 
         for prod in productos_lista:
             if busqueda and busqueda not in prod.lower():
@@ -737,12 +953,29 @@ else:
                 
             info_prod = st.session_state.menu_dinamico[prod]
             cat_prod = info_prod.get("categoria", "Parrillas")
+            stock_prod = int(info_prod.get("stock", 0))
+            disponible_prod = bool(info_prod.get("disponible", False)) and stock_prod > 0
 
             if st.session_state.categoria_activa == "Todos" or st.session_state.categoria_activa == cat_prod:
+                if filtro_catalogo == "Disponibles" and not disponible_prod:
+                    continue
+                if filtro_catalogo == "Últimas unidades" and not (0 < stock_prod <= 3):
+                    continue
+                if filtro_catalogo == "Agotados" and stock_prod > 0:
+                    continue
+                if filtro_catalogo == "Más vendido" and prod != producto_mas_vendido:
+                    continue
                 productos_filtrados.append(prod)
 
-        # Determinar producto más vendido
-        producto_mas_vendido = max(conteos_productos, key=conteos_productos.get) if conteos_productos and max(conteos_productos.values()) > 0 else None
+        if orden_catalogo == "Menor precio":
+            productos_filtrados.sort(key=lambda p: float(st.session_state.menu_dinamico[p].get("precio", 0)))
+        elif orden_catalogo == "Mayor precio":
+            productos_filtrados.sort(key=lambda p: float(st.session_state.menu_dinamico[p].get("precio", 0)), reverse=True)
+        elif orden_catalogo == "Mayor stock":
+            productos_filtrados.sort(key=lambda p: int(st.session_state.menu_dinamico[p].get("stock", 0)), reverse=True)
+
+        if not productos_filtrados:
+            st.warning("No hay productos para el filtro seleccionado.")
 
         col1, col2 = st.columns(2, gap="medium")
         cantidades_ingresadas = {}
@@ -756,18 +989,35 @@ else:
             esta_disponible = info["disponible"] and stock_actual > 0
             
             with target_col:
+                prod_html = escapar_html(prod)
+                icono_html = escapar_html(info.get("icono", ""))
                 if esta_disponible:
                     if prod == producto_mas_vendido:
                         st.markdown("<div style='background:linear-gradient(135deg,#f39c12,#e67e22);color:#fff;padding:4px 12px;border-radius:20px;display:inline-block;font-size:12px;font-weight:800;margin-bottom:5px;'>👑 MÁS VENDIDO</div>", unsafe_allow_html=True)
+                    if stock_actual <= 3:
+                        st.markdown("<div class='badge-soft'>ÚLTIMAS UNIDADES</div>", unsafe_allow_html=True)
                     url_imagen_plato = info.get("foto", "")
                     src_imagen_plato = obtener_src_foto(url_imagen_plato)
-                    st.markdown(f"""<img src="{src_imagen_plato}" style="width:100%; height:200px; object-fit:cover; border-radius:12px 12px 0px 0px; box-shadow: 0px 4px 12px rgba(0,0,0,0.6); display:block; margin:0; padding:0;">""", unsafe_allow_html=True)
+                    is_fav = prod in st.session_state.favoritos
+                    st.markdown(f"""
+                        <div style="position:relative;">
+                            <img src="{escapar_html(src_imagen_plato)}" style="width:100%; height:200px; object-fit:cover; border-radius:12px 12px 0px 0px; box-shadow: 0px 4px 12px rgba(0,0,0,0.6); display:block; margin:0; padding:0;">
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    nuevo_fav = st.checkbox("❤️ Favorito", value=is_fav, key=f"fav_{prod}")
+                    if nuevo_fav != is_fav:
+                        if nuevo_fav:
+                            st.session_state.favoritos.add(prod)
+                        else:
+                            st.session_state.favoritos.remove(prod)
+                        st.rerun()
                     
                     texto_precio = f"S/{info['precio']:.2f}"
                     
                     st.markdown(f"""
                         <div class='product-card-bottom'>
-                            <span class='product-title'>{info['icono']} {prod}</span>
+                            <span class='product-title'>{icono_html} {prod_html}</span>
                             <span class='product-price'>{texto_precio}</span>
                         </div>
                     """, unsafe_allow_html=True)
@@ -782,10 +1032,26 @@ else:
                     )
                     st.markdown("<br>", unsafe_allow_html=True)
                 else:
-                    st.markdown(f"""<div style="width:100%; height:200px; background-color:#222; border-radius:12px 12px 0px 0px; display:flex; align-items:center; justify-content:center;"><span style="font-size:50px; filter:grayscale(100%);">{info['icono']}</span></div>""", unsafe_allow_html=True)
-                    st.markdown(f"<div style='background-color:#1a1028; padding:20px; border-radius:0px 0px 12px 12px; border:2px solid #ff4b4b; text-align:center; margin-bottom:25px;'><p style='color: #ff4b4b; font-size:18px; font-weight: bold; margin:0;'>❌ {prod}<br>(AGOTADO)</p></div>", unsafe_allow_html=True)
+                    st.markdown(f"""<div style="width:100%; height:200px; background-color:#222; border-radius:12px 12px 0px 0px; display:flex; align-items:center; justify-content:center;"><span style="font-size:50px; filter:grayscale(100%);">{icono_html}</span></div>""", unsafe_allow_html=True)
+                    st.markdown(f"<div style='background-color:#1a1028; padding:20px; border-radius:0px 0px 12px 12px; border:2px solid #ff4b4b; text-align:center; margin-bottom:25px;'><p style='color: #ff4b4b; font-size:18px; font-weight: bold; margin:0;'>❌ {prod_html}<br>(AGOTADO)</p></div>", unsafe_allow_html=True)
         st.markdown("---")
-        if st.button("🛒 ENVIAR PEDIDO Y CONFIGURAR PAGO", use_container_width=True):
+        resumen_previo = []
+        total_previo = 0.0
+        for prod, cant in cantidades_ingresadas.items():
+            if cant > 0:
+                subtotal_previo = cant * st.session_state.menu_dinamico[prod]["precio"]
+                resumen_previo.append(f"{cant}x {prod}")
+                total_previo += subtotal_previo
+        if resumen_previo:
+            st.info(f"Carrito actual: {', '.join(resumen_previo)} | Total parcial: S/{total_previo:.2f}")
+            st.markdown(f"""
+                <div class="floating-cart-bar">
+                    <div class="cart-summary">🛒 {len(resumen_previo)} ítems seleccionados</div>
+                    <div class="cart-total">Total: S/{total_previo:.2f}</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        if st.button("🛒 ENVIAR PEDIDO Y CONFIGURAR PAGO", use_container_width=True, disabled=not servicio_abierto):
             st.session_state.carrito = []
             st.session_state.total_acumulado = 0.0
             for prod, cant in cantidades_ingresadas.items():
@@ -796,6 +1062,7 @@ else:
             
             if st.session_state.total_acumulado > 0:
                 st.session_state.pedido_guardado = True
+                st.session_state.boleta_emitida = False
                 st.rerun()
             else:
                 st.error("⚠️ Error: Debe seleccionar al menos 1 producto.")
@@ -811,19 +1078,62 @@ else:
             st.warning("No hay productos en el carrito. Volviendo al inicio...")
             st.session_state.pantalla_actual = "bienvenida"
             st.session_state.pedido_guardado = False
+            st.session_state.boleta_emitida = False
             st.rerun()
         
+        st.markdown("### 🧾 Revisa tu carrito")
+        carrito_editado = []
+        for idx, item in enumerate(st.session_state.carrito):
+            info_prod = st.session_state.menu_dinamico.get(item["producto"], {})
+            stock_disponible = int(info_prod.get("stock", item["cantidad"]))
+            col_item1, col_item2, col_item3 = st.columns([3, 1, 1])
+            with col_item1:
+                st.markdown(f"**{info_prod.get('icono', '🍔')} {item['producto']}**")
+                st.caption(f"Precio unitario: S/{float(info_prod.get('precio', 0)):.2f} | Stock: {stock_disponible}")
+            with col_item2:
+                nueva_cantidad = st.number_input(
+                    "Cantidad",
+                    min_value=0,
+                    max_value=max(stock_disponible, int(item["cantidad"])),
+                    value=int(item["cantidad"]),
+                    step=1,
+                    key=f"checkout_qty_{idx}_{sanitizar_nombre(item['producto'])}",
+                    label_visibility="collapsed",
+                )
+            with col_item3:
+                quitar = st.button("Quitar", key=f"checkout_remove_{idx}_{sanitizar_nombre(item['producto'])}", use_container_width=True)
+
+            if nueva_cantidad > 0 and not quitar:
+                precio = float(info_prod.get("precio", 0))
+                carrito_editado.append({
+                    "producto": item["producto"],
+                    "cantidad": int(nueva_cantidad),
+                    "subtotal": precio * int(nueva_cantidad),
+                })
+
+        st.session_state.carrito, st.session_state.total_acumulado = recalcular_carrito(carrito_editado)
+        if not st.session_state.carrito:
+            st.warning("El carrito quedó vacío. Vuelva al catálogo para seleccionar productos.")
+            st.stop()
         for item in st.session_state.carrito:
-            info_prod = st.session_state.menu_dinamico.get(item['producto'], {})
-            icono_p = info_prod.get('icono', '🍔')
-            st.markdown(f"""
-                <div style="background-color: #1e1e24; border-left: 4px solid #f39c12; padding: 12px 16px; border-radius: 8px; color: #ffffff; font-size: 16px; font-weight: 700; margin-bottom: 10px; box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.5);">
-                    {icono_p} {item['producto']} x{item['cantidad']} &nbsp;|&nbsp; Subtotal: S/{item['subtotal']:.2f}
-                </div>
-            """, unsafe_allow_html=True)
+            st.caption(f"{item['cantidad']}x {item['producto']} - S/{item['subtotal']:.2f}")
         
         st.markdown("---")
-        opcion_delivery = st.radio("¿Desea delivery? (+ S/6.00)", ["NO", "SI"])
+        col_cliente1, col_cliente2 = st.columns(2)
+        with col_cliente1:
+            st.session_state.cliente_nombre = st.text_input(
+                "Nombre del cliente",
+                value=st.session_state.cliente_nombre,
+                placeholder="Ej. María López",
+            ).strip()
+        with col_cliente2:
+            st.session_state.cliente_telefono = st.text_input(
+                "Teléfono de contacto",
+                value=st.session_state.cliente_telefono,
+                placeholder="Ej. 982174847",
+            ).strip()
+
+        opcion_delivery = st.radio("¿Desea delivery? (+ S/6.00)", ["NO", "SI"], horizontal=True)
         direccion_delivery = ""
         costo_delivery = 0.0
         tiene_delivery = False
@@ -832,9 +1142,31 @@ else:
             tiene_delivery = True
             costo_delivery = 6.0
             direccion_delivery = st.text_input("Ingrese su dirección de entrega (Ubicación):", placeholder="Ej. Av. Larco 123...").strip()
-                
-        total_con_delivery = st.session_state.total_acumulado + costo_delivery
-        st.metric(label="Monto Total a Procesar", value=f"S/{total_con_delivery:.2f}")
+        st.caption(f"Tiempo estimado: {tiempo_estimado_texto(tiene_delivery)}")
+
+        total_items_checkout = sum(int(item["cantidad"]) for item in st.session_state.carrito)
+        st.session_state.cupon_aplicado = st.text_input(
+            "Cupón de descuento",
+            value=st.session_state.cupon_aplicado,
+            placeholder="BUFFALO10, DELIVERYFREE o COMBO5",
+        ).strip().upper()
+        descuento, mensaje_cupon = calcular_descuento(
+            st.session_state.cupon_aplicado,
+            st.session_state.total_acumulado,
+            costo_delivery,
+            total_items_checkout,
+        )
+        if mensaje_cupon:
+            if descuento > 0:
+                st.success(mensaje_cupon)
+            else:
+                st.warning(mensaje_cupon)
+
+        total_con_delivery = max(0.0, st.session_state.total_acumulado + costo_delivery - descuento)
+        col_total1, col_total2, col_total3 = st.columns(3)
+        col_total1.metric(label="Subtotal", value=f"S/{st.session_state.total_acumulado:.2f}")
+        col_total2.metric(label="Delivery / descuento", value=f"S/{costo_delivery:.2f} / -S/{descuento:.2f}")
+        col_total3.metric(label="Monto Total a Procesar", value=f"S/{total_con_delivery:.2f}")
 
         metodo_pago = st.selectbox("Seleccione método de pago:", ["Efectivo", "Yape", "Tarjeta"])
         
@@ -882,26 +1214,59 @@ else:
             else:
                 vuelto = pago_usuario - total_con_delivery
 
+        telefono_normalizado = normalizar_telefono(st.session_state.cliente_telefono)
+        if not st.session_state.cliente_nombre:
+            st.warning("Ingrese el nombre del cliente para finalizar el pedido.")
+            formulario_valido = False
+        if len(telefono_normalizado) < 7:
+            st.warning("Ingrese un teléfono válido para confirmar o coordinar el pedido.")
+            formulario_valido = False
+
+        confirmar_pedido = st.checkbox(
+            f"Confirmo emitir este pedido por S/{total_con_delivery:.2f}",
+            key="confirmar_pedido_cliente",
+        )
+
         # ============================================================================
         # 18. FINALIZACIÓN Y COUPLING DE DATOS CON LA BOLETA COMPLEMENTARIA HTML
         # ============================================================================
-        if st.button("💾 EMITIR BOLETA DE VENTA", use_container_width=True):
-            if tiene_delivery and not direccion_delivery:
+        if st.session_state.get("boleta_emitida", False):
+            st.success("Boleta ya emitida. Cree una nueva orden para registrar otra venta.")
+
+        if st.button(
+            "💾 EMITIR BOLETA DE VENTA",
+            use_container_width=True,
+            disabled=st.session_state.get("boleta_emitida", False),
+        ):
+            tiempo_actual_ts = datetime.now().timestamp()
+            tiempo_desde_ultima = tiempo_actual_ts - st.session_state.get("ultima_boleta_time", 0)
+            
+            if not confirmar_pedido:
+                st.error("⚠️ Debe confirmar el pedido marcando la casilla antes de emitir la boleta.")
+            elif tiempo_desde_ultima < MIN_SEGUNDOS_ENTRE_BOLETAS:
+                st.warning(f"⏳ Por favor espere {int(MIN_SEGUNDOS_ENTRE_BOLETAS - tiempo_desde_ultima)} segundos antes de emitir otra boleta.")
+            elif tiene_delivery and not direccion_delivery:
                 st.error("⚠️ Error: Llenar este campo obligatorio (Ingrese su dirección de entrega).")
             elif not formulario_valido:
                 st.error("⚠️ Error: Complete correctamente los datos del formulario de pago antes de continuar.")
             else:
-                st.success("PAGO REALIZADO CORRECTAMENTE - Pedido registrado exitosamente")
-                st.balloons()
-                render_stepper(3)
-                st.markdown("### 🧾 COMPROBANTE EMITIDO")
-                
-                correlativo_sunat = f"B001-{st.session_state.numero_boleta:06d}"
+                stock_valido, menu_actualizado, errores_stock = validar_carrito_con_stock(st.session_state.carrito)
+                if not stock_valido:
+                    for error_stock in errores_stock:
+                        st.error(f"⚠️ {error_stock}")
+                    st.session_state.menu_dinamico = menu_actualizado
+                    st.session_state["_forzar_recarga"] = True
+                    st.stop()
+
+                historial_actualizado = database.obtener_ordenes(ttl=0)
+                numero_boleta_actual = generar_numero_boleta(historial_actualizado)
+                correlativo_sunat = f"B001-{numero_boleta_actual:06d}"
                 detalle_productos_txt = ""
                 items_resumen_lista = []
                 
                 for item in st.session_state.carrito:
-                    detalle_productos_txt += f"{item['cantidad']}x {item['producto']:<18} S/{item['subtotal']:.2f}\n"
+                    producto_boleta = escapar_html(item["producto"])
+                    detalle_productos_txt += f"{item['cantidad']}x {producto_boleta:<18} S/{item['subtotal']:.2f}\n"
                     items_resumen_lista.append(f"{item['cantidad']}x {item['producto']}")
                 
                 if tiene_delivery:
@@ -909,39 +1274,60 @@ else:
                     items_resumen_lista.append("1x Delivery")
                 
                 resumen_articulos_linea = ", ".join(items_resumen_lista)
-                tipo_entrega_txt = f"DELIVERY ({direccion_delivery})" if tiene_delivery else "LOCAL"
+                tipo_entrega_db = f"DELIVERY ({direccion_delivery})" if tiene_delivery else "LOCAL"
+                tipo_entrega_html = escapar_html(tipo_entrega_db)
                 
+                stock_actualizado = True
                 for item in st.session_state.carrito:
                     prod_comprado = item["producto"]
                     cant_comprada = item["cantidad"]
-                    nuevo_stock = max(0, st.session_state.menu_dinamico[prod_comprado].get("stock", 10) - cant_comprada)
-                    database.actualizar_stock(None, prod_comprado, nuevo_stock)
+                    nuevo_stock = int(menu_actualizado[prod_comprado].get("stock", 0)) - int(cant_comprada)
+                    stock_actualizado = database.actualizar_stock(None, prod_comprado, nuevo_stock) and stock_actualizado
+
+                if not stock_actualizado:
+                    st.error("⚠️ No se pudo actualizar el stock. La orden no fue registrada.")
+                    st.stop()
                 
-                database.crear_orden(
+                orden_creada = database.crear_orden(
                     db_path=None,
                     fecha_hora=fecha_actual,
                     nro_boleta=correlativo_sunat,
                     detalle_articulos=resumen_articulos_linea,
-                    entrega=tipo_entrega_txt,
+                    entrega=tipo_entrega_db,
                     metodo_pago=metodo_pago,
                     total=f"S/{total_con_delivery:.2f}"
                 )
+
+                if not orden_creada:
+                    st.error("⚠️ No se pudo registrar la orden. Revise la conexión con Google Sheets.")
+                    st.stop()
+
+                st.session_state.ultima_boleta_time = tiempo_actual_ts
+                st.session_state.boleta_emitida = True
+                st.session_state.numero_boleta = numero_boleta_actual
+                st.session_state.correlativo_sunat = correlativo_sunat
+                st.session_state.menu_dinamico = database.obtener_menu(ttl=0)
+                st.session_state.historial_ordenes = database.obtener_ordenes(ttl=0)
+                st.success("PAGO REALIZADO CORRECTAMENTE - Pedido registrado exitosamente")
+                st.balloons()
+                render_stepper(3)
+                st.markdown("### 🧾 COMPROBANTE EMITIDO")
                 
                 if metodo_pago == "Tarjeta":
-                    metodo_pago_txt = f"TARJETA (APROBADA)\nTitular:      {titular_tarjeta}\nNro. Tarjeta: ************{ultimos_digitos}"
+                    metodo_pago_txt = escapar_html(f"TARJETA (APROBADA)\nTitular:      {titular_tarjeta}\nNro. Tarjeta: ************{ultimos_digitos}")
                 elif metodo_pago == "Yape":
                     metodo_pago_txt = "YAPE (PAGO ELECTRÓNICO)\nVuelto:       S/ 0.00 (Monto exacto)"
                 else:
-                    metodo_pago_txt = f"EFECTIVO\nEfectivo Recibido: S/{pago_usuario:.2f}\nVuelto:            S/{vuelto:.2f}"
+                    metodo_pago_txt = escapar_html(f"EFECTIVO\nEfectivo Recibido: S/{pago_usuario:.2f}\nVuelto:            S/{vuelto:.2f}")
                 
                 if os.path.exists(RUTA_HTML):
                     with open(RUTA_HTML, "r", encoding="utf-8") as archivo_html:
                         plantilla_contenido = archivo_html.read()
                     
                     html_final = plantilla_contenido\
-                        .replace("{{ SERIE_BOLETA }}", correlativo_sunat)\
-                        .replace("{{ FECHA_HORA }}", fecha_actual)\
-                        .replace("{{ TIPO_ENTREGA }}", tipo_entrega_txt)\
+                        .replace("{{ SERIE_BOLETA }}", escapar_html(correlativo_sunat))\
+                        .replace("{{ FECHA_HORA }}", escapar_html(fecha_actual))\
+                        .replace("{{ TIPO_ENTREGA }}", tipo_entrega_html)\
                         .replace("{{ METODO_PAGO }}", metodo_pago_txt)\
                         .replace("{{ DETALLE_PRODUCTOS }}", detalle_productos_txt.strip())\
                         .replace("{{ TOTAL_FINAL }}", f"{total_con_delivery:.2f}")
@@ -950,10 +1336,40 @@ else:
 
                 else:
                     st.error("⚠️ Error: No se pudo encontrar 'boleta_plantilla.html'.")
-                
+                    
+        if st.session_state.get("boleta_emitida", False):
+            st.markdown("---")
+            if tiene_delivery:
+                st.markdown("""
+                <div class="countdown-container">
+                    <div class="countdown-time">35:00</div>
+                    <div class="countdown-label">Tiempo estimado de entrega</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div class="countdown-container">
+                    <div class="countdown-time">15:00</div>
+                    <div class="countdown-label">Tiempo estimado para recojo</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("### 📱 Enviar comprobante al negocio")
+            link_wa = construir_mensaje_whatsapp(st.session_state.get('correlativo_sunat', 'B001-000000'), st.session_state.carrito, total_con_delivery, "Delivery" if tiene_delivery else "Local", st.session_state.cliente_nombre, st.session_state.cliente_telefono)
+            st.markdown(f'<a href="{link_wa}" target="_blank" style="display:block; text-align:center; background:linear-gradient(135deg, #25d366, #1cbd55); color:white; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:18px; margin-bottom:20px;">🟢 ENVIAR PEDIDO POR WHATSAPP</a>', unsafe_allow_html=True)
+            
+            st.markdown("### ⭐ Califica tu experiencia")
+            calificacion = st.slider("¿Qué te pareció el servicio?", 1, 5, 5, help="1 es muy malo, 5 es excelente")
+            comentario_cal = st.text_input("Déjanos un comentario (opcional):", key="comentario_cal")
+            if st.button("Enviar calificación"):
+                exito_cal = database.crear_calificacion(None, fecha_actual, st.session_state.get('correlativo_sunat', ''), calificacion, comentario_cal)
+                if exito_cal:
+                    st.success("¡Gracias por tu calificación!")
+                    
         st.markdown("---")
         if st.button("⬅️ VOLVER AL CATÁLOGO", use_container_width=True, key="btn_volver_catalogo"):
             st.session_state.pedido_guardado = False
+            st.session_state.boleta_emitida = False
             st.session_state.pantalla_actual = "catalogo"
             st.rerun()
 
@@ -962,5 +1378,6 @@ else:
                 st.session_state.carrito = []
                 st.session_state.total_acumulado = 0.0
                 st.session_state.pedido_guardado = False
+                st.session_state.boleta_emitida = False
                 st.session_state.pantalla_actual = "bienvenida"
                 st.rerun()

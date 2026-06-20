@@ -263,7 +263,7 @@ section[data-testid="stSidebar"] .element-container:has(button[key*="btn_toggle_
     margin-top: -4px !important; 
 }
 
-section[data-testid="stSidebar"] button:has(span:contains("Chatear")) {
+section[data-testid="stSidebar"] a[href^="https://wa.me"] {
     background: linear-gradient(135deg, #25d366 0%, #1cbd55 100%) !important;
     color: #ffffff !important;
     font-size: 14px !important;
@@ -840,3 +840,209 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(div[data-testid="stVerticalB
     border-radius: 12px !important;
     transition: all 0.3s ease !important;
 }
+
+/* ============================================================================
+    20. BADGE SOFT
+   ============================================================================ */
+.badge-soft {
+    background: rgba(231, 76, 60, 0.15) !important;
+    color: #e74c3c !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    font-family: 'Outfit', sans-serif !important;
+    padding: 4px 12px !important;
+    border-radius: 20px !important;
+    display: inline-block !important;
+    margin-bottom: 5px !important;
+    animation: pulse 2s infinite !important;
+}
+
+/* ============================================================================
+    21. STATUS STRIP
+   ============================================================================ */
+.status-strip {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 15px !important;
+    background: rgba(26, 16, 40, 0.8) !important;
+    border-style: solid !important;
+    border-width: 1px !important;
+    border-radius: 12px !important;
+    padding: 12px 25px !important;
+    max-width: 700px !important;
+    margin: 15px auto !important;
+    backdrop-filter: blur(8px) !important;
+}
+.status-strip strong {
+    font-size: 16px !important;
+    letter-spacing: 1px !important;
+}
+.status-strip span {
+    color: #aaaaaa !important;
+    font-size: 13px !important;
+}
+
+/* ============================================================================
+    22. 3D HOVER EFFECT ON PRODUCT CARDS
+   ============================================================================ */
+div[data-testid='stColumn'] > div[data-testid='stVerticalBlockBorderWrapper']:hover {
+    transform: translateY(-6px) scale(1.01) !important;
+    box-shadow: 0 16px 40px rgba(233, 30, 140, 0.15), 0 6px 12px rgba(0,0,0,0.3) !important;
+    border-color: rgba(243, 156, 18, 0.3) !important;
+}
+
+/* ============================================================================
+    23. FLOATING CART BAR (BOTTOM BAR)
+   ============================================================================ */
+.floating-cart-bar {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    background: linear-gradient(135deg, #1a1028 0%, #201530 100%) !important;
+    border-top: 2px solid #f39c12 !important;
+    padding: 12px 20px !important;
+    z-index: 9999 !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.5) !important;
+    backdrop-filter: blur(16px) !important;
+    animation: fadeInUp 0.3s ease-out !important;
+}
+.floating-cart-bar .cart-summary {
+    color: #ffffff !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+.floating-cart-bar .cart-total {
+    color: #f39c12 !important;
+    font-size: 20px !important;
+    font-weight: 900 !important;
+}
+
+/* ============================================================================
+    24. RATING STARS
+   ============================================================================ */
+.rating-container {
+    display: flex !important;
+    gap: 5px !important;
+    justify-content: center !important;
+    margin: 10px 0 !important;
+}
+.rating-star {
+    font-size: 28px !important;
+    cursor: pointer !important;
+    transition: all 0.2s !important;
+    filter: grayscale(100%) !important;
+}
+.rating-star:hover, .rating-star.active {
+    filter: none !important;
+    transform: scale(1.2) !important;
+}
+
+/* ============================================================================
+    25. FAVORITES HEART ICON
+   ============================================================================ */
+.fav-heart {
+    position: absolute !important;
+    top: 10px !important;
+    right: 10px !important;
+    background: rgba(0,0,0,0.5) !important;
+    border-radius: 50% !important;
+    width: 36px !important;
+    height: 36px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.3s !important;
+    z-index: 10 !important;
+    font-size: 18px !important;
+}
+.fav-heart:hover {
+    background: rgba(231, 76, 60, 0.7) !important;
+    transform: scale(1.1) !important;
+}
+.fav-heart.active {
+    background: rgba(231, 76, 60, 0.9) !important;
+}
+
+/* ============================================================================
+    26. DELIVERY COUNTDOWN TIMER
+   ============================================================================ */
+.countdown-container {
+    text-align: center !important;
+    margin: 20px auto !important;
+    max-width: 400px !important;
+    background: linear-gradient(135deg, #1a1028 0%, #201530 100%) !important;
+    border: 1px solid rgba(243, 156, 18, 0.3) !important;
+    border-radius: 16px !important;
+    padding: 20px !important;
+}
+.countdown-time {
+    font-size: 48px !important;
+    font-weight: 900 !important;
+    color: #f39c12 !important;
+    font-family: 'Outfit', sans-serif !important;
+    text-shadow: 0 0 20px rgba(243,156,18,0.4) !important;
+}
+.countdown-label {
+    color: #aaaaaa !important;
+    font-size: 13px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 2px !important;
+    margin-top: 5px !important;
+}
+
+/* ============================================================================
+    27. EXPORT BUTTON STYLE
+   ============================================================================ */
+div.stButton:has(button[key*='btn_export']) > button {
+    background: linear-gradient(135deg, #2c3e50, #34495e) !important;
+    font-size: 14px !important;
+}
+div.stButton:has(button[key*='btn_nueva_orden']) > button {
+    background: linear-gradient(135deg, #8e44ad, #9b59b6) !important;
+}
+
+/* ============================================================================
+    28. MOBILE RESPONSIVE ADDITIONS
+   ============================================================================ */
+@media (max-width: 768px) {
+    .floating-cart-bar {
+        padding: 10px 15px !important;
+    }
+    .floating-cart-bar .cart-total {
+        font-size: 16px !important;
+    }
+    .countdown-time {
+        font-size: 36px !important;
+    }
+    .status-strip {
+        flex-direction: column !important;
+        gap: 8px !important;
+        padding: 10px 15px !important;
+        text-align: center !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .floating-cart-bar {
+        flex-direction: column !important;
+        gap: 5px !important;
+        padding: 8px 12px !important;
+    }
+    .countdown-time {
+        font-size: 28px !important;
+    }
+    .status-strip {
+        font-size: 12px !important;
+    }
+    .rating-star {
+        font-size: 22px !important;
+    }
+}
+
