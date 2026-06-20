@@ -419,7 +419,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Inyección limpia del sello de creador adaptado al flujo estructural
-st.markdown("<div class='sello-creador'>Pagina desarrollada por: Jhohan--Patrick--Eros--Jack--Carlos (Grupo 5) 😎</div>", unsafe_allow_html=True)
+st.markdown("<div class='sello-creador'>Pagina elaborada por el grupo 5 😎</div>", unsafe_allow_html=True)
 
 # ============================================================================
 # HEADER GLOBAL: PERFIL DE USUARIO EN PARTE SUPERIOR (MOBILE FRIENDLY)
