@@ -4,7 +4,6 @@
 import streamlit as st
 from datetime import datetime, timedelta, timezone
 import os
-import json
 import base64
 import html as html_lib
 from PIL import Image
@@ -15,7 +14,6 @@ import streamlit.components.v1 as components
 import re
 import unicodedata
 from urllib.parse import quote
-from difflib import SequenceMatcher
 import database
 import requests
 import urllib.parse
@@ -227,7 +225,7 @@ def render_stepper(paso_actual):
         color = '#f39c12' if activo else '#666'
         bg = 'rgba(243,156,18,0.15)' if actual else 'transparent'
         border = '2px solid #f39c12' if actual else '2px solid #444'
-        html += f"<div style='display:flex;align-items:center;'>"
+        html += "<div style='display:flex;align-items:center;'>"
         html += f"<div style='width:32px;height:32px;border-radius:50%;background:{bg};border:{border};display:flex;align-items:center;justify-content:center;font-size:14px;'>{icono}</div>"
         html += f"<span style='margin-left:6px;color:{color};font-weight:700;font-size:12px;'>{nombre}</span>"
         if i < len(pasos) - 1:
@@ -247,7 +245,7 @@ def convertir_imagen_a_base64(archivo_foto, max_dimension=400, calidad=70):
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
         # Redimensionar manteniendo proporción
-        img.thumbnail((max_dimension, max_dimension), Image.LANCZOS)
+        img.thumbnail((max_dimension, max_dimension), getattr(Image, 'Resampling', Image).LANCZOS)
         # Comprimir como JPEG
         buffer = BytesIO()
         img.save(buffer, format="JPEG", quality=calidad, optimize=True)
@@ -899,14 +897,14 @@ if es_admin:
         st.markdown(f"<div style='background-color:#151515;padding:20px;border-radius:8px;border-left:5px solid #d35400;box-shadow:0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0;font-size:14px;color:#aaa;font-weight:bold;'>🎯 TICKET PROMEDIO</p><h2 style='margin:5px 0 0 0;color:#fff;font-size:32px;'>S/{ticket_promedio:.2f}</h2></div>", unsafe_allow_html=True)
     
     # Hora pico
-    horas_pedidos = {}
+    horas_pedidos: "dict[str, int]" = {}
     for orden in st.session_state.historial_ordenes:
         try:
             hora = orden.get('Fecha y Hora', '').split(' ')[1].split(':')[0]
             horas_pedidos[hora] = horas_pedidos.get(hora, 0) + 1
         except (IndexError, KeyError):
             pass
-    hora_pico = max(horas_pedidos, key=horas_pedidos.get) if horas_pedidos else "--"
+    hora_pico = max(horas_pedidos, key=lambda k: horas_pedidos[k]) if horas_pedidos else "--"
     with col_kpi4:
         st.markdown(f"<div style='background-color:#151515;padding:20px;border-radius:8px;border-left:5px solid #3498db;box-shadow:0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0;font-size:14px;color:#aaa;font-weight:bold;'>⏰ HORA PICO</p><h2 style='margin:5px 0 0 0;color:#fff;font-size:32px;'>{hora_pico}:00 hrs</h2></div>", unsafe_allow_html=True)
 
@@ -1095,7 +1093,7 @@ else:
 
         productos_lista = list(st.session_state.menu_dinamico.keys())
         productos_filtrados = []
-        producto_mas_vendido = max(conteos_productos, key=conteos_productos.get) if conteos_productos and max(conteos_productos.values()) > 0 else None
+        producto_mas_vendido = max(conteos_productos, key=lambda k: conteos_productos[k]) if conteos_productos and max(conteos_productos.values()) > 0 else None
 
         for prod in productos_lista:
             if busqueda and busqueda not in prod.lower():
@@ -1432,7 +1430,7 @@ else:
                     items_resumen_lista.append(f"{item['cantidad']}x {item['producto']}")
                 
                 if tiene_delivery:
-                    detalle_productos_txt += f"1x Costo de Envío        S/6.00\n"
+                    detalle_productos_txt += "1x Costo de Envío        S/6.00\n"
                     items_resumen_lista.append("1x Delivery")
                 
                 resumen_articulos_linea = ", ".join(items_resumen_lista)
