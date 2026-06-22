@@ -1060,3 +1060,17 @@ div[data-testid='stImage'] img:hover {
     transform: scale(1.02) !important;
     box-shadow: 0px 6px 20px rgba(243, 156, 18, 0.3) !important;
 }
+
+/* Ocultar elementos de la barra superior de Streamlit (Fork, Menu, GitHub icon) */
+header[data-testid="stHeader"] {
+    display: none !important;
+}
+div[data-testid="stToolbar"] {
+    display: none !important;
+}
+#MainMenu {
+    visibility: hidden !important;
+}
+footer {
+    visibility: hidden !important;
+}
