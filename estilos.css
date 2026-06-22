@@ -1061,16 +1061,17 @@ div[data-testid='stImage'] img:hover {
     box-shadow: 0px 6px 20px rgba(243, 156, 18, 0.3) !important;
 }
 
-/* Ocultar elementos de la barra superior de Streamlit (Fork, Menu, GitHub icon) */
-header[data-testid="stHeader"] {
+/* Ocultar botón de Deploy/Fork y marca de agua, manteniendo el menú de Streamlit */
+.stDeployButton {
     display: none !important;
 }
-div[data-testid="stToolbar"] {
-    display: none !important;
-}
-#MainMenu {
+/* Ocultar el badge o contenedor específico de Fork en la nube de Streamlit */
+[data-testid="stToolbar"] {
     visibility: hidden !important;
 }
 footer {
     visibility: hidden !important;
+}
+header {
+    background: transparent !important;
 }
