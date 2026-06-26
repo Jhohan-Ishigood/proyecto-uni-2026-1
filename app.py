@@ -245,7 +245,7 @@ def convertir_imagen_a_base64(archivo_foto, max_dimension=400, calidad=70):
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
         # Redimensionar manteniendo proporción
-        img.thumbnail((max_dimension, max_dimension), getattr(Image, 'Resampling', Image).LANCZOS)
+        img.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
         # Comprimir como JPEG
         buffer = BytesIO()
         img.save(buffer, format="JPEG", quality=calidad, optimize=True)
