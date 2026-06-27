@@ -20,13 +20,13 @@ import urllib.parse
 
 # Configuración inicial del lienzo responsivo de la aplicación
 st.set_page_config(
-    page_title="El Gran Búfalo - Sistema de Pedidos", 
+    page_title="Carnes & Bytes - Sistema de Pedidos", 
     page_icon="🥩", 
     layout="wide", 
     initial_sidebar_state="collapsed"
 )
 
-st.markdown('<meta name="description" content="El Gran Búfalo - Sistema de pedidos online. Parrillas, hamburguesas y más. Delivery disponible.">', unsafe_allow_html=True)
+st.markdown('<meta name="description" content="Carnes & Bytes - Sistema de pedidos online. Parrillas, hamburguesas y más. Delivery disponible.">', unsafe_allow_html=True)
 
 # Determinación dinámica y automática de la ruta raíz en servidores de producción
 BASE_DIR = ""
@@ -202,7 +202,7 @@ def recalcular_carrito(carrito):
 
 def construir_mensaje_whatsapp(correlativo, carrito, total, entrega, cliente, telefono):
     lineas = [
-        "Hola, El Gran Bufalo.",
+        "Hola, Carnes & Bytes.",
         f"Pedido {correlativo}:",
     ]
     for item in carrito:
@@ -463,7 +463,7 @@ with st.container():
 # ============================================================================
 # 6. BARRA LATERAL (SIDEBAR POS): GESTIÓN INTERNA Y AUTENTICACIÓN
 # ============================================================================
-st.sidebar.markdown("<h2 style='text-align: center; color: #f39c12;'>🥩 El Gran Búfalo</h2>", unsafe_allow_html=True)
+st.sidebar.markdown("<h2 style='text-align: center; color: #f39c12;'>🥩 Carnes & Bytes</h2>", unsafe_allow_html=True)
 st.sidebar.markdown("<p style='text-align: center; font-size: 13px; color: #aaa;'>Especialistas en carnes y parrillas premium al carbón de manera artesanal.</p>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
 
@@ -506,7 +506,7 @@ st.sidebar.markdown("#### 🕒 HORARIO DE ATENCIÓN")
 st.sidebar.caption("Lunes a Domingo: 8:00 AM - 11:00 PM")
 
 st.sidebar.markdown("#### 📍 NUESTRA UBICACIÓN")
-st.sidebar.caption("Av. Principal El Gran Búfalo 742, Trujillo, Perú")
+st.sidebar.caption("Av. Principal Carnes & Bytes 742, Trujillo, Perú")
 st.sidebar.markdown("---")
 
 st.sidebar.markdown("#### 📞 ¿NECESITAS AYUDA?")
@@ -1031,7 +1031,7 @@ else:
     # ============================================================================
     if st.session_state.pantalla_actual == "bienvenida":
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("<h2 class='titulo-principal'>SISTEMA DE PEDIDOS GRAN BÚFALO</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 class='titulo-principal'>SISTEMA DE PEDIDOS CARNES & BYTES</h2>", unsafe_allow_html=True)
         st.markdown("<br><p style='text-align: center; font-size: 24px; font-weight: bold; color: #f39c12;'>🔥 Bienvenidos al templo de la buena carne 🔥</p>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; font-size: 18px; color: #ffffff;'>¿Desea registrar un nuevo pedido de nuestra deliciosa parrilla?</p>", unsafe_allow_html=True)
         estado_servicio = "ABIERTO" if servicio_abierto else "CERRADO"
@@ -1052,7 +1052,7 @@ else:
             st.session_state.boleta_emitida = False
             st.rerun()
             
-        # Bloque de Redes Sociales Corporativas de El Gran Búfalo
+        # Bloque de Redes Sociales Corporativas de Carnes & Bytes
         st.markdown("<br><br><br>", unsafe_allow_html=True)
         st.markdown("""
             <div class='social-footer'>
@@ -1069,7 +1069,7 @@ else:
     # ============================================================================
     elif st.session_state.pantalla_actual == "catalogo" and not st.session_state.pedido_guardado:
         render_stepper(1)
-        st.markdown("\n<h2 class='titulo-principal'>SISTEMA DE PEDIDOS GRAN BÚFALO</h2>", unsafe_allow_html=True)
+        st.markdown("\n<h2 class='titulo-principal'>SISTEMA DE PEDIDOS CARNES & BYTES</h2>", unsafe_allow_html=True)
         st.text(f"Fecha y hora oficial de Perú (GMT-5): {fecha_actual}\n")
         
         st.subheader(f"🍽️ SELECCIÓN DE {st.session_state.categoria_activa.upper()}")
