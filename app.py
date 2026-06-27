@@ -14,7 +14,9 @@ import streamlit.components.v1 as components
 import re
 import unicodedata
 from urllib.parse import quote
+import importlib
 import database
+importlib.reload(database)
 import requests
 import urllib.parse
 
