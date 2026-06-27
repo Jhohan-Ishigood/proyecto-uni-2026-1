@@ -1031,7 +1031,7 @@ else:
     # ============================================================================
     if st.session_state.pantalla_actual == "bienvenida":
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("<h2 class='titulo-principal'>SISTEMA DE PEDIDOS CARNES & BYTES</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 class='titulo-principal'>🔥 CARNES & BYTES — Tu gusto, nuestra meta</h2>", unsafe_allow_html=True)
         st.markdown("<br><p style='text-align: center; font-size: 24px; font-weight: bold; color: #f39c12;'>🔥 Bienvenidos al templo de la buena carne 🔥</p>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; font-size: 18px; color: #ffffff;'>¿Desea registrar un nuevo pedido de nuestra deliciosa parrilla?</p>", unsafe_allow_html=True)
         estado_servicio = "ABIERTO" if servicio_abierto else "CERRADO"
@@ -1069,7 +1069,7 @@ else:
     # ============================================================================
     elif st.session_state.pantalla_actual == "catalogo" and not st.session_state.pedido_guardado:
         render_stepper(1)
-        st.markdown("\n<h2 class='titulo-principal'>SISTEMA DE PEDIDOS CARNES & BYTES</h2>", unsafe_allow_html=True)
+        st.markdown("\n<h2 class='titulo-principal'>🔥 CARNES & BYTES — Tu gusto, nuestra meta</h2>", unsafe_allow_html=True)
         st.text(f"Fecha y hora oficial de Perú (GMT-5): {fecha_actual}\n")
         
         st.subheader(f"🍽️ SELECCIÓN DE {st.session_state.categoria_activa.upper()}")
