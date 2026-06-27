@@ -441,15 +441,21 @@ with st.container():
     if st.session_state.user_info:
         u_info = st.session_state.user_info
         db_user = database.obtener_usuario(u_info.get('email', ''))
-        compras = db_user.get("compras_realizadas", 0) if db_user else 0
-        faltan = 3 - (compras % 3)
+        compras = int(float(db_user.get("compras_realizadas", 0))) if db_user else 0
+        faltan = int(3 - (compras % 3))
         
-        c1, c2, c3, c4 = st.columns([1.5, 4.5, 2.2, 1.8], vertical_alignment="center")
-        with c1:
-            st.markdown(f"<img src='{u_info.get('picture', '')}' style='border-radius:50%; width:100%; max-width:50px; border: 2px solid #f39c12;'>", unsafe_allow_html=True)
-        with c2:
+        # Fila 1: Foto de Perfil e Información
+        col_perfil_foto, col_perfil_texto = st.columns([1, 4], vertical_alignment="center")
+        with col_perfil_foto:
+            st.markdown(f"<img src='{u_info.get('picture', '')}' style='border-radius:50%; width:55px; height:55px; object-fit:cover; border: 2px solid #f39c12;'>", unsafe_allow_html=True)
+        with col_perfil_texto:
             st.markdown(f"<div style='line-height:1.2;'><span style='font-size:16px; font-weight:bold; color:#fff;'>Hola, {u_info.get('name', '').split(' ')[0]}</span><br><span style='font-size:12px; color:#aaa;'>🏆 {compras} compras (Faltan {faltan} para tu cupón)</span></div>", unsafe_allow_html=True)
-        with c3:
+        
+        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        
+        # Fila 2: Botones de Acción (Mis Pedidos y Salir)
+        col_btn1, col_btn2 = st.columns([1, 1], gap="small")
+        with col_btn1:
             if st.session_state.pantalla_actual == "mis_pedidos":
                 if st.button("Ver Menú", use_container_width=True, key="btn_ver_menu_top"):
                     st.session_state.pantalla_actual = "catalogo"
@@ -458,7 +464,7 @@ with st.container():
                 if st.button("📝 Mis Pedidos", use_container_width=True, key="btn_mis_pedidos_top"):
                     st.session_state.pantalla_actual = "mis_pedidos"
                     st.rerun()
-        with c4:
+        with col_btn2:
             if st.button("Salir", use_container_width=True, key="btn_logout_top"):
                 st.session_state.user_info = None
                 if st.session_state.pantalla_actual == "mis_pedidos":
