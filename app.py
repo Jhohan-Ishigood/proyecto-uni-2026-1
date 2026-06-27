@@ -442,14 +442,25 @@ with st.container():
         compras = db_user.get("compras_realizadas", 0) if db_user else 0
         faltan = 3 - (compras % 3)
         
-        c1, c2, c3 = st.columns([1.5, 5, 3], vertical_alignment="center")
+        c1, c2, c3, c4 = st.columns([1.5, 4.5, 2.2, 1.8], vertical_alignment="center")
         with c1:
             st.markdown(f"<img src='{u_info.get('picture', '')}' style='border-radius:50%; width:100%; max-width:50px; border: 2px solid #f39c12;'>", unsafe_allow_html=True)
         with c2:
             st.markdown(f"<div style='line-height:1.2;'><span style='font-size:16px; font-weight:bold; color:#fff;'>Hola, {u_info.get('name', '').split(' ')[0]}</span><br><span style='font-size:12px; color:#aaa;'>🏆 {compras} compras (Faltan {faltan} para tu cupón)</span></div>", unsafe_allow_html=True)
         with c3:
-            if st.button("Cerrar Sesión", use_container_width=True, key="btn_logout_top"):
+            if st.session_state.pantalla_actual == "mis_pedidos":
+                if st.button("Ver Menú", use_container_width=True, key="btn_ver_menu_top"):
+                    st.session_state.pantalla_actual = "catalogo"
+                    st.rerun()
+            else:
+                if st.button("📝 Mis Pedidos", use_container_width=True, key="btn_mis_pedidos_top"):
+                    st.session_state.pantalla_actual = "mis_pedidos"
+                    st.rerun()
+        with c4:
+            if st.button("Salir", use_container_width=True, key="btn_logout_top"):
                 st.session_state.user_info = None
+                if st.session_state.pantalla_actual == "mis_pedidos":
+                    st.session_state.pantalla_actual = "bienvenida"
                 st.rerun()
     else:
         c1, c2 = st.columns([6, 4], vertical_alignment="center")
@@ -1214,6 +1225,55 @@ else:
                 st.rerun()
             else:
                 st.error("⚠️ Error: Debe seleccionar al menos 1 producto.")
+    elif st.session_state.pantalla_actual == "mis_pedidos":
+        st.subheader("📋 MIS PEDIDOS ANTERIORES")
+        if not st.session_state.user_info:
+            st.warning("⚠️ Debe iniciar sesión para ver su historial de pedidos.")
+            if st.button("Ir al catálogo", use_container_width=True):
+                st.session_state.pantalla_actual = "catalogo"
+                st.rerun()
+        else:
+            email_usuario = st.session_state.user_info.get("email", "").strip().lower()
+            todas_las_ordenes = database.obtener_ordenes()
+            mis_ordenes = [o for o in todas_las_ordenes if str(o.get("Usuario Email", "")).strip().lower() == email_usuario]
+            
+            if not mis_ordenes:
+                st.info("Aún no tienes pedidos registrados con esta cuenta.")
+                if st.button("🛒 Empezar mi primer pedido", use_container_width=True):
+                    st.session_state.pantalla_actual = "catalogo"
+                    st.rerun()
+            else:
+                st.write(f"Has realizado **{len(mis_ordenes)}** pedidos.")
+                
+                # Obtener calificaciones para cruzarlas
+                ratings = database.obtener_calificaciones()
+                rating_dict = {str(r.get("nro_boleta", "")): r for r in ratings}
+                
+                for orden in mis_ordenes:
+                    nro_boleta = orden.get("Nro. Boleta", "")
+                    fecha = orden.get("Fecha y Hora", "")
+                    total = orden.get("Total", "")
+                    detalle = orden.get("Detalle Artículos", "")
+                    entrega = orden.get("Entrega", "")
+                    metodo_pago = orden.get("Método Pago", "")
+                    
+                    calif_info = rating_dict.get(nro_boleta)
+                    calif_estrellas = f"⭐ {calif_info['calificacion']}/5" if calif_info else "Sin calificar"
+                    
+                    with st.container(border=True):
+                        col_o1, col_o2 = st.columns([3, 1])
+                        with col_o1:
+                            st.markdown(f"#### Pedido **{nro_boleta}**")
+                            st.caption(f"📅 {fecha} | 🛵 {entrega} | 💳 {metodo_pago}")
+                            st.text(detalle.strip())
+                        with col_o2:
+                            st.markdown(f"<h3 style='color: #f39c12; margin: 0;'>{total}</h3>", unsafe_allow_html=True)
+                            st.caption(f"Calificación: {calif_estrellas}")
+                            
+                st.html("<br>")
+                if st.button("⬅️ Volver al catálogo", use_container_width=True, key="btn_volver_mis_pedidos"):
+                    st.session_state.pantalla_actual = "catalogo"
+                    st.rerun()
     # ============================================================================
     # 17. ENTORNO CLIENTE - PANTALLA 3: PASARELA Y COMPROBACIÓN DE DATOS
     # ============================================================================
@@ -1450,6 +1510,7 @@ else:
                     st.error("⚠️ No se pudo actualizar el stock. La orden no fue registrada.")
                     st.stop()
                 
+                usuario_email = st.session_state.user_info.get("email", "") if st.session_state.user_info else ""
                 orden_creada = database.crear_orden(
                     db_path=None,
                     fecha_hora=fecha_actual,
@@ -1457,7 +1518,8 @@ else:
                     detalle_articulos=resumen_articulos_linea,
                     entrega=tipo_entrega_db,
                     metodo_pago=metodo_pago,
-                    total=f"S/{total_con_delivery:.2f}"
+                    total=f"S/{total_con_delivery:.2f}",
+                    usuario_email=usuario_email
                 )
 
                 if not orden_creada:

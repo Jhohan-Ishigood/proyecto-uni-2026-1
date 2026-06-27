@@ -265,20 +265,21 @@ def obtener_ordenes(db_path=None, ttl=TTL_LECTURA):
                 "Detalle Artículos": _convertir_tipo(row.get("detalle_articulos"), "str", default=""),
                 "Entrega": _convertir_tipo(row.get("entrega"), "str", default=""),
                 "Método Pago": _convertir_tipo(row.get("metodo_pago"), "str", default=""),
-                "Total": _convertir_tipo(row.get("total"), "str", default="")
+                "Total": _convertir_tipo(row.get("total"), "str", default=""),
+                "Usuario Email": _convertir_tipo(row.get("usuario_email"), "str", default="")
             })
         return ordenes
     except Exception as e:
         st.error(f"Error obtener_ordenes de GSheets: {e}")
         return []
 
-def crear_orden(db_path, fecha_hora, nro_boleta, detalle_articulos, entrega, metodo_pago, total):
+def crear_orden(db_path, fecha_hora, nro_boleta, detalle_articulos, entrega, metodo_pago, total, usuario_email=""):
     """Inserta una nueva orden en el historial de Google Sheets."""
     try:
         conn = get_connection()
         df = conn.read(worksheet="ordenes", ttl=1)
         if df.empty or "nro_boleta" not in df.columns:
-            df = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "detalle_articulos", "entrega", "metodo_pago", "total"])
+            df = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "detalle_articulos", "entrega", "metodo_pago", "total", "usuario_email"])
             
         new_row = pd.DataFrame([{
             "fecha_hora": fecha_hora,
@@ -286,7 +287,8 @@ def crear_orden(db_path, fecha_hora, nro_boleta, detalle_articulos, entrega, met
             "detalle_articulos": detalle_articulos,
             "entrega": entrega,
             "metodo_pago": metodo_pago,
-            "total": total
+            "total": total,
+            "usuario_email": usuario_email
         }])
         df = pd.concat([df, new_row], ignore_index=True)
         conn.update(worksheet="ordenes", data=df)
