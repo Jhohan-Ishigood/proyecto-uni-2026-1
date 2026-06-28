@@ -4,7 +4,7 @@ from streamlit_gsheets import GSheetsConnection
 import datetime
 
 # Caché de lectura en segundos (evita sobrepasar la cuota de Google Sheets API)
-TTL_LECTURA = 60
+TTL_LECTURA = 600
 
 def get_connection():
     """Retorna la conexión a Google Sheets."""

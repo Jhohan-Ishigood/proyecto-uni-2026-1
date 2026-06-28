@@ -258,8 +258,9 @@ def convertir_imagen_a_base64(archivo_foto, max_dimension=400, calidad=70):
         st.error(f"Error al codificar la imagen a Base64: {e}")
         return None
 
+@st.cache_data(show_spinner=False)
 def obtener_src_foto(ruta_foto):
-    """Convierte una ruta de imagen local a Base64 o la retorna tal cual si es una data URL."""
+    """Convierte una ruta de imagen local a Base64 o la retorna tal cual si es una data URL. Almacenada en caché para extrema velocidad."""
     if not ruta_foto:
         return "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='8.5' cy='8.5' r='1.5'/><polyline points='21 15 16 10 5 21'/></svg>"
     
@@ -397,9 +398,13 @@ for orden in st.session_state.historial_ordenes:
 # Generación del número correlativo automático para la siguiente boleta
 st.session_state.numero_boleta = generar_numero_boleta(st.session_state.historial_ordenes)
 # ============================================================================
-if os.path.exists(RUTA_CSS):
+@st.cache_data
+def load_css():
     with open(RUTA_CSS, "r", encoding="utf-8") as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+        return f.read()
+
+if os.path.exists(RUTA_CSS):
+    st.markdown(f"<style>{load_css()}</style>", unsafe_allow_html=True)
 
 # Función para inyectar el fondo (Espacio y Estrellas Fugaces)
 @st.cache_data
