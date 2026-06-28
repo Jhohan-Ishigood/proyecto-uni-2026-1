@@ -401,68 +401,47 @@ if os.path.exists(RUTA_CSS):
     with open(RUTA_CSS, "r", encoding="utf-8") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# Función para inyectar el fondo (Orbes Glassmorphism)
+# Función para inyectar el fondo (Cyber-Grid / Malla Tecnológica)
 @st.cache_data
 def generar_css_fondo():
     return f"""
     <style>
-    /* FONDO GLOBAL: GLASSMORPHISM */
+    /* FONDO GLOBAL: CYBER-GRID */
     .stApp {{
         background-image: none !important;
         background-color: transparent !important;
     }}
     .stApp::before, .stApp::after {{ display: none !important; }}
     
-    #fondo-orbes {{
+    #fondo-grid {{
         position: fixed; 
         top: 0; left: 0; 
         width: 100vw; height: 100vh;
         pointer-events: none; 
         z-index: 0; 
-        overflow: hidden;
-        background-color: #050505;
+        background-color: #030303;
+        background-image: 
+            linear-gradient(rgba(243, 156, 18, 0.08) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(243, 156, 18, 0.08) 1px, transparent 1px);
+        background-size: 35px 35px;
+        background-position: center center;
     }}
     
-    .orbe {{
+    #fondo-grid::after {{
+        content: '';
         position: absolute;
-        border-radius: 50%;
-        filter: blur(80px);
-        opacity: 0.6;
-        animation: moverOrbes 25s infinite alternate ease-in-out;
+        top: 0; left: 0;
+        width: 100vw; height: 100vh;
+        background: radial-gradient(circle 800px at 50% 50%, rgba(243, 156, 18, 0.15), transparent 70%);
+        animation: pulsoGrid 10s infinite alternate ease-in-out;
     }}
     
-    .orbe-1 {{
-        width: 45vw; height: 45vw;
-        background: rgba(243, 156, 18, 0.3); /* Naranja/Ámbar */
-        top: -10%; left: -10%;
-        animation-delay: 0s;
-    }}
-    
-    .orbe-2 {{
-        width: 35vw; height: 35vw;
-        background: rgba(231, 76, 60, 0.25); /* Rojo suave */
-        bottom: -5%; right: -5%;
-        animation-delay: -5s;
-    }}
-    
-    .orbe-3 {{
-        width: 40vw; height: 40vw;
-        background: rgba(211, 84, 0, 0.2); /* Naranja oscuro */
-        top: 40%; left: 60%;
-        animation-delay: -10s;
-    }}
-    
-    @keyframes moverOrbes {{
-        0% {{ transform: translate(0, 0) scale(1); }}
-        50% {{ transform: translate(-5vw, 10vh) scale(1.1); }}
-        100% {{ transform: translate(10vw, -5vh) scale(0.9); }}
+    @keyframes pulsoGrid {{
+        0% {{ opacity: 0.4; transform: scale(1); }}
+        100% {{ opacity: 1; transform: scale(1.05); }}
     }}
     </style>
-    <div id="fondo-orbes">
-        <div class="orbe orbe-1"></div>
-        <div class="orbe orbe-2"></div>
-        <div class="orbe orbe-3"></div>
-    </div>
+    <div id="fondo-grid"></div>
     """
 
 st.markdown(generar_css_fondo(), unsafe_allow_html=True)
