@@ -427,7 +427,7 @@ def generar_css_fondo():
         pointer-events: none; 
         z-index: 0; 
         overflow: hidden;
-        background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+        background: radial-gradient(ellipse at bottom, #0d1522 0%, #000000 100%);
     }}
     
     .estrellas-1 {{ width: 2px; height: 2px; border-radius: 50%; background: transparent; box-shadow: {shadows1}; animation: twinkle 4s infinite alternate; }}
