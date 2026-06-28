@@ -1,0 +1,7 @@
+{
+    "liveServer.settings.port": 5501,
+    "python.analysis.typeCheckingMode": "off",
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportAttributeAccessIssue": "none"
+    }
+}
