@@ -398,7 +398,6 @@ for orden in st.session_state.historial_ordenes:
 # Generación del número correlativo automático para la siguiente boleta
 st.session_state.numero_boleta = generar_numero_boleta(st.session_state.historial_ordenes)
 # ============================================================================
-@st.cache_data
 def load_css():
     with open(RUTA_CSS, "r", encoding="utf-8") as f:
         return f.read()
