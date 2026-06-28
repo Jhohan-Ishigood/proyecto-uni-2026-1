@@ -401,17 +401,11 @@ if os.path.exists(RUTA_CSS):
     with open(RUTA_CSS, "r", encoding="utf-8") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# Función para inyectar el fondo (Imagen PC y Partículas Móvil)
+# Función para inyectar el fondo (Partículas en Movimiento para todas las pantallas)
 @st.cache_data
 def generar_css_fondo():
-    import base64
     import random
-    fondo_pc_base64 = ""
-    ruta_fondo = os.path.join(BASE_DIR, "fondo_pc.png")
-    if os.path.exists(ruta_fondo):
-        with open(ruta_fondo, "rb") as f:
-            fondo_pc_base64 = base64.b64encode(f.read()).decode()
-            
+    
     # Partículas
     shadows1 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 200)}vh rgba(255, 255, 255, {random.uniform(0.3, 0.8)})" for _ in range(60)])
     shadows2 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 200)}vh rgba(243, 156, 18, {random.uniform(0.3, 0.8)})" for _ in range(40)])
@@ -419,39 +413,25 @@ def generar_css_fondo():
     
     return f"""
     <style>
-    /* FONDO PC */
-    @media (min-width: 769px) {{
-        .stApp {{
-            background-image: url("data:image/png;base64,{fondo_pc_base64}") !important;
-            background-size: cover !important;
-            background-position: center center !important;
-            background-attachment: fixed !important;
-            background-repeat: no-repeat !important;
-        }}
-        .stApp::before, .stApp::after {{ display: none !important; }}
-        #fondo-movil-particulas {{ display: none !important; }}
+    /* FONDO GLOBAL CON PARTÍCULAS */
+    .stApp {{
+        background-image: none !important;
+        background-color: transparent !important;
     }}
-
-    /* FONDO MÓVIL */
-    @media (max-width: 768px) {{
-        .stApp {{
-            background-image: none !important;
-            background-color: transparent !important;
-        }}
-        .stApp::before, .stApp::after {{ display: none !important; }}
-        #fondo-movil-particulas {{
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            pointer-events: none; z-index: 0; overflow: hidden;
-            background: linear-gradient(180deg, #0c0c0c 0%, #1a1a1a 50%, #000000 100%);
-        }}
-        .particula-1 {{ width: 3px; height: 3px; border-radius: 50%; background: transparent; box-shadow: {shadows1}; animation: animParticulas 40s linear infinite; }}
-        .particula-2 {{ width: 5px; height: 5px; border-radius: 50%; background: transparent; box-shadow: {shadows2}; animation: animParticulas 60s linear infinite; }}
-        .particula-3 {{ width: 2px; height: 2px; border-radius: 50%; background: transparent; box-shadow: {shadows3}; animation: animParticulas 25s linear infinite; }}
-        
-        @keyframes animParticulas {{
-            0% {{ transform: translateY(0vh); }}
-            100% {{ transform: translateY(-100vh); }}
-        }}
+    .stApp::before, .stApp::after {{ display: none !important; }}
+    
+    #fondo-movil-particulas {{
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        pointer-events: none; z-index: 0; overflow: hidden;
+        background: linear-gradient(180deg, #0c0c0c 0%, #1a1a1a 50%, #000000 100%);
+    }}
+    .particula-1 {{ width: 3px; height: 3px; border-radius: 50%; background: transparent; box-shadow: {shadows1}; animation: animParticulas 40s linear infinite; }}
+    .particula-2 {{ width: 5px; height: 5px; border-radius: 50%; background: transparent; box-shadow: {shadows2}; animation: animParticulas 60s linear infinite; }}
+    .particula-3 {{ width: 2px; height: 2px; border-radius: 50%; background: transparent; box-shadow: {shadows3}; animation: animParticulas 25s linear infinite; }}
+    
+    @keyframes animParticulas {{
+        0% {{ transform: translateY(0vh); }}
+        100% {{ transform: translateY(-100vh); }}
     }}
     </style>
     <div id="fondo-movil-particulas">
