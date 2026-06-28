@@ -540,46 +540,55 @@ if "promo_mostrada" not in st.session_state:
 with st.container():
     if st.session_state.user_info:
         u_info = st.session_state.user_info
-        
-        # Inyectar mini perfil flotante fijo en la esquina superior derecha
-        st.markdown(
-            f"""
-            <div style="position: fixed; top: 15px; right: 20px; z-index: 99999; display: flex; align-items: center; gap: 8px; background: rgba(18, 18, 18, 0.4); padding: 4px 12px 4px 4px; border-radius: 50px; border: 1px solid rgba(243, 156, 18, 0.5); backdrop-filter: blur(8px); box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-                <img src="{u_info.get('picture', '')}" style="border-radius: 50%; width: 30px; height: 30px; object-fit: cover; border: 1px solid #f39c12;">
-                <span style="font-size: 13px; font-weight: bold; color: #fff;">{u_info.get('name', '').split(' ')[0]}</span>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        
-        db_user = database.obtener_usuario(u_info.get('email', ''))
-        compras = int(float(db_user.get("compras_realizadas", 0))) if db_user else 0
-        faltan = int(3 - (compras % 3))
-        
-        # Fila 1: Foto de Perfil e Información en caja transparente
-        st.markdown(
-            f"<div class='status-strip' style='border-color: #f39c12; justify-content: flex-start !important; padding: 12px 20px !important; margin-top: 5px !important; margin-bottom: 5px !important; max-width: 100% !important; display: flex; align-items: center; gap: 15px;'>"
-            f"<img src='{u_info.get('picture', '')}' style='border-radius:50%; width:55px; height:55px; object-fit:cover; border: 2px solid #f39c12;'>"
-            f"<div style='line-height:1.2; text-align: left;'><span style='font-size:16px; font-weight:bold; color:#fff;'>Hola, {u_info.get('name', '').split(' ')[0]}</span><br><span style='font-size:12px; color:#aaa;'>🏆 {compras} compras (Faltan {faltan} para tu cupón)</span></div>"
-            f"</div>",
-            unsafe_allow_html=True
-        )
-        
-        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-        
-        # Fila 2: Botones de Acción (Mis Pedidos y Salir)
-        col_btn1, col_btn2 = st.columns([1, 1], gap="small")
-        with col_btn1:
+        # Ancla y estilos para fijar el popover a la esquina superior derecha
+        st.markdown("""
+        <style>
+        /* Fijar el boton del popover a la esquina */
+        div[data-testid="stPopover"] {
+            position: fixed !important;
+            top: 15px !important;
+            right: 20px !important;
+            z-index: 99999 !important;
+        }
+        div[data-testid="stPopover"] > button {
+            background: rgba(18, 18, 18, 0.6) !important;
+            border: 1px solid rgba(243, 156, 18, 0.8) !important;
+            border-radius: 50px !important;
+            backdrop-filter: blur(8px) !important;
+            color: #fff !important;
+            font-weight: bold !important;
+            padding: 4px 15px !important;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
+            transition: all 0.3s ease;
+        }
+        div[data-testid="stPopover"] > button:hover {
+            background: rgba(243, 156, 18, 0.4) !important;
+            border-color: #fff !important;
+            color: #fff !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        with st.popover(f"🧑 {u_info.get('name', '').split(' ')[0]}"):
+            # Contenido dentro del menú emergente
+            st.markdown(
+                f"<div class='status-strip' style='border-color: #f39c12; justify-content: flex-start !important; padding: 12px 15px !important; margin-bottom: 10px !important; width: 100% !important; display: flex; align-items: center; gap: 12px; background: rgba(18,18,18,0.3); border-radius: 12px;'>"
+                f"<img src='{u_info.get('picture', '')}' style='border-radius:50%; width:45px; height:45px; object-fit:cover; border: 2px solid #f39c12;'>"
+                f"<div style='line-height:1.2; text-align: left;'><span style='font-size:15px; font-weight:bold; color:#fff;'>Hola, {u_info.get('name', '').split(' ')[0]}</span><br><span style='font-size:11px; color:#aaa;'>🏆 {compras} compras (Faltan {faltan})</span></div>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+            
             if st.session_state.pantalla_actual == "mis_pedidos":
-                if st.button("Ver Menú", use_container_width=True, key="btn_ver_menu_top"):
+                if st.button("Ver Menú", use_container_width=True, key="btn_ver_menu_pop"):
                     st.session_state.pantalla_actual = "catalogo"
                     st.rerun()
             else:
-                if st.button("📝 Mis Pedidos", use_container_width=True, key="btn_mis_pedidos_top"):
+                if st.button("📝 Mis Pedidos", use_container_width=True, key="btn_mis_pedidos_pop"):
                     st.session_state.pantalla_actual = "mis_pedidos"
                     st.rerun()
-        with col_btn2:
-            if st.button("Salir", use_container_width=True, key="btn_logout_top"):
+                    
+            if st.button("Salir", use_container_width=True, key="btn_logout_pop"):
                 st.session_state.user_info = None
                 if st.session_state.pantalla_actual == "mis_pedidos":
                     st.session_state.pantalla_actual = "bienvenida"
@@ -597,7 +606,7 @@ with st.container():
             f"</div>",
             unsafe_allow_html=True
         )
-    st.markdown("<hr style='margin-top:10px; margin-bottom:15px; border-color:#333;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin-top:10px; margin-bottom:15px; border-color:#333;'>", unsafe_allow_html=True)
 
 # ============================================================================
 # 6. BARRA LATERAL (SIDEBAR POS): GESTIÓN INTERNA Y AUTENTICACIÓN
