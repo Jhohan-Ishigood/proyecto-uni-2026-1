@@ -161,7 +161,8 @@ html, body, .stApp {
 }
 
 #MainMenu { display: none !important; }
-div[data-testid="stToolbar"] { display: none !important; }
+div[data-testid="stToolbarActions"] { display: none !important; }
+.stAppDeployButton, .stDeployButton { display: none !important; }
 .viewerBadge_container, .viewerBadge_link_container { display: none !important; }
 
 div[data-testid="stHeader"] { background-color: transparent !important; }
