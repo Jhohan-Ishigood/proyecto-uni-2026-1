@@ -401,30 +401,67 @@ if os.path.exists(RUTA_CSS):
     with open(RUTA_CSS, "r", encoding="utf-8") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# Inyección directa del fondo visual premium (no depende de pseudo-elementos CSS)
-st.markdown("""
-<div id="fondo-premium" style="
-    position: fixed;
-    top: 0; left: 0;
-    width: 100vw; height: 100vh;
-    pointer-events: none;
-    z-index: 0;
-    background:
-        radial-gradient(ellipse 600px 500px at 10% 0%, rgba(233, 30, 140, 0.20) 0%, transparent 70%),
-        radial-gradient(ellipse 500px 600px at 90% 5%, rgba(156, 39, 176, 0.18) 0%, transparent 65%),
-        radial-gradient(ellipse 700px 400px at 50% 95%, rgba(233, 30, 140, 0.14) 0%, transparent 65%),
-        radial-gradient(ellipse 400px 400px at 5% 90%, rgba(103, 58, 183, 0.16) 0%, transparent 60%),
-        radial-gradient(ellipse 800px 800px at 50% 40%, rgba(156, 39, 176, 0.06) 0%, transparent 70%);
-    animation: auroraMovimiento 18s ease-in-out infinite alternate;
-"></div>
-<style>
-@keyframes auroraMovimiento {
-    0% { opacity: 0.85; filter: hue-rotate(0deg); }
-    50% { opacity: 1; filter: hue-rotate(6deg); }
-    100% { opacity: 0.85; filter: hue-rotate(-4deg); }
-}
-</style>
-""", unsafe_allow_html=True)
+# Función para inyectar el fondo (Imagen PC y Partículas Móvil)
+@st.cache_data
+def generar_css_fondo():
+    import base64
+    import random
+    fondo_pc_base64 = ""
+    ruta_fondo = os.path.join(BASE_DIR, "fondo_pc.png")
+    if os.path.exists(ruta_fondo):
+        with open(ruta_fondo, "rb") as f:
+            fondo_pc_base64 = base64.b64encode(f.read()).decode()
+            
+    # Partículas
+    shadows1 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 200)}vh rgba(255, 255, 255, {random.uniform(0.3, 0.8)})" for _ in range(60)])
+    shadows2 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 200)}vh rgba(243, 156, 18, {random.uniform(0.3, 0.8)})" for _ in range(40)])
+    shadows3 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 200)}vh rgba(255, 255, 255, {random.uniform(0.2, 0.6)})" for _ in range(80)])
+    
+    return f"""
+    <style>
+    /* FONDO PC */
+    @media (min-width: 769px) {{
+        .stApp {{
+            background-image: url("data:image/png;base64,{fondo_pc_base64}") !important;
+            background-size: cover !important;
+            background-position: center center !important;
+            background-attachment: fixed !important;
+            background-repeat: no-repeat !important;
+        }}
+        .stApp::before, .stApp::after {{ display: none !important; }}
+        #fondo-movil-particulas {{ display: none !important; }}
+    }}
+
+    /* FONDO MÓVIL */
+    @media (max-width: 768px) {{
+        .stApp {{
+            background-image: none !important;
+            background-color: transparent !important;
+        }}
+        .stApp::before, .stApp::after {{ display: none !important; }}
+        #fondo-movil-particulas {{
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none; z-index: 0; overflow: hidden;
+            background: linear-gradient(180deg, #0c0c0c 0%, #1a1a1a 50%, #000000 100%);
+        }}
+        .particula-1 {{ width: 3px; height: 3px; border-radius: 50%; background: transparent; box-shadow: {shadows1}; animation: animParticulas 40s linear infinite; }}
+        .particula-2 {{ width: 5px; height: 5px; border-radius: 50%; background: transparent; box-shadow: {shadows2}; animation: animParticulas 60s linear infinite; }}
+        .particula-3 {{ width: 2px; height: 2px; border-radius: 50%; background: transparent; box-shadow: {shadows3}; animation: animParticulas 25s linear infinite; }}
+        
+        @keyframes animParticulas {{
+            0% {{ transform: translateY(0vh); }}
+            100% {{ transform: translateY(-100vh); }}
+        }}
+    }}
+    </style>
+    <div id="fondo-movil-particulas">
+        <div class="particula-1"></div>
+        <div class="particula-2"></div>
+        <div class="particula-3"></div>
+    </div>
+    """
+
+st.markdown(generar_css_fondo(), unsafe_allow_html=True)
 
 # Inyección limpia del sello de creador adaptado al flujo estructural
 st.markdown("<div class='sello-creador'>Pagina elaborada por el grupo 5 😎</div>", unsafe_allow_html=True)
