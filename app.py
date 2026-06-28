@@ -540,6 +540,18 @@ if "promo_mostrada" not in st.session_state:
 with st.container():
     if st.session_state.user_info:
         u_info = st.session_state.user_info
+        
+        # Inyectar mini perfil flotante fijo en la esquina superior derecha
+        st.markdown(
+            f"""
+            <div style="position: fixed; top: 15px; right: 20px; z-index: 99999; display: flex; align-items: center; gap: 8px; background: rgba(18, 18, 18, 0.4); padding: 4px 12px 4px 4px; border-radius: 50px; border: 1px solid rgba(243, 156, 18, 0.5); backdrop-filter: blur(8px); box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                <img src="{u_info.get('picture', '')}" style="border-radius: 50%; width: 30px; height: 30px; object-fit: cover; border: 1px solid #f39c12;">
+                <span style="font-size: 13px; font-weight: bold; color: #fff;">{u_info.get('name', '').split(' ')[0]}</span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
         db_user = database.obtener_usuario(u_info.get('email', ''))
         compras = int(float(db_user.get("compras_realizadas", 0))) if db_user else 0
         faltan = int(3 - (compras % 3))
