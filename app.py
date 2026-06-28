@@ -444,9 +444,9 @@ def generar_css_fondo():
         position: absolute;
         width: 150px;
         height: 2px;
-        background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 50%, rgba(255,255,255,0) 100%);
+        background: linear-gradient(90deg, rgba(255,140,0,0) 0%, rgba(255,140,0,1) 50%, rgba(255,140,0,0) 100%);
         opacity: 0;
-        filter: drop-shadow(0 0 6px rgba(255, 255, 255, 1));
+        filter: drop-shadow(0 0 8px rgba(255, 140, 0, 1));
     }}
     
     /* Configuraciones individuales para que salgan a distintos tiempos y lugares */
@@ -454,6 +454,10 @@ def generar_css_fondo():
     .f2 {{ top: -10%; left: 50%; transform: rotate(-45deg); animation: shoot 9s infinite 3s; }}
     .f3 {{ top: 30%; left: 100%; transform: rotate(-45deg); animation: shoot 7s infinite 6s; }}
     .f4 {{ top: 0%; left: 20%; transform: rotate(-45deg); animation: shoot 11s infinite 2s; }}
+    .f5 {{ top: 50%; left: 110%; transform: rotate(-45deg); animation: shoot 8s infinite 4s; }}
+    .f6 {{ top: -20%; left: 70%; transform: rotate(-45deg); animation: shoot 10s infinite 5s; }}
+    .f7 {{ top: 40%; left: 130%; transform: rotate(-45deg); animation: shoot 12s infinite 0s; }}
+    .f8 {{ top: -30%; left: 90%; transform: rotate(-45deg); animation: shoot 9s infinite 7s; }}
     
     @keyframes shoot {{
         0% {{ transform: translate(0, 0) rotate(-45deg); opacity: 0; }}
@@ -470,6 +474,10 @@ def generar_css_fondo():
         <div class="fugaz f2"></div>
         <div class="fugaz f3"></div>
         <div class="fugaz f4"></div>
+        <div class="fugaz f5"></div>
+        <div class="fugaz f6"></div>
+        <div class="fugaz f7"></div>
+        <div class="fugaz f8"></div>
     </div>
     """
 
