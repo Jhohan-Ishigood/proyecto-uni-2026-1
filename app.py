@@ -572,12 +572,18 @@ with st.container():
                     st.session_state.pantalla_actual = "bienvenida"
                 st.rerun()
     else:
-        c1, c2 = st.columns([6, 4], vertical_alignment="center")
-        with c1:
-            st.markdown("<div style='font-size:14px; font-weight:bold; color:#fff; line-height:1.2;'>🎁 ¡Inicia sesión y obtén<br><span style='color:#f39c12;'>15% Dcto en tu 1era compra!</span></div>", unsafe_allow_html=True)
-        with c2:
-            auth_url = get_google_auth_url()
-            st.markdown(f'<a href="{auth_url}" target="_blank" style="display:inline-block; width:100%; text-align:center; background-color:#fff; padding:8px 0; border-radius:4px; text-decoration:none;"><span style="color:#000000 !important; font-weight:bold; font-size:13px;">Iniciar Sesión</span></a>', unsafe_allow_html=True)
+        auth_url = get_google_auth_url()
+        st.markdown(
+            f"<div class='status-strip' style='border-color: #f39c12; justify-content: space-between !important; padding: 15px 20px !important; margin-top: 5px !important; max-width: 100% !important;'>"
+            f"<div style='font-size:14px; font-weight:bold; color:#fff; line-height:1.4; text-align: left;'>"
+            f"🎁 ¡Inicia sesión y obtén<br><span style='color:#f39c12; font-size:14px !important;'>15% Dcto en tu 1era compra!</span>"
+            f"</div>"
+            f"<a href='{auth_url}' target='_blank' style='display:inline-block; background-color:#f39c12; padding:10px 18px; border-radius:8px; text-decoration:none; white-space:nowrap;'>"
+            f"<span style='color:#000000 !important; font-weight:bold; font-size:14px;'>Iniciar Sesión</span>"
+            f"</a>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
     st.markdown("<hr style='margin-top:10px; margin-bottom:15px; border-color:#333;'>", unsafe_allow_html=True)
 
 # ============================================================================
