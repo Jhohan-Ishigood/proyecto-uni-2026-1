@@ -401,43 +401,67 @@ if os.path.exists(RUTA_CSS):
     with open(RUTA_CSS, "r", encoding="utf-8") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# Función para inyectar el fondo (Partículas en Movimiento para todas las pantallas)
+# Función para inyectar el fondo (Orbes Glassmorphism)
 @st.cache_data
 def generar_css_fondo():
-    import random
-    
-    # Partículas (Más cantidad y con efecto de brillo/glow)
-    shadows1 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 200)}vh {random.randint(2, 4)}px 1px rgba(255, 255, 255, {random.uniform(0.6, 1.0)})" for _ in range(150)])
-    shadows2 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 200)}vh {random.randint(3, 5)}px 2px rgba(243, 156, 18, {random.uniform(0.7, 1.0)})" for _ in range(100)])
-    shadows3 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 200)}vh {random.randint(1, 3)}px 0px rgba(255, 255, 255, {random.uniform(0.4, 0.9)})" for _ in range(200)])
-    
     return f"""
     <style>
-    /* FONDO GLOBAL CON PARTÍCULAS */
+    /* FONDO GLOBAL: GLASSMORPHISM */
     .stApp {{
         background-image: none !important;
         background-color: transparent !important;
     }}
     .stApp::before, .stApp::after {{ display: none !important; }}
     
-    #fondo-movil-particulas {{
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-        pointer-events: none; z-index: 0; overflow: hidden;
-        background: linear-gradient(180deg, #020202 0%, #080808 50%, #000000 100%);
+    #fondo-orbes {{
+        position: fixed; 
+        top: 0; left: 0; 
+        width: 100vw; height: 100vh;
+        pointer-events: none; 
+        z-index: 0; 
+        overflow: hidden;
+        background-color: #050505;
     }}
-    .particula-1 {{ width: 3px; height: 3px; border-radius: 50%; background: transparent; box-shadow: {shadows1}; animation: animParticulas 35s linear infinite; }}
-    .particula-2 {{ width: 5px; height: 5px; border-radius: 50%; background: transparent; box-shadow: {shadows2}; animation: animParticulas 50s linear infinite; }}
-    .particula-3 {{ width: 2px; height: 2px; border-radius: 50%; background: transparent; box-shadow: {shadows3}; animation: animParticulas 20s linear infinite; }}
     
-    @keyframes animParticulas {{
-        0% {{ transform: translateY(0vh); }}
-        100% {{ transform: translateY(-100vh); }}
+    .orbe {{
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(80px);
+        opacity: 0.6;
+        animation: moverOrbes 25s infinite alternate ease-in-out;
+    }}
+    
+    .orbe-1 {{
+        width: 45vw; height: 45vw;
+        background: rgba(243, 156, 18, 0.3); /* Naranja/Ámbar */
+        top: -10%; left: -10%;
+        animation-delay: 0s;
+    }}
+    
+    .orbe-2 {{
+        width: 35vw; height: 35vw;
+        background: rgba(231, 76, 60, 0.25); /* Rojo suave */
+        bottom: -5%; right: -5%;
+        animation-delay: -5s;
+    }}
+    
+    .orbe-3 {{
+        width: 40vw; height: 40vw;
+        background: rgba(211, 84, 0, 0.2); /* Naranja oscuro */
+        top: 40%; left: 60%;
+        animation-delay: -10s;
+    }}
+    
+    @keyframes moverOrbes {{
+        0% {{ transform: translate(0, 0) scale(1); }}
+        50% {{ transform: translate(-5vw, 10vh) scale(1.1); }}
+        100% {{ transform: translate(10vw, -5vh) scale(0.9); }}
     }}
     </style>
-    <div id="fondo-movil-particulas">
-        <div class="particula-1"></div>
-        <div class="particula-2"></div>
-        <div class="particula-3"></div>
+    <div id="fondo-orbes">
+        <div class="orbe orbe-1"></div>
+        <div class="orbe orbe-2"></div>
+        <div class="orbe orbe-3"></div>
     </div>
     """
 
