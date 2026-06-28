@@ -401,40 +401,76 @@ if os.path.exists(RUTA_CSS):
     with open(RUTA_CSS, "r", encoding="utf-8") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# Función para inyectar el fondo (Textura de Carbón Ahumado Minimalista)
+# Función para inyectar el fondo (Espacio y Estrellas Fugaces)
 @st.cache_data
 def generar_css_fondo():
+    import random
+    
+    # Estrellas de fondo (estáticas y titilantes)
+    shadows1 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 100)}vh {random.randint(1, 2)}px rgba(255, 255, 255, {random.uniform(0.4, 1.0)})" for _ in range(150)])
+    shadows2 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 100)}vh {random.randint(2, 3)}px rgba(200, 220, 255, {random.uniform(0.5, 1.0)})" for _ in range(80)])
+    shadows3 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 100)}vh 1px rgba(255, 255, 255, {random.uniform(0.1, 0.5)})" for _ in range(200)])
+    
     return f"""
     <style>
-    /* FONDO GLOBAL: CARBÓN AHUMADO */
+    /* FONDO GLOBAL: ESPACIO PROFUNDO */
     .stApp {{
         background-image: none !important;
         background-color: transparent !important;
     }}
     .stApp::before, .stApp::after {{ display: none !important; }}
     
-    #fondo-carbon {{
+    #fondo-espacio {{
         position: fixed; 
         top: 0; left: 0; 
         width: 100vw; height: 100vh;
         pointer-events: none; 
         z-index: 0; 
-        background-color: #0a0a0a;
-        background-image: 
-            radial-gradient(ellipse at 50% 0%, #1f1f1f 0%, transparent 70%),
-            radial-gradient(ellipse at 50% 100%, #000000 0%, #050505 100%);
+        overflow: hidden;
+        background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
     }}
     
-    #fondo-carbon::before {{
-        content: "";
-        position: absolute; 
-        top: 0; left: 0; 
-        width: 100vw; height: 100vh;
-        opacity: 0.18;
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    .estrellas-1 {{ width: 2px; height: 2px; border-radius: 50%; background: transparent; box-shadow: {shadows1}; animation: twinkle 4s infinite alternate; }}
+    .estrellas-2 {{ width: 3px; height: 3px; border-radius: 50%; background: transparent; box-shadow: {shadows2}; animation: twinkle 6s infinite alternate; }}
+    .estrellas-3 {{ width: 1px; height: 1px; border-radius: 50%; background: transparent; box-shadow: {shadows3}; }}
+    
+    @keyframes twinkle {{
+        0% {{ opacity: 0.3; transform: scale(0.8); }}
+        100% {{ opacity: 1; transform: scale(1.2); }}
+    }}
+    
+    /* ESTRELLAS FUGACES */
+    .fugaz {{
+        position: absolute;
+        width: 150px;
+        height: 2px;
+        background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 50%, rgba(255,255,255,0) 100%);
+        opacity: 0;
+        filter: drop-shadow(0 0 6px rgba(255, 255, 255, 1));
+    }}
+    
+    /* Configuraciones individuales para que salgan a distintos tiempos y lugares */
+    .f1 {{ top: 10%; left: 80%; transform: rotate(-45deg); animation: shoot 6s infinite 1s; }}
+    .f2 {{ top: -10%; left: 50%; transform: rotate(-45deg); animation: shoot 9s infinite 3s; }}
+    .f3 {{ top: 30%; left: 100%; transform: rotate(-45deg); animation: shoot 7s infinite 6s; }}
+    .f4 {{ top: 0%; left: 20%; transform: rotate(-45deg); animation: shoot 11s infinite 2s; }}
+    
+    @keyframes shoot {{
+        0% {{ transform: translate(0, 0) rotate(-45deg); opacity: 0; }}
+        5% {{ opacity: 1; }}
+        15% {{ transform: translate(-80vw, 80vh) rotate(-45deg); opacity: 0; }}
+        100% {{ transform: translate(-80vw, 80vh) rotate(-45deg); opacity: 0; }}
     }}
     </style>
-    <div id="fondo-carbon"></div>
+    <div id="fondo-espacio">
+        <div class="estrellas-1"></div>
+        <div class="estrellas-2"></div>
+        <div class="estrellas-3"></div>
+        <div class="fugaz f1"></div>
+        <div class="fugaz f2"></div>
+        <div class="fugaz f3"></div>
+        <div class="fugaz f4"></div>
+    </div>
     """
 
 st.markdown(generar_css_fondo(), unsafe_allow_html=True)
