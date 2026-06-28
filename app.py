@@ -540,6 +540,9 @@ if "promo_mostrada" not in st.session_state:
 with st.container():
     if st.session_state.user_info:
         u_info = st.session_state.user_info
+        db_user = database.obtener_usuario(u_info.get('email', ''))
+        compras = int(float(db_user.get("compras_realizadas", 0))) if db_user else 0
+        faltan = int(3 - (compras % 3))
         # Ancla y estilos para fijar el popover a la esquina superior derecha
         st.markdown("""
         <style>
