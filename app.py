@@ -543,36 +543,49 @@ with st.container():
         db_user = database.obtener_usuario(u_info.get('email', ''))
         compras = int(float(db_user.get("compras_realizadas", 0))) if db_user else 0
         faltan = int(3 - (compras % 3))
-        # Ancla y estilos para fijar el popover a la esquina superior derecha
-        st.markdown("""
+        # CSS para transformar el botón de st.popover en la pastilla hermosa con foto real
+        st.markdown(f"""
         <style>
-        /* Fijar el boton del popover a la esquina */
-        div[data-testid="stPopover"] {
+        /* Posición forzada a la derecha debajo del header de Streamlit Cloud */
+        div[data-testid="stPopover"] {{
             position: fixed !important;
-            top: 15px !important;
+            top: 65px !important;
             right: 20px !important;
+            left: auto !important;
+            transform: none !important;
+            margin: 0 !important;
             z-index: 99999 !important;
-        }
-        div[data-testid="stPopover"] > button {
-            background: rgba(18, 18, 18, 0.6) !important;
+        }}
+        /* Estilizar el botón para que parezca el mini-perfil */
+        div[data-testid="stPopover"] button {{
+            background-color: rgba(18, 18, 18, 0.8) !important;
+            background-image: url('{u_info.get("picture", "")}') !important;
+            background-size: 30px 30px !important;
+            background-repeat: no-repeat !important;
+            background-position: 8px center !important;
             border: 1px solid rgba(243, 156, 18, 0.8) !important;
             border-radius: 50px !important;
             backdrop-filter: blur(8px) !important;
             color: #fff !important;
-            font-weight: bold !important;
-            padding: 4px 15px !important;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
-            transition: all 0.3s ease;
-        }
-        div[data-testid="stPopover"] > button:hover {
-            background: rgba(243, 156, 18, 0.4) !important;
+            padding: 6px 15px 6px 45px !important; /* Espacio para la foto a la izquierda */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.4) !important;
+            min-height: 42px !important;
+        }}
+        div[data-testid="stPopover"] button:hover {{
+            background-color: rgba(243, 156, 18, 0.4) !important;
             border-color: #fff !important;
+        }}
+        /* Ajustar el texto dentro del botón */
+        div[data-testid="stPopover"] button p {{
+            margin: 0 !important;
+            font-size: 14px !important;
+            font-weight: bold !important;
             color: #fff !important;
-        }
+        }}
         </style>
         """, unsafe_allow_html=True)
 
-        with st.popover(f"🧑 {u_info.get('name', '').split(' ')[0]}"):
+        with st.popover(f"{u_info.get('name', '').split(' ')[0]}"):
             # Contenido dentro del menú emergente
             st.markdown(
                 f"<div class='status-strip' style='border-color: #f39c12; justify-content: flex-start !important; padding: 12px 15px !important; margin-bottom: 10px !important; width: 100% !important; display: flex; align-items: center; gap: 12px; background: rgba(18,18,18,0.3); border-radius: 12px;'>"
