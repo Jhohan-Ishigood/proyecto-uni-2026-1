@@ -544,12 +544,14 @@ with st.container():
         compras = int(float(db_user.get("compras_realizadas", 0))) if db_user else 0
         faltan = int(3 - (compras % 3))
         
-        # Fila 1: Foto de Perfil e Información
-        col_perfil_foto, col_perfil_texto = st.columns([1, 4], vertical_alignment="center")
-        with col_perfil_foto:
-            st.markdown(f"<img src='{u_info.get('picture', '')}' style='border-radius:50%; width:55px; height:55px; object-fit:cover; border: 2px solid #f39c12;'>", unsafe_allow_html=True)
-        with col_perfil_texto:
-            st.markdown(f"<div style='line-height:1.2;'><span style='font-size:16px; font-weight:bold; color:#fff;'>Hola, {u_info.get('name', '').split(' ')[0]}</span><br><span style='font-size:12px; color:#aaa;'>🏆 {compras} compras (Faltan {faltan} para tu cupón)</span></div>", unsafe_allow_html=True)
+        # Fila 1: Foto de Perfil e Información en caja transparente
+        st.markdown(
+            f"<div class='status-strip' style='border-color: #f39c12; justify-content: flex-start !important; padding: 12px 20px !important; margin-top: 5px !important; margin-bottom: 5px !important; max-width: 100% !important; display: flex; align-items: center; gap: 15px;'>"
+            f"<img src='{u_info.get('picture', '')}' style='border-radius:50%; width:55px; height:55px; object-fit:cover; border: 2px solid #f39c12;'>"
+            f"<div style='line-height:1.2; text-align: left;'><span style='font-size:16px; font-weight:bold; color:#fff;'>Hola, {u_info.get('name', '').split(' ')[0]}</span><br><span style='font-size:12px; color:#aaa;'>🏆 {compras} compras (Faltan {faltan} para tu cupón)</span></div>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
         
         st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
         
@@ -1373,15 +1375,20 @@ else:
                     calif_info = rating_dict.get(nro_boleta)
                     calif_estrellas = f"⭐ {calif_info['calificacion']}/5" if calif_info else "Sin calificar"
                     
-                    with st.container(border=True):
-                        col_o1, col_o2 = st.columns([3, 1])
-                        with col_o1:
-                            st.markdown(f"#### Pedido **{nro_boleta}**")
-                            st.caption(f"📅 {fecha} | 🛵 {entrega} | 💳 {metodo_pago}")
-                            st.text(detalle.strip())
-                        with col_o2:
-                            st.markdown(f"<h3 style='color: #f39c12; margin: 0;'>{total}</h3>", unsafe_allow_html=True)
-                            st.caption(f"Calificación: {calif_estrellas}")
+                    st.markdown(
+                        f"<div class='status-strip' style='border-color: #444; justify-content: space-between !important; padding: 15px !important; margin-bottom: 15px !important; max-width: 100% !important; text-align: left; align-items: flex-start !important;'>"
+                        f"<div>"
+                        f"<h4 style='margin: 0 0 5px 0; color: #fff;'>Pedido <strong>{nro_boleta}</strong></h4>"
+                        f"<div style='color: #aaa; font-size: 13px; margin-bottom: 10px;'>📅 {fecha} | 🛵 {entrega} | 💳 {metodo_pago}</div>"
+                        f"<div style='color: #ddd; font-size: 14px; font-family: monospace; white-space: pre-wrap;'>{detalle.strip()}</div>"
+                        f"</div>"
+                        f"<div style='text-align: right;'>"
+                        f"<h3 style='color: #f39c12; margin: 0 0 5px 0;'>{total}</h3>"
+                        f"<div style='color: #aaa; font-size: 12px;'>Calif: {calif_estrellas}</div>"
+                        f"</div>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
                             
                 st.html("<br>")
                 if st.button("⬅️ Volver al catálogo", use_container_width=True, key="btn_volver_mis_pedidos"):
