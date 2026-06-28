@@ -401,47 +401,40 @@ if os.path.exists(RUTA_CSS):
     with open(RUTA_CSS, "r", encoding="utf-8") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# Función para inyectar el fondo (Cyber-Grid / Malla Tecnológica)
+# Función para inyectar el fondo (Textura de Carbón Ahumado Minimalista)
 @st.cache_data
 def generar_css_fondo():
     return f"""
     <style>
-    /* FONDO GLOBAL: CYBER-GRID */
+    /* FONDO GLOBAL: CARBÓN AHUMADO */
     .stApp {{
         background-image: none !important;
         background-color: transparent !important;
     }}
     .stApp::before, .stApp::after {{ display: none !important; }}
     
-    #fondo-grid {{
+    #fondo-carbon {{
         position: fixed; 
         top: 0; left: 0; 
         width: 100vw; height: 100vh;
         pointer-events: none; 
         z-index: 0; 
-        background-color: #030303;
+        background-color: #0a0a0a;
         background-image: 
-            linear-gradient(rgba(243, 156, 18, 0.08) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(243, 156, 18, 0.08) 1px, transparent 1px);
-        background-size: 35px 35px;
-        background-position: center center;
+            radial-gradient(ellipse at 50% 0%, #1f1f1f 0%, transparent 70%),
+            radial-gradient(ellipse at 50% 100%, #000000 0%, #050505 100%);
     }}
     
-    #fondo-grid::after {{
-        content: '';
-        position: absolute;
-        top: 0; left: 0;
+    #fondo-carbon::before {{
+        content: "";
+        position: absolute; 
+        top: 0; left: 0; 
         width: 100vw; height: 100vh;
-        background: radial-gradient(circle 800px at 50% 50%, rgba(243, 156, 18, 0.15), transparent 70%);
-        animation: pulsoGrid 10s infinite alternate ease-in-out;
-    }}
-    
-    @keyframes pulsoGrid {{
-        0% {{ opacity: 0.4; transform: scale(1); }}
-        100% {{ opacity: 1; transform: scale(1.05); }}
+        opacity: 0.18;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
     }}
     </style>
-    <div id="fondo-grid"></div>
+    <div id="fondo-carbon"></div>
     """
 
 st.markdown(generar_css_fondo(), unsafe_allow_html=True)
