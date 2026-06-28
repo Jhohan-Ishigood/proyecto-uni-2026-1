@@ -869,7 +869,7 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(div[data-testid="stVerticalB
     align-items: center !important;
     justify-content: center !important;
     gap: 15px !important;
-    background: rgba(18, 18, 18, 0.8) !important;
+    background: rgba(18, 18, 18, 0.3) !important;
     border-style: solid !important;
     border-width: 1px !important;
     border-radius: 12px !important;
