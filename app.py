@@ -495,28 +495,28 @@ def generar_css_fondo():
 }}
 </style>
 <div id="fondo-espacio">
-    <div class="estrellas-1"></div>
-    <div class="estrellas-2"></div>
-    <div class="estrellas-3"></div>
-    <div class="fugaz f1"></div>
-    <div class="fugaz f2"></div>
-    <div class="fugaz f3"></div>
-    <div class="fugaz f4"></div>
-    <div class="fugaz f5"></div>
-    <div class="fugaz f6"></div>
-    <div class="fugaz f7"></div>
-    <div class="fugaz f8"></div>
-    
-    <div class="comida-lluvia c1">🍔</div>
-    <div class="comida-lluvia c2">🥩</div>
-    <div class="comida-lluvia c3">🍟</div>
-    <div class="comida-lluvia c4">🍖</div>
-    <div class="comida-lluvia c5">🍔</div>
-    <div class="comida-lluvia c6">🥩</div>
-    <div class="comida-lluvia c7">🍕</div>
-    <div class="comida-lluvia c8">🍟</div>
-    <div class="comida-lluvia c9">🍖</div>
-    <div class="comida-lluvia c10">🥩</div>
+<div class="estrellas-1"></div>
+<div class="estrellas-2"></div>
+<div class="estrellas-3"></div>
+<div class="fugaz f1"></div>
+<div class="fugaz f2"></div>
+<div class="fugaz f3"></div>
+<div class="fugaz f4"></div>
+<div class="fugaz f5"></div>
+<div class="fugaz f6"></div>
+<div class="fugaz f7"></div>
+<div class="fugaz f8"></div>
+
+<div class="comida-lluvia c1">🍔</div>
+<div class="comida-lluvia c2">🥩</div>
+<div class="comida-lluvia c3">🍟</div>
+<div class="comida-lluvia c4">🍖</div>
+<div class="comida-lluvia c5">🍔</div>
+<div class="comida-lluvia c6">🥩</div>
+<div class="comida-lluvia c7">🍕</div>
+<div class="comida-lluvia c8">🍟</div>
+<div class="comida-lluvia c9">🍖</div>
+<div class="comida-lluvia c10">🥩</div>
 </div>
 """
 
