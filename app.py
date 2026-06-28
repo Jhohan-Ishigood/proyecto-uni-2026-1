@@ -406,10 +406,10 @@ if os.path.exists(RUTA_CSS):
 def generar_css_fondo():
     import random
     
-    # Partículas
-    shadows1 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 200)}vh rgba(255, 255, 255, {random.uniform(0.3, 0.8)})" for _ in range(60)])
-    shadows2 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 200)}vh rgba(243, 156, 18, {random.uniform(0.3, 0.8)})" for _ in range(40)])
-    shadows3 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 200)}vh rgba(255, 255, 255, {random.uniform(0.2, 0.6)})" for _ in range(80)])
+    # Partículas (Más cantidad y con efecto de brillo/glow)
+    shadows1 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 200)}vh {random.randint(2, 4)}px 1px rgba(255, 255, 255, {random.uniform(0.6, 1.0)})" for _ in range(150)])
+    shadows2 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 200)}vh {random.randint(3, 5)}px 2px rgba(243, 156, 18, {random.uniform(0.7, 1.0)})" for _ in range(100)])
+    shadows3 = ", ".join([f"{random.randint(0, 100)}vw {random.randint(0, 200)}vh {random.randint(1, 3)}px 0px rgba(255, 255, 255, {random.uniform(0.4, 0.9)})" for _ in range(200)])
     
     return f"""
     <style>
@@ -423,11 +423,11 @@ def generar_css_fondo():
     #fondo-movil-particulas {{
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         pointer-events: none; z-index: 0; overflow: hidden;
-        background: linear-gradient(180deg, #0c0c0c 0%, #1a1a1a 50%, #000000 100%);
+        background: linear-gradient(180deg, #020202 0%, #080808 50%, #000000 100%);
     }}
-    .particula-1 {{ width: 3px; height: 3px; border-radius: 50%; background: transparent; box-shadow: {shadows1}; animation: animParticulas 40s linear infinite; }}
-    .particula-2 {{ width: 5px; height: 5px; border-radius: 50%; background: transparent; box-shadow: {shadows2}; animation: animParticulas 60s linear infinite; }}
-    .particula-3 {{ width: 2px; height: 2px; border-radius: 50%; background: transparent; box-shadow: {shadows3}; animation: animParticulas 25s linear infinite; }}
+    .particula-1 {{ width: 3px; height: 3px; border-radius: 50%; background: transparent; box-shadow: {shadows1}; animation: animParticulas 35s linear infinite; }}
+    .particula-2 {{ width: 5px; height: 5px; border-radius: 50%; background: transparent; box-shadow: {shadows2}; animation: animParticulas 50s linear infinite; }}
+    .particula-3 {{ width: 2px; height: 2px; border-radius: 50%; background: transparent; box-shadow: {shadows3}; animation: animParticulas 20s linear infinite; }}
     
     @keyframes animParticulas {{
         0% {{ transform: translateY(0vh); }}
