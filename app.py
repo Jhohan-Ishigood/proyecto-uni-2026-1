@@ -1051,7 +1051,6 @@ else:
     if st.session_state.pantalla_actual == "bienvenida":
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("<h2 class='titulo-principal'>🔥 CARNES & BYTES — Tu gusto, nuestra meta</h2>", unsafe_allow_html=True)
-        st.markdown("<br><p style='text-align: center; font-size: 24px; font-weight: bold; color: #f39c12;'>🔥 Bienvenidos al templo de la buena carne 🔥</p>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; font-size: 18px; color: #ffffff;'>¿Desea registrar un nuevo pedido de nuestra deliciosa parrilla?</p>", unsafe_allow_html=True)
         estado_servicio = "ABIERTO" if servicio_abierto else "CERRADO"
         color_estado = "#2ecc71" if servicio_abierto else "#e74c3c"
