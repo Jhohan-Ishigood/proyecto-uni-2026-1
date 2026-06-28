@@ -465,6 +465,34 @@ def generar_css_fondo():
         15% {{ transform: translate(-80vw, 80vh) rotate(-45deg); opacity: 0; }}
         100% {{ transform: translate(-80vw, 80vh) rotate(-45deg); opacity: 0; }}
     }}
+    
+    /* LLUVIA DE COMIDA */
+    .comida-lluvia {{
+        position: absolute;
+        font-size: 28px;
+        animation: lluviaComida linear infinite;
+        opacity: 0.85;
+        z-index: 1;
+        filter: drop-shadow(0px 0px 5px rgba(255, 165, 0, 0.5));
+    }}
+    
+    .c1 {{ left: 5%; animation-duration: 12s; animation-delay: 1s; }}
+    .c2 {{ left: 15%; animation-duration: 15s; animation-delay: 5s; }}
+    .c3 {{ left: 25%; animation-duration: 10s; animation-delay: 2s; }}
+    .c4 {{ left: 35%; animation-duration: 18s; animation-delay: 7s; }}
+    .c5 {{ left: 45%; animation-duration: 14s; animation-delay: 0s; }}
+    .c6 {{ left: 55%; animation-duration: 11s; animation-delay: 4s; }}
+    .c7 {{ left: 65%; animation-duration: 16s; animation-delay: 8s; }}
+    .c8 {{ left: 75%; animation-duration: 13s; animation-delay: 3s; }}
+    .c9 {{ left: 85%; animation-duration: 17s; animation-delay: 6s; }}
+    .c10 {{ left: 95%; animation-duration: 9s; animation-delay: 1s; }}
+    
+    @keyframes lluviaComida {{
+        0% {{ transform: translateY(-10vh) rotate(0deg); opacity: 0; }}
+        5% {{ opacity: 1; }}
+        90% {{ opacity: 1; }}
+        100% {{ transform: translateY(110vh) rotate(360deg); opacity: 0; }}
+    }}
     </style>
     <div id="fondo-espacio">
         <div class="estrellas-1"></div>
@@ -478,6 +506,17 @@ def generar_css_fondo():
         <div class="fugaz f6"></div>
         <div class="fugaz f7"></div>
         <div class="fugaz f8"></div>
+        
+        <div class="comida-lluvia c1">🍔</div>
+        <div class="comida-lluvia c2">🥩</div>
+        <div class="comida-lluvia c3">🍟</div>
+        <div class="comida-lluvia c4">🍖</div>
+        <div class="comida-lluvia c5">🍔</div>
+        <div class="comida-lluvia c6">🥩</div>
+        <div class="comida-lluvia c7">🍕</div>
+        <div class="comida-lluvia c8">🍟</div>
+        <div class="comida-lluvia c9">🍖</div>
+        <div class="comida-lluvia c10">🥩</div>
     </div>
     """
 
