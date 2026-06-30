@@ -1190,6 +1190,10 @@ if es_admin:
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 else:
+    # Limpiar clase hero-active por defecto (la pantalla bienvenida la vuelve a agregar)
+    if st.session_state.pantalla_actual != "bienvenida":
+        st.markdown("""<script>document.body.classList.remove('hero-active');</script>""", unsafe_allow_html=True)
+    
     # ============================================================================
     # 15. ENTORNO CLIENTE - PANTALLA 1: BIENVENIDA MULTIMEDIA PREMIUM (HERO SECTION)
     # ============================================================================
@@ -1197,46 +1201,42 @@ else:
         estado_servicio = "ABIERTO AHORA" if servicio_abierto else "CERRADO TEMPORALMENTE"
         clase_dot = "" if servicio_abierto else "cerrado"
         
-        # INYECCIÓN DE CSS PARA EL HERO SECTION (RESPONSIVE CELULAR/PC)
+        # CSS ENCAPSULADO: Solo se activa con la clase .hero-active en el body
+        # + Script JS que agrega/remueve la clase automáticamente
         st.markdown(f"""
         <style>
-        /* Ocultar el fondo espacial interactivo solo en bienvenida */
-        #fondo-espacio {{ display: none !important; }}
+        /* ===== HERO: TODO SCOPED bajo .hero-active ===== */
+        .hero-active #fondo-espacio {{ display: none !important; }}
+        .hero-active .comida-lluvia {{ display: none !important; }}
         
-        /* Fondo Full Screen para la App */
-        .stApp {{
+        .hero-active .stApp {{
             background: linear-gradient(to right, rgba(10,10,10,0.95) 0%, rgba(10,10,10,0.7) 40%, rgba(0,0,0,0.1) 100%), 
                         url('https://images.unsplash.com/photo-1544025162-8360d84a7536?q=80&w=2070&auto=format&fit=crop') !important;
             background-size: cover !important;
             background-position: center !important;
             background-attachment: fixed !important;
         }}
-        
-        /* Navbar falsa superior */
+
         .hero-navbar {{
-            position: absolute;
-            top: 0; left: 0; width: 100%;
             padding: 25px 50px;
             display: flex; justify-content: space-between; align-items: center;
-            z-index: 999;
         }}
         .hero-logo {{
             font-size: 22px; font-weight: 900; color: #fff;
             letter-spacing: 1px; display: flex; align-items: center; gap: 8px;
         }}
         .hero-logo span {{ color: #f39c12; }}
-        .hero-nav-links {{ display: flex; gap: 40px; color: #ddd; font-size: 14px; font-weight: 600; cursor: pointer; }}
+        .hero-nav-links {{ display: flex; gap: 40px; color: #ddd; font-size: 14px; font-weight: 600; }}
+        .hero-nav-links span {{ cursor: pointer; transition: color 0.2s; }}
         .hero-nav-links span:hover {{ color: #f39c12; }}
-        
-        /* Contenedor central alineado a la izquierda */
+
         .hero-content {{
-            margin-top: 15vh;
+            margin-top: 8vh;
             max-width: 650px;
             text-align: left;
-            animation: fadeIn 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+            animation: heroFadeIn 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
         }}
-        
-        /* Badge de estado (Abierto/Cerrado) */
+
         .hero-status-badge {{
             display: inline-flex; align-items: center; gap: 8px;
             background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
@@ -1246,7 +1246,7 @@ else:
         }}
         .status-dot {{ width: 8px; height: 8px; border-radius: 50%; background-color: #2ecc71; box-shadow: 0 0 10px #2ecc71; }}
         .status-dot.cerrado {{ background-color: #e74c3c; box-shadow: 0 0 10px #e74c3c; }}
-        
+
         .hero-title {{
             font-size: 5.5rem; font-weight: 900; color: #ffffff;
             line-height: 1.05; margin-bottom: 20px;
@@ -1254,50 +1254,55 @@ else:
             font-family: 'Outfit', sans-serif;
         }}
         .hero-title span {{ color: #f39c12; }}
-        
+
         .hero-subtitle {{
             font-size: 1.15rem; color: #cccccc; line-height: 1.6;
             margin-bottom: 40px; text-shadow: 1px 1px 5px rgba(0,0,0,0.9);
             font-family: 'Outfit', sans-serif;
         }}
-        
-        /* Estilizar SOLO el botón primario (CTA) usando Streamlit natively */
-        button[data-testid="baseButton-primary"] {{
+
+        /* Botón CTA: SOLO dentro del hero-wrapper */
+        .hero-wrapper button[data-testid="baseButton-primary"] {{
             background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%) !important;
             color: white !important; font-size: 1.1rem !important; font-weight: 800 !important;
-            padding: 1.5rem 3.5rem !important; border-radius: 50px !important; border: none !important;
+            padding: 1.2rem 3.5rem !important; border-radius: 50px !important; border: none !important;
             box-shadow: 0 10px 25px rgba(243, 156, 18, 0.4) !important;
-            transition: all 0.3s ease !important; width: auto !important;
+            transition: all 0.3s ease !important;
         }}
-        button[data-testid="baseButton-primary"] p {{ font-size: 1.2rem !important; margin: 0; }}
-        button[data-testid="baseButton-primary"]:hover {{ transform: translateY(-4px) !important; box-shadow: 0 15px 30px rgba(243, 156, 18, 0.6) !important; }}
-        div[data-testid="stButton"] {{ display: flex; justify-content: flex-start; }}
-        
-        /* Ocultar padding extra del block-container para efecto Edge-to-Edge */
-        .block-container {{ padding-top: 1rem !important; max-width: 1300px !important; }}
-        
-        /* MEDIA QUERIES PARA ADAPTACIÓN PERFECTA A CELULAR */
+        .hero-wrapper button[data-testid="baseButton-primary"] p {{ font-size: 1.15rem !important; margin: 0; }}
+        .hero-wrapper button[data-testid="baseButton-primary"]:hover {{ 
+            transform: translateY(-3px) !important; 
+            box-shadow: 0 15px 30px rgba(243, 156, 18, 0.6) !important; 
+        }}
+
+        /* MEDIA QUERIES para celular */
         @media (max-width: 768px) {{
-            .stApp {{
-                background: linear-gradient(to bottom, rgba(10,10,10,0.8) 0%, rgba(10,10,10,0.6) 40%, rgba(10,10,10,0.95) 100%), 
+            .hero-active .stApp {{
+                background: linear-gradient(to bottom, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.6) 40%, rgba(10,10,10,0.95) 100%), 
                             url('https://images.unsplash.com/photo-1544025162-8360d84a7536?q=80&w=2070&auto=format&fit=crop') !important;
                 background-size: cover !important; background-position: right center !important;
             }}
-            .hero-navbar {{ padding: 20px 20px; justify-content: center; }}
-            .hero-nav-links {{ display: none; }}
-            .hero-content {{ margin-top: 5vh; text-align: center; display: flex; flex-direction: column; align-items: center; }}
-            .hero-title {{ font-size: 4rem; }}
-            .hero-subtitle {{ font-size: 1rem; padding: 0 15px; margin-bottom: 30px; }}
-            div[data-testid="stButton"] {{ justify-content: center; width: 100%; }}
-            button[data-testid="baseButton-primary"] {{ width: 100% !important; padding: 1.2rem !important; }}
+            .hero-navbar {{ padding: 18px 15px; justify-content: center; }}
+            .hero-nav-links {{ display: none !important; }}
+            .hero-content {{ 
+                margin-top: 3vh; text-align: center; 
+                display: flex; flex-direction: column; align-items: center; 
+            }}
+            .hero-title {{ font-size: 3rem; }}
+            .hero-subtitle {{ font-size: 0.95rem; padding: 0 10px; margin-bottom: 25px; }}
         }}
-        
-        @keyframes fadeIn {{
+
+        @keyframes heroFadeIn {{
             from {{ opacity: 0; transform: translateX(-30px); }}
             to {{ opacity: 1; transform: translateX(0); }}
         }}
         </style>
-        
+
+        <script>
+        // Agregar clase hero-active al body para activar los estilos
+        document.body.classList.add('hero-active');
+        </script>
+
         <!-- ESTRUCTURA HTML DEL HERO -->
         <div class="hero-navbar">
             <div class="hero-logo">🔥 CARNES <span>&</span> BYTES</div>
@@ -1318,15 +1323,16 @@ else:
         </div>
         """, unsafe_allow_html=True)
         
-        # Botón nativo de Streamlit (Type Primary para targetear el CSS)
-        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-        if st.button("ORDENAR AHORA", use_container_width=True, type="primary", key="btn_hero_cta", disabled=not servicio_abierto):
+        # Botón nativo dentro de un div wrapper para scoping CSS
+        st.markdown("<div class='hero-wrapper'>", unsafe_allow_html=True)
+        if st.button("🔥 ORDENAR AHORA", use_container_width=True, type="primary", key="btn_hero_cta", disabled=not servicio_abierto):
             st.session_state.pantalla_actual = "catalogo"
             st.session_state.boleta_emitida = False
             st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
             
         if not servicio_abierto:
-            st.markdown("<p style='color: #e74c3c; font-weight: bold; margin-top: 10px;'>⚠️ Los pedidos están deshabilitados temporalmente.</p>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #e74c3c; font-weight: bold; margin-top: 10px; text-align: left;'>⚠️ Los pedidos están deshabilitados temporalmente.</p>", unsafe_allow_html=True)
 
 
     # ============================================================================
