@@ -794,30 +794,36 @@ if es_admin_autenticado and st.session_state.rol_actual is None:
     st.markdown("<h2 style='text-align:center; color:#f39c12; margin-top:20px;'>🔑 ACCESO AUTORIZADO</h2>", unsafe_allow_html=True)
     st.markdown("<p style='text-align:center; color:#aaa; margin-bottom: 25px;'>Por favor, seleccione su rol operativo para ingresar al sistema:</p>", unsafe_allow_html=True)
 
-    roles_info = [
-        {"rol": "Dueño", "icon": "👑", "desc": "Acceso total y administración de permisos de todo el sistema."},
-        {"rol": "Cocinero", "icon": "🍳", "desc": "Visualiza la bitácora de pedidos pendientes y estado de mesas."},
-        {"rol": "Cajero", "icon": "💰", "desc": "Control financiero, cupones de descuento, caja chica y reservas."},
-        {"rol": "Mesero", "icon": "🚶", "desc": "Registro de comandas, bitácora básica de pedidos y mesas del salón."}
-    ]
+    # Inicialización de metadatos de roles si no existen
+    if "roles_metadata" not in st.session_state:
+        st.session_state.roles_metadata = {
+            "Dueño": {"icon": "👑", "desc": "Acceso total y administración de permisos de todo el sistema."},
+            "Cocinero": {"icon": "🍳", "desc": "Visualiza la bitácora de pedidos pendientes y estado de mesas."},
+            "Cajero": {"icon": "💰", "desc": "Control financiero, cupones de descuento, caja chica y reservas."},
+            "Mesero": {"icon": "🚶", "desc": "Registro de comandas, bitácora básica de pedidos y mesas del salón."}
+        }
 
-    col_r1, col_r2, col_r3, col_r4 = st.columns(4, gap="medium")
-    cols_lista = [col_r1, col_r2, col_r3, col_r4]
+    # Generamos la lista de roles combinando 'Dueño' + llaves de st.session_state.permisos_roles
+    roles_sistema = ["Dueño"] + list(st.session_state.permisos_roles.keys())
+    
+    # Creamos las columnas responsivamente según la cantidad de roles del sistema
+    n_cols = len(roles_sistema)
+    cols_lista = st.columns(n_cols, gap="medium") if n_cols > 0 else []
 
-    for idx, info in enumerate(roles_info):
+    for idx, r_nombre in enumerate(roles_sistema):
+        meta = st.session_state.roles_metadata.get(r_nombre, {"icon": "👤", "desc": "Rol operativo personalizado con permisos definidos por el Dueño."})
         with cols_lista[idx]:
             with st.container(border=True):
-                # Usar HTML simplificado para textos alineados y evitar saltos de línea feos
                 st.markdown(f"""
                 <div style='text-align:center; margin-bottom:15px;'>
-                    <span style='font-size:48px; display:block; margin-bottom:10px;'>{info['icon']}</span>
-                    <h3 style='margin:5px 0; color:#f39c12; font-size:22px; font-weight:bold; letter-spacing:0.5px;'>{info['rol']}</h3>
-                    <p style='font-size:12px; color:#888; margin:10px 0 0 0; line-height:1.4; min-height:60px;'>{info['desc']}</p>
+                    <span style='font-size:48px; display:block; margin-bottom:10px;'>{meta['icon']}</span>
+                    <h3 style='margin:5px 0; color:#f39c12; font-size:22px; font-weight:bold; letter-spacing:0.5px;'>{r_nombre}</h3>
+                    <p style='font-size:12px; color:#888; margin:10px 0 0 0; line-height:1.4; min-height:60px;'>{meta['desc']}</p>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                if st.button(f"Entrar como {info['rol']}", key=f"btn_choose_role_{info['rol']}", use_container_width=True, type="primary"):
-                    st.session_state.rol_actual = info["rol"]
+                if st.button(f"Entrar como {r_nombre}", key=f"btn_choose_role_{r_nombre}", use_container_width=True, type="primary"):
+                    st.session_state.rol_actual = r_nombre
                     st.rerun()
 
     st.markdown("<br><br>", unsafe_allow_html=True)
@@ -882,8 +888,8 @@ if es_admin:
                 "bitacora":       ("🕒", "Bitácora de pedidos"),
                 "mesas_reservas": ("🪑", "Mesas y reservaciones"),
             }
-            ROLES_EDITABLES = ["Cocinero", "Cajero", "Mesero"]
-            ICONOS_ROL = {"Cocinero": "🍳", "Cajero": "💰", "Mesero": "🚶"}
+            # Cargar dinámicamente los roles editables desde session_state.permisos_roles
+            ROLES_EDITABLES = list(st.session_state.permisos_roles.keys())
             OPCIONES = ["oculto", "ver", "editar"]
             OPCIONES_LABELS = {"oculto": "🔴 Oculto", "ver": "👁️ Solo Ver", "editar": "✏️ Editar"}
 
@@ -902,7 +908,8 @@ if es_admin:
                 permisos_tmp[rol_e] = {}
                 row_cols = st.columns([1.5] + [1] * len(LABELS_SECCIONES))
                 with row_cols[0]:
-                    st.markdown(f"**{ICONOS_ROL[rol_e]} {rol_e}**")
+                    meta_r = st.session_state.roles_metadata.get(rol_e, {"icon": "👤", "desc": ""})
+                    st.markdown(f"**{meta_r['icon']} {rol_e}**")
                 for idx, (clave, _) in enumerate(LABELS_SECCIONES.items()):
                     with row_cols[idx + 1]:
                         actual = st.session_state.permisos_roles.get(rol_e, {}).get(clave, "oculto")
@@ -920,10 +927,63 @@ if es_admin:
                 st.markdown("")
 
             if st.button("💾 GUARDAR PERMISOS", use_container_width=True, key="btn_guardar_permisos"):
+                # Actualizar los permisos en el estado
                 st.session_state.permisos_roles = permisos_tmp
                 st.session_state.permisos_roles_v2 = True
                 st.success("✔ ¡Permisos actualizados correctamente!")
                 st.rerun()
+
+            st.markdown("<br><hr><br>", unsafe_allow_html=True)
+            st.markdown("#### 🔧 GESTIONAR LISTA DE ROLES")
+            
+            col_add_rol, col_del_rol = st.columns(2, gap="medium")
+            
+            with col_add_rol:
+                with st.container(border=True):
+                    st.markdown("##### ➕ Añadir Nuevo Rol")
+                    nuevo_rol_nombre = st.text_input("Nombre del Rol:", placeholder="Ej: Supervisor, Practicante...").strip().capitalize()
+                    col_icon, col_desc = st.columns([1, 4])
+                    with col_icon:
+                        nuevo_rol_icon = st.text_input("Icono (Emoji):", value="👤", max_chars=2)
+                    with col_desc:
+                        nuevo_rol_desc = st.text_input("Descripción breve:", placeholder="Ej: Asistencia y control de personal...")
+                    
+                    if st.button("➕ CREAR ROL", use_container_width=True, key="btn_crear_rol_nuevo"):
+                        if not nuevo_rol_nombre:
+                            st.error("Por favor, ingresa un nombre para el nuevo rol.")
+                        elif nuevo_rol_nombre in st.session_state.permisos_roles or nuevo_rol_nombre == "Dueño":
+                            st.error("El rol ya existe.")
+                        else:
+                            # Inicializar permisos por defecto para el rol creado
+                            st.session_state.permisos_roles[nuevo_rol_nombre] = {
+                                "carta": "oculto",
+                                "cupones": "oculto",
+                                "finanzas": "oculto",
+                                "bitacora": "oculto",
+                                "mesas_reservas": "oculto"
+                            }
+                            # Guardar metadatos de visualización (icono/desc)
+                            st.session_state.roles_metadata[nuevo_rol_nombre] = {
+                                "icon": nuevo_rol_icon.strip() or "👤",
+                                "desc": nuevo_rol_desc.strip() or "Rol operativo personalizado con permisos definidos por el Dueño."
+                            }
+                            st.success(f"Rol '{nuevo_rol_nombre}' creado con éxito.")
+                            st.rerun()
+
+            with col_del_rol:
+                with st.container(border=True):
+                    st.markdown("##### 🗑️ Quitar Rol Existente")
+                    roles_borrables = [r for r in ROLES_EDITABLES]
+                    rol_a_borrar = st.selectbox("Seleccione el rol a eliminar:", options=roles_borrables, key="select_rol_a_borrar")
+                    
+                    st.warning("⚠️ Al eliminar un rol, se perderán de inmediato todas sus configuraciones de permisos.")
+                    if st.button("🗑️ ELIMINAR ROL SELECCIONADO", use_container_width=True, key="btn_eliminar_rol_existente", type="primary"):
+                        if rol_a_borrar in st.session_state.permisos_roles:
+                            del st.session_state.permisos_roles[rol_a_borrar]
+                            if rol_a_borrar in st.session_state.roles_metadata:
+                                del st.session_state.roles_metadata[rol_a_borrar]
+                            st.success(f"Rol '{rol_a_borrar}' eliminado exitosamente.")
+                            st.rerun()
 
     # Bloque expandible de control de pestañas y categorías
     if puede_ver(rol_actual, "carta"):
