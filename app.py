@@ -550,16 +550,22 @@ with st.container():
         # CSS para posicionar la pastilla de perfil arriba a la derecha y corregir el despliegue del menú
         st.markdown(f"""
         <style>
+        /* Deshabilitar pointer-events en el header para que no bloquee clics */
+        div[data-testid="stHeader"] {{
+            pointer-events: none !important;
+        }}
+        
         /* ===== PASTILLA DE PERFIL: FIJA ARRIBA A LA DERECHA ===== */
         div[data-testid="stPopover"] {{
             position: fixed !important;
-            top: 15px !important;
+            top: 60px !important; /* Debajo de la barra de Streamlit Cloud */
             right: 20px !important;
             left: auto !important;
             transform: none !important;
             margin: 0 !important;
             z-index: 999999 !important;
             width: auto !important;
+            pointer-events: auto !important;
         }}
         /* Botón con la foto circular recortada y borde dorado */
         div[data-testid="stPopover"] button {{
@@ -575,6 +581,7 @@ with st.container():
             width: auto !important;
             display: inline-flex !important;
             align-items: center !important;
+            pointer-events: auto !important;
         }}
         /* Pseudo-elemento para recortar la foto de perfil en círculo perfecto */
         div[data-testid="stPopover"] button::before {{
@@ -591,6 +598,7 @@ with st.container():
             background-image: url('{foto_url}') !important;
             background-size: cover !important;
             background-position: center !important;
+            pointer-events: none !important; /* Evita interferir con los clics */
         }}
         div[data-testid="stPopover"] button:hover {{
             background-color: rgba(243, 156, 18, 0.2) !important;
@@ -607,7 +615,7 @@ with st.container():
             align-items: center !important;
             gap: 4px !important;
         }}
-        /* Panel desplegable premium (dejamos que Streamlit lo posicione automáticamente) */
+        /* Panel desplegable premium */
         div[data-testid="stPopoverBody"] {{
             background: rgba(12, 12, 12, 0.96) !important;
             backdrop-filter: blur(20px) !important;
@@ -642,7 +650,7 @@ with st.container():
         /* Celular */
         @media (max-width: 768px) {{
             div[data-testid="stPopover"] {{
-                top: 10px !important;
+                top: 60px !important; /* Mantener abajo también en celular */
                 right: 10px !important;
             }}
             div[data-testid="stPopover"] button {{
@@ -655,8 +663,6 @@ with st.container():
                 left: 5px !important;
             }}
             div[data-testid="stPopoverBody"] {{
-                top: 58px !important;
-                right: 10px !important;
                 min-width: 250px !important;
             }}
         }}
