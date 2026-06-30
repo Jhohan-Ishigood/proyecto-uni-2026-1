@@ -547,39 +547,53 @@ with st.container():
         foto_url = u_info.get('picture', '')
         email = u_info.get('email', '')
         
-        # CSS para posicionar la pastilla de perfil arriba a la derecha
+        # CSS para posicionar la pastilla de perfil arriba a la derecha y corregir el despliegue del menú
         st.markdown(f"""
         <style>
         /* ===== PASTILLA DE PERFIL: FIJA ARRIBA A LA DERECHA ===== */
         div[data-testid="stPopover"] {{
             position: fixed !important;
-            top: 10px !important;
-            right: 15px !important;
+            top: 15px !important;
+            right: 20px !important;
             left: auto !important;
             transform: none !important;
             margin: 0 !important;
             z-index: 999999 !important;
             width: auto !important;
         }}
-        /* Botón = pastilla oscura con foto de fondo + nombre */
+        /* Botón con la foto circular recortada y borde dorado */
         div[data-testid="stPopover"] button {{
             background-color: rgba(12, 12, 12, 0.9) !important;
-            background-image: url('{foto_url}') !important;
-            background-size: 32px 32px !important;
-            background-repeat: no-repeat !important;
-            background-position: 5px center !important;
-            border: 1.5px solid rgba(243, 156, 18, 0.7) !important;
+            border: 1.5px solid rgba(243, 156, 18, 0.8) !important;
             border-radius: 50px !important;
             backdrop-filter: blur(12px) !important;
-            padding: 5px 16px 5px 44px !important;
+            padding: 6px 16px 6px 44px !important; /* Espacio para la foto circular */
             min-height: 42px !important;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
             transition: all 0.25s ease !important;
+            position: relative !important;
             width: auto !important;
-            min-width: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+        }}
+        /* Pseudo-elemento para recortar la foto de perfil en círculo perfecto */
+        div[data-testid="stPopover"] button::before {{
+            content: "" !important;
+            display: block !important;
+            position: absolute !important;
+            left: 6px !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            width: 30px !important;
+            height: 30px !important;
+            border-radius: 50% !important;
+            border: 1.5px solid #f39c12 !important;
+            background-image: url('{foto_url}') !important;
+            background-size: cover !important;
+            background-position: center !important;
         }}
         div[data-testid="stPopover"] button:hover {{
-            background-color: rgba(243, 156, 18, 0.25) !important;
+            background-color: rgba(243, 156, 18, 0.2) !important;
             border-color: #f39c12 !important;
             box-shadow: 0 6px 20px rgba(243, 156, 18, 0.3) !important;
         }}
@@ -589,15 +603,24 @@ with st.container():
             font-size: 13px !important;
             font-weight: 700 !important;
             color: #fff !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 4px !important;
         }}
-        /* Panel desplegable premium */
+        /* CORRECCIÓN CRÍTICA: Forzar al cuerpo del popover a aparecer fijo justo debajo del botón */
         div[data-testid="stPopoverBody"] {{
+            position: fixed !important;
+            top: 65px !important;
+            right: 20px !important;
+            left: auto !important;
+            transform: none !important;
+            z-index: 1000000 !important;
             background: rgba(12, 12, 12, 0.96) !important;
             backdrop-filter: blur(20px) !important;
             border: 1px solid rgba(243, 156, 18, 0.3) !important;
             border-radius: 16px !important;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.7) !important;
-            min-width: 280px !important;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8) !important;
+            min-width: 285px !important;
         }}
         /* Botones del menú desplegable */
         div[data-testid="stPopoverBody"] button {{
@@ -610,6 +633,8 @@ with st.container():
             text-align: left !important;
             justify-content: flex-start !important;
             transition: background 0.2s !important;
+            width: 100% !important;
+            display: flex !important;
         }}
         div[data-testid="stPopoverBody"] button:hover {{
             background: rgba(243, 156, 18, 0.12) !important;
@@ -622,26 +647,28 @@ with st.container():
         /* Celular */
         @media (max-width: 768px) {{
             div[data-testid="stPopover"] {{
-                top: 8px !important;
-                right: 8px !important;
+                top: 10px !important;
+                right: 10px !important;
             }}
             div[data-testid="stPopover"] button {{
-                padding: 4px 12px 4px 40px !important;
+                padding: 5px 12px 5px 38px !important;
                 min-height: 38px !important;
-                background-size: 28px 28px !important;
-                background-position: 5px center !important;
             }}
-            div[data-testid="stPopover"] button p {{
-                font-size: 12px !important;
+            div[data-testid="stPopover"] button::before {{
+                width: 26px !important;
+                height: 26px !important;
+                left: 5px !important;
             }}
             div[data-testid="stPopoverBody"] {{
+                top: 58px !important;
+                right: 10px !important;
                 min-width: 250px !important;
             }}
         }}
         </style>
         """, unsafe_allow_html=True)
 
-        with st.popover(f"📷 {primer_nombre}"):
+        with st.popover(f"{primer_nombre}"):
             # --- Cabecera del menú: foto + info ---
             st.markdown(
                 f"<div style='padding: 20px 18px 15px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 14px;'>"
