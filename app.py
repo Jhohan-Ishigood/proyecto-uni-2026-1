@@ -286,6 +286,12 @@ def obtener_src_foto(ruta_foto):
             
     return "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='8.5' cy='8.5' r='1.5'/><polyline points='21 15 16 10 5 21'/></svg>"
 
+def puede_ver(rol, seccion):
+    """Verifica si un rol tiene permiso para ver una sección. El Dueño siempre puede ver todo."""
+    if rol == "Dueño":
+        return True
+    return st.session_state.get("permisos_roles", {}).get(rol, {}).get(seccion, False)
+
 # ============================================================================
 # 3. INICIALIZACIÓN DE VARIABLES REACTIVAS DE SESIÓN (ESTADOS DEL SISTEMA)
 # ============================================================================
@@ -320,6 +326,32 @@ if "favoritos" not in st.session_state:
     st.session_state.favoritos = set()
 if "ultima_boleta_time" not in st.session_state:
     st.session_state.ultima_boleta_time = 0
+
+# Permisos configurables por el Dueño para cada rol
+if "permisos_roles" not in st.session_state:
+    st.session_state.permisos_roles = {
+        "Cocinero": {
+            "bitacora":     True,
+            "mesas_reservas": True,
+            "cupones":      False,
+            "finanzas":     False,
+            "carta":        False,
+        },
+        "Cajero": {
+            "bitacora":     True,
+            "mesas_reservas": True,
+            "cupones":      True,
+            "finanzas":     True,
+            "carta":        False,
+        },
+        "Mesero": {
+            "bitacora":     True,
+            "mesas_reservas": True,
+            "cupones":      False,
+            "finanzas":     False,
+            "carta":        False,
+        },
+    }
 
 # Defensa contra categorías activas eliminadas
 if st.session_state.categoria_activa not in st.session_state.lista_categorias:
@@ -737,7 +769,7 @@ if es_admin:
     st.markdown(f"<h1 class='titulo-principal'>📊 PANEL DE ADMINISTRACIÓN ({rol_actual.upper()})</h1>", unsafe_allow_html=True)
     st.info(f"📋 **Reporte Gerencial del Grupo 5** — Sincronizado en tiempo real: {fecha_actual}")
     
-    if rol_actual == "Dueño":
+    if puede_ver(rol_actual, "carta"):
         st.session_state.pedidos_pausados = st.toggle(
             "Pausar recepción de pedidos de clientes",
             value=st.session_state.pedidos_pausados,
@@ -747,8 +779,46 @@ if es_admin:
             st.warning("La recepción de pedidos está pausada para esta sesión.")
         st.markdown("<br>", unsafe_allow_html=True)
 
-    # Bloque expandible de control de pestañas y categorías
+    # ============================================================
+    # PANEL DE PERMISOS DE ROLES (solo visible al Dueño)
+    # ============================================================
     if rol_actual == "Dueño":
+        with st.expander("🔐 GESTIÓN DE PERMISOS POR ROL", expanded=False):
+            st.caption("Activa o desactiva qué secciones puede ver cada miembro del equipo al ingresar al panel.")
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            LABELS_SECCIONES = {
+                "carta":        "📝 Gestión de carta (precios, stock, secciones, productos)",
+                "cupones":      "🎫 Gestión de cupones",
+                "finanzas":     "📊 Auditoría de caja / Analítica",
+                "bitacora":     "🕒 Bitácora de pedidos",
+                "mesas_reservas": "🪑 Mesas y reservaciones",
+            }
+            ROLES_EDITABLES = ["Cocinero", "Cajero", "Mesero"]
+
+            permisos_tmp = {}
+            for rol_e in ROLES_EDITABLES:
+                permisos_tmp[rol_e] = {}
+                iconos = {"Cocinero": "🍳", "Cajero": "💰", "Mesero": "🚶"}
+                st.markdown(f"**{iconos[rol_e]} {rol_e}**")
+                cols = st.columns(len(LABELS_SECCIONES))
+                for col, (clave, etiqueta) in zip(cols, LABELS_SECCIONES.items()):
+                    with col:
+                        actual = st.session_state.permisos_roles.get(rol_e, {}).get(clave, False)
+                        permisos_tmp[rol_e][clave] = st.checkbox(
+                            etiqueta,
+                            value=actual,
+                            key=f"perm_{rol_e}_{clave}"
+                        )
+                st.markdown("---")
+
+            if st.button("💾 GUARDAR PERMISOS", use_container_width=True, key="btn_guardar_permisos"):
+                st.session_state.permisos_roles = permisos_tmp
+                st.success("✔ ¡Permisos actualizados correctamente!")
+                st.rerun()
+
+    # Bloque expandible de control de pestañas y categorías
+    if puede_ver(rol_actual, "carta"):
         with st.expander("📁 ⚙️ CONFIGURACIÓN DE SECCIONES EN LA CARTA", expanded=False):
             st.caption("Añada nuevas pestañas al menú horizontal o elimine las secciones que ya no utilice en la jornada.")
             st.markdown("<br>", unsafe_allow_html=True)
@@ -803,7 +873,7 @@ if es_admin:
     # ============================================================================
     # 9. PANEL DE CONTROL DE ADMINISTRACIÓN - INSERCIÓN DE PRODUCTOS MULTIMEDIA
     # ============================================================================
-    if rol_actual == "Dueño":
+    if puede_ver(rol_actual, "carta"):
         with st.expander("➕ 🛠️ AÑADIR NUEVO PRODUCTO CON FOTO", expanded=False):
             st.caption("Complete los datos para agregar un plato nuevo subiendo una imagen desde su dispositivo.")
             nuevo_nombre = st.text_input("Nombre del nuevo producto:", placeholder="Ej. Alitas BBQ, Papas Nativas...").strip()
@@ -848,7 +918,7 @@ if es_admin:
     # ============================================================================
     # 10. PANEL DE CONTROL DE ADMINISTRACIÓN - FILTRADO INTELIGENTE DE PRODUCTOS
     # ============================================================================
-    if rol_actual == "Dueño":
+    if puede_ver(rol_actual, "carta"):
         st.markdown("### 📝 GESTIÓN DE PRECIOS, STOCK Y FOTOS")
         st.caption(f"Modifique los valores. Filtrado actual: **{st.session_state.categoria_activa}**")
         
@@ -1009,7 +1079,7 @@ if es_admin:
     # ============================================================================
     # 12.5 PANEL DE CONTROL DE ADMINISTRACIÓN - GESTIÓN DE CUPONES
     # ============================================================================
-    if rol_actual in ["Dueño", "Cajero"]:
+    if puede_ver(rol_actual, "cupones"):
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### 🎫 GESTIÓN DE CUPONES")
         
@@ -1057,7 +1127,7 @@ if es_admin:
     # ============================================================================
     # 13. PANEL DE CONTROL DE ADMINISTRACIÓN - AUDITORÍA FINANCIERA Y ANALÍTICA
     # ============================================================================
-    if rol_actual in ["Dueño", "Cajero"]:
+    if puede_ver(rol_actual, "finanzas"):
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### 📊 AUDITORÍA GENERAL DE CAJA CHICA")
     
@@ -1158,62 +1228,63 @@ if es_admin:
     # ============================================================================
     # 14. PANEL DE CONTROL DE ADMINISTRACIÓN - BITÁCORA HISTÓRICA DE PEDIDOS
     # ============================================================================
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### 🕒 BITÁCORA: CONTROL HISTÓRICO DE PEDIDOS")
-    if st.session_state.historial_ordenes:
-        df_historial = pd.DataFrame(st.session_state.historial_ordenes)
-        csv_data = df_historial.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 EXPORTAR HISTORIAL A CSV",
-            data=csv_data,
-            file_name=f"historial_{fecha_actual.split(' ')[0].replace('/','-')}.csv",
-            mime="text/csv",
-            use_container_width=True,
-            key="btn_export_historial"
-        )
-        # Renombrar columnas de forma segura usando un diccionario de mapeo
-        df_historial = df_historial.rename(columns={
-            "fecha_hora": "🕒 FECHA Y HORA",
-            "nro_boleta": "🧾 NRO. BOLETA",
-            "detalle_articulos": "📦 DETALLE ARTÍCULOS",
-            "entrega": "🛵 ENTREGA",
-            "metodo_pago": "💳 MÉTODO PAGO",
-            "total": "💰 TOTAL",
-            "usuario_email": "📧 EMAIL USUARIO"
-        })
-        st.dataframe(df_historial, use_container_width=True, hide_index=True)
-    else:
-        st.caption("Aún no se han registrado transacciones en la base de datos.")
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### 💳 FLUJO DE CAJA POR MÉTODO DE PAGO")
-    
-    col_ef, col_yp, col_tj = st.columns(3)
-    with col_ef:
-        st.markdown(f"<div style='background-color:#151515; padding:15px; border-radius:6px; border:1px solid #333; text-align:center;'><span style='font-size:24px;'>💵</span><p style='margin:5px 0 0 0; font-size:13px; color:#888;'>EFECTIVO</p><h4 style='margin:5px 0 0 0; color:#27ae60;'>S/{metodos_pagos['Efectivo']:.2f}</h4></div>", unsafe_allow_html=True)
-    with col_yp:
-        st.markdown(f"<div style='background-color:#151515; padding:15px; border-radius:6px; border:1px solid #333; text-align:center;'><span style='font-size:24px;'>📱</span><p style='margin:5px 0 0 0; font-size:13px; color:#888;'>YAPE</p><h4 style='margin:5px 0 0 0; color:#27ae60;'>S/{metodos_pagos['Yape']:.2f}</h4></div>", unsafe_allow_html=True)
-    with col_tj:
-        st.markdown(f"<div style='background-color:#151515; padding:15px; border-radius:6px; border:1px solid #333; text-align:center;'><span style='font-size:24px;'>💳</span><p style='margin:5px 0 0 0; font-size:13px; color:#888;'>TARJETA</p><h4 style='margin:5px 0 0 0; color:#27ae60;'>S/{metodos_pagos['Tarjeta']:.2f}</h4></div>", unsafe_allow_html=True)
-
-    if sum(metodos_pagos.values()) > 0:
+    if puede_ver(rol_actual, "bitacora"):
         st.markdown("<br>", unsafe_allow_html=True)
-        df_pagos = pd.DataFrame({
-            'Método': list(metodos_pagos.keys()),
-            'Monto': list(metodos_pagos.values())
-        })
-        pie = alt.Chart(df_pagos).mark_arc(innerRadius=50, outerRadius=120).encode(
-            theta=alt.Theta('Monto:Q'),
-            color=alt.Color('Método:N', scale=alt.Scale(domain=['Efectivo','Yape','Tarjeta'], range=['#27ae60','#d35400','#3498db']), legend=alt.Legend(titleColor='#fff', labelColor='#fff')),
-            tooltip=['Método:N', alt.Tooltip('Monto:Q', format='.2f')]
-        ).properties(width=350, height=300, title=alt.TitleParams('Distribución de Pagos', color='#f39c12', fontSize=16))
-        st.altair_chart(pie, use_container_width=True)
+        st.markdown("### 🕒 BITÁCORA: CONTROL HISTÓRICO DE PEDIDOS")
+        if st.session_state.historial_ordenes:
+            df_historial = pd.DataFrame(st.session_state.historial_ordenes)
+            csv_data = df_historial.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 EXPORTAR HISTORIAL A CSV",
+                data=csv_data,
+                file_name=f"historial_{fecha_actual.split(' ')[0].replace('/','-')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="btn_export_historial"
+            )
+            # Renombrar columnas de forma segura usando un diccionario de mapeo
+            df_historial = df_historial.rename(columns={
+                "fecha_hora": "🕒 FECHA Y HORA",
+                "nro_boleta": "🧾 NRO. BOLETA",
+                "detalle_articulos": "📦 DETALLE ARTÍCULOS",
+                "entrega": "🛵 ENTREGA",
+                "metodo_pago": "💳 MÉTODO PAGO",
+                "total": "💰 TOTAL",
+                "usuario_email": "📧 EMAIL USUARIO"
+            })
+            st.dataframe(df_historial, use_container_width=True, hide_index=True)
+        else:
+            st.caption("Aún no se han registrado transacciones en la base de datos.")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("### 💳 FLUJO DE CAJA POR MÉTODO DE PAGO")
+        
+        col_ef, col_yp, col_tj = st.columns(3)
+        with col_ef:
+            st.markdown(f"<div style='background-color:#151515; padding:15px; border-radius:6px; border:1px solid #333; text-align:center;'><span style='font-size:24px;'>💵</span><p style='margin:5px 0 0 0; font-size:13px; color:#888;'>EFECTIVO</p><h4 style='margin:5px 0 0 0; color:#27ae60;'>S/{metodos_pagos['Efectivo']:.2f}</h4></div>", unsafe_allow_html=True)
+        with col_yp:
+            st.markdown(f"<div style='background-color:#151515; padding:15px; border-radius:6px; border:1px solid #333; text-align:center;'><span style='font-size:24px;'>📱</span><p style='margin:5px 0 0 0; font-size:13px; color:#888;'>YAPE</p><h4 style='margin:5px 0 0 0; color:#27ae60;'>S/{metodos_pagos['Yape']:.2f}</h4></div>", unsafe_allow_html=True)
+        with col_tj:
+            st.markdown(f"<div style='background-color:#151515; padding:15px; border-radius:6px; border:1px solid #333; text-align:center;'><span style='font-size:24px;'>💳</span><p style='margin:5px 0 0 0; font-size:13px; color:#888;'>TARJETA</p><h4 style='margin:5px 0 0 0; color:#27ae60;'>S/{metodos_pagos['Tarjeta']:.2f}</h4></div>", unsafe_allow_html=True)
+    
+        if sum(metodos_pagos.values()) > 0:
+            st.markdown("<br>", unsafe_allow_html=True)
+            df_pagos = pd.DataFrame({
+                'Método': list(metodos_pagos.keys()),
+                'Monto': list(metodos_pagos.values())
+            })
+            pie = alt.Chart(df_pagos).mark_arc(innerRadius=50, outerRadius=120).encode(
+                theta=alt.Theta('Monto:Q'),
+                color=alt.Color('Método:N', scale=alt.Scale(domain=['Efectivo','Yape','Tarjeta'], range=['#27ae60','#d35400','#3498db']), legend=alt.Legend(titleColor='#fff', labelColor='#fff')),
+                tooltip=['Método:N', alt.Tooltip('Monto:Q', format='.2f')]
+            ).properties(width=350, height=300, title=alt.TitleParams('Distribución de Pagos', color='#f39c12', fontSize=16))
+            st.altair_chart(pie, use_container_width=True)
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
     # ============================================================================
     # 14B. PANEL DE CONTROL DE ADMINISTRACIÓN - GESTIÓN DE MESAS Y RESERVAS
     # ============================================================================
-    if rol_actual in ["Dueño", "Mesero", "Cajero", "Cocinero"]:
+    if puede_ver(rol_actual, "mesas_reservas"):
         st.markdown("### 🪑 GESTIÓN DE MESAS Y RESERVAS")
         
         col_mesas_admin, col_reservas_admin = st.columns(2)
