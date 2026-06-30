@@ -828,7 +828,21 @@ if es_admin_autenticado and st.session_state.rol_actual is None:
 # ============================================================================
 if es_admin:
     rol_actual = st.session_state.get("rol_actual", "Dueño")
-    st.markdown(f"<h1 class='titulo-principal'>📊 PANEL DE ADMINISTRACIÓN ({rol_actual.upper()})</h1>", unsafe_allow_html=True)
+    
+    # Cabecera con título y botones de control de sesión/rol
+    col_admin_t, col_admin_b1, col_admin_b2 = st.columns([2.5, 1.0, 1.0])
+    with col_admin_t:
+        st.markdown(f"<h1 class='titulo-principal' style='text-align:left; margin:0; padding:0;'>📊 PANEL ({rol_actual.upper()})</h1>", unsafe_allow_html=True)
+    with col_admin_b1:
+        if st.button("🔄 Cambiar de Rol", use_container_width=True, key="btn_admin_change_role_header"):
+            st.session_state.rol_actual = None
+            st.rerun()
+    with col_admin_b2:
+        if st.button("🚪 Salir de Admin", use_container_width=True, key="btn_admin_logout_header"):
+            st.session_state.mostrar_login_admin = False
+            st.session_state.rol_actual = None
+            st.rerun()
+            
     st.info(f"📋 **Reporte Gerencial del Grupo 5** — Sincronizado en tiempo real: {fecha_actual}")
     
     if puede_ver(rol_actual, "carta"):
