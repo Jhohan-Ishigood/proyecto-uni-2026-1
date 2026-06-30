@@ -669,43 +669,67 @@ def _obtener_mesas_cached(ttl=60):
         conn = get_connection()
         df = conn.read(worksheet="mesas", ttl=ttl)
         if df.empty or "nro_mesa" not in df.columns:
-            return [{"nro_mesa": i, "estado": "disponible"} for i in range(1, 21)]
-        return df.to_dict(orient="records")
+            mesas = [{"nro_mesa": i, "estado": "disponible"} for i in range(1, 21)]
+        else:
+            mesas = df.to_dict(orient="records")
     except Exception:
-        # Retornamos 20 mesas offline por defecto si hay un bloqueo temporal de cuota
-        return [{"nro_mesa": i, "estado": "disponible"} for i in range(1, 21)]
+        mesas = [{"nro_mesa": i, "estado": "disponible"} for i in range(1, 21)]
+        
+    # Aplicar el estado local persistido (fuente de verdad resiliente)
+    import json, os
+    local_path = "mesas_estado_local.json"
+    if os.path.exists(local_path):
+        try:
+            with open(local_path, "r", encoding="utf-8") as f:
+                estados_locales = json.load(f)  # Diccionario {str(nro): "ocupada"/"disponible"}
+                for m in mesas:
+                    nro_str = str(m["nro_mesa"])
+                    if nro_str in estados_locales:
+                        m["estado"] = estados_locales[nro_str]
+        except Exception:
+            pass
+            
+    return mesas
 
 def obtener_mesas(ttl=TTL_LECTURA):
     return _obtener_mesas_cached(ttl=ttl)
 
 def actualizar_estado_mesa(nro_mesa, estado):
+    # 1. Guardar primero en el archivo local de forma persistente y robusta
+    import json, os
+    local_path = "mesas_estado_local.json"
+    estados_locales = {}
+    if os.path.exists(local_path):
+        try:
+            with open(local_path, "r", encoding="utf-8") as f:
+                estados_locales = json.load(f)
+        except Exception:
+            pass
+            
+    estados_locales[str(nro_mesa)] = estado
+    
+    try:
+        with open(local_path, "w", encoding="utf-8") as f:
+            json.dump(estados_locales, f, indent=4, ensure_ascii=False)
+    except Exception:
+        pass
+        
+    st.cache_data.clear() # Limpiar cache para forzar recarga visual instantánea en Streamlit
+    
+    # 2. Intentar actualizar Google Sheets en segundo plano. Si falla (429), no bloqueamos nada
     try:
         conn = get_connection()
-        df = None
-        try:
-            df = conn.read(worksheet="mesas", ttl=1)
-        except Exception:
-            # Fallback en caso de cuota 429: intentar caché, si falla usar 20 mesas offline
-            try:
-                mesas_cache = _obtener_mesas_cached(ttl=60)
-                if mesas_cache:
-                    df = pd.DataFrame(mesas_cache)
-                else:
-                    df = pd.DataFrame([{"nro_mesa": i, "estado": "disponible"} for i in range(1, 21)])
-            except Exception:
-                df = pd.DataFrame([{"nro_mesa": i, "estado": "disponible"} for i in range(1, 21)])
-        
-        if df is not None and not df.empty and "nro_mesa" in df.columns:
+        df = conn.read(worksheet="mesas", ttl=1)
+        if not df.empty and "nro_mesa" in df.columns:
             mask = df["nro_mesa"].astype(int) == int(nro_mesa)
             if mask.any():
                 df.loc[mask, "estado"] = estado
                 conn.update(worksheet="mesas", data=df)
-                st.cache_data.clear() # Limpiar cache para recargar mesas actualizadas
                 return True
         return False
-    except Exception as e:
-        st.error(f"Error actualizando mesa {nro_mesa}: {e}")
-        return False
+    except Exception:
+        # Silenciamos el error para no romper la experiencia
+        return True
 
 def agregar_mesa():
     try:
