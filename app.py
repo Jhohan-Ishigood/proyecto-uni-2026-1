@@ -326,6 +326,10 @@ if "boleta_emitida" not in st.session_state:
     st.session_state.boleta_emitida = False
 if "pantalla_actual" not in st.session_state:
     st.session_state.pantalla_actual = "bienvenida"
+if "solo_navegar" not in st.session_state:
+    st.session_state.solo_navegar = False
+if "nombre_cliente" not in st.session_state:
+    st.session_state.nombre_cliente = ""
 if "categoria_activa" not in st.session_state:
     st.session_state.categoria_activa = "Todos"
 if "pedidos_pausados" not in st.session_state:
@@ -1530,10 +1534,43 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
             st.warning("Los pedidos están deshabilitados por horario de atención o pausa operativa.")
         st.markdown("<br>", unsafe_allow_html=True)
         
-        if st.button("🛒 EMPEZAR MI PEDIDO", use_container_width=True, key="btn_empezar_pedido_master", disabled=not servicio_abierto):
-            st.session_state.pantalla_actual = "seleccion_mesa"
-            st.session_state.boleta_emitida = False
-            st.rerun()
+        if servicio_abierto:
+            col_opt1, col_opt2 = st.columns(2, gap="large")
+            with col_opt1:
+                st.markdown("""
+                <div style='background-color:#151515; padding:20px; border-radius:12px; border:2px solid #2ecc71; text-align:center; height:180px; display:flex; flex-direction:column; justify-content:space-between;'>
+                    <div>
+                        <span style='font-size:35px;'>🛒</span>
+                        <h3 style='margin:10px 0 5px 0; color:#2ecc71;'>Registrar Mesa y Pedir</h3>
+                        <p style='font-size:12px; color:#888; margin:0;'>Elige tu mesa, ingresa tu nombre y haz tu pedido al instante.</p>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.markdown("<div style='margin-top:-25px;'></div>", unsafe_allow_html=True)
+                if st.button("🍽️ EMPEZAR PEDIDO", use_container_width=True, key="btn_empezar_pedido_real"):
+                    st.session_state.solo_navegar = False
+                    st.session_state.pantalla_actual = "seleccion_mesa"
+                    st.session_state.boleta_emitida = False
+                    st.rerun()
+
+            with col_opt2:
+                st.markdown("""
+                <div style='background-color:#151515; padding:20px; border-radius:12px; border:2px solid #3498db; text-align:center; height:180px; display:flex; flex-direction:column; justify-content:space-between;'>
+                    <div>
+                        <span style='font-size:35px;'>👁️</span>
+                        <h3 style='margin:10px 0 5px 0; color:#3498db;'>Solo Navegar</h3>
+                        <p style='font-size:12px; color:#888; margin:0;'>Revisa los deliciosos platos, precios e ingredientes de nuestra carta.</p>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.markdown("<div style='margin-top:-25px;'></div>", unsafe_allow_html=True)
+                if st.button("📖 VER LA CARTA", use_container_width=True, key="btn_empezar_solo_navegar"):
+                    st.session_state.solo_navegar = True
+                    st.session_state.mesa_seleccionada = None
+                    st.session_state.nombre_cliente = ""
+                    st.session_state.pantalla_actual = "catalogo"
+                    st.session_state.boleta_emitida = False
+                    st.rerun()
         
         # Botón de reservación cuando el servicio está cerrado
         if not servicio_abierto:
@@ -1613,6 +1650,7 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
             if not mesas_disponibles:
                 st.error("🚫 Todas las mesas están ocupadas en este momento. Intenta más tarde.")
             else:
+                nombre_cliente_input = st.text_input("Ingresa tu Nombre completo:", value=st.session_state.get("nombre_cliente", ""), placeholder="Ej: Jhohan Gomez", key="input_nombre_cliente")
                 mesa_elegida = st.selectbox("Selecciona tu mesa:", mesas_disponibles, format_func=lambda x: f"🪑 Mesa {x}", key="select_mesa")
                 
                 col_mesa1, col_mesa2 = st.columns(2)
@@ -1622,11 +1660,15 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                         st.rerun()
                 with col_mesa2:
                     if st.button("✅ Confirmar Mesa y Pedir", use_container_width=True, key="btn_confirmar_mesa", type="primary"):
-                        st.session_state.mesa_seleccionada = mesa_elegida
-                        database.actualizar_estado_mesa(mesa_elegida, "ocupada")
-                        st.session_state.pantalla_actual = "catalogo"
-                        st.session_state.boleta_emitida = False
-                        st.rerun()
+                        if not nombre_cliente_input.strip():
+                            st.error("⚠️ Por favor ingresa tu nombre antes de continuar.")
+                        else:
+                            st.session_state.nombre_cliente = nombre_cliente_input.strip()
+                            st.session_state.mesa_seleccionada = mesa_elegida
+                            database.actualizar_estado_mesa(mesa_elegida, "ocupada")
+                            st.session_state.pantalla_actual = "catalogo"
+                            st.session_state.boleta_emitida = False
+                            st.rerun()
 
 
     # ============================================================================
@@ -1772,12 +1814,32 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
     # 16. ENTORNO CLIENTE - PANTALLA 2: CATÁLOGO DINÁMICO DE PRODUCTOS
     # ============================================================================
     elif st.session_state.pantalla_actual == "catalogo" and not st.session_state.pedido_guardado:
-        render_stepper(1)
+        if st.session_state.get("solo_navegar", False):
+            st.markdown("""
+            <div style='background-color:rgba(52,152,219,0.12); border:1px solid #3498db; color:#54aeff; padding:10px 16px; border-radius:8px; font-size:14px; text-align:center; font-weight:bold; margin-bottom:15px;'>
+                👁️ MODO CONSULTA — Estás navegando la carta digital. No es posible agregar productos al carrito.
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            render_stepper(1)
+            cli_nom = st.session_state.get("nombre_cliente", "Cliente")
+            cli_mesa = st.session_state.get("mesa_seleccionada", "?")
+            st.markdown(f"""
+            <div style='background-color:rgba(46,204,113,0.12); border:1px solid #2ecc71; color:#2ecc71; padding:10px 16px; border-radius:8px; font-size:14px; text-align:center; font-weight:bold; margin-bottom:15px;'>
+                👤 Cliente: {cli_nom} &nbsp;|&nbsp; 🪑 Mesa: {cli_mesa} &nbsp;|&nbsp; 🛒 Listo para armar tu pedido
+            </div>
+            """, unsafe_allow_html=True)
+            
         st.markdown("\n<h2 class='titulo-principal'>🔥 CARNES & BYTES — Tu gusto, nuestra meta</h2>", unsafe_allow_html=True)
         st.text(f"Fecha y hora oficial de Perú (GMT-5): {fecha_actual}\n")
         
         st.subheader(f"🍽️ SELECCIÓN DE {st.session_state.categoria_activa.upper()}")
-        st.info("Ingrese las cantidades de los productos que desea llevar:")
+        
+        if st.session_state.get("solo_navegar", False):
+            st.info("Echa un vistazo a nuestros platos y especialidades:")
+        else:
+            st.info("Ingrese las cantidades de los productos que desea llevar:")
+            
         if not servicio_abierto:
             st.warning("El catálogo está visible, pero no se pueden confirmar pedidos fuera del horario de atención.")
 
@@ -1879,45 +1941,54 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                     else:
                         st.markdown(f"<p class='mini-stock-normal'>📦 Stock disponible: {stock_actual} und.</p>", unsafe_allow_html=True)
                     
-                    cantidades_ingresadas[prod] = st.number_input(
-                        f"Cantidad de {prod}:", min_value=0, max_value=int(stock_actual), step=1, key=f"cat_{prod}", label_visibility="collapsed"
-                    )
+                    if st.session_state.get("solo_navegar", False):
+                        st.markdown("<div style='height:15px;'></div>", unsafe_allow_html=True)
+                    else:
+                        cantidades_ingresadas[prod] = st.number_input(
+                            f"Cantidad de {prod}:", min_value=0, max_value=int(stock_actual), step=1, key=f"cat_{prod}", label_visibility="collapsed"
+                        )
                     st.markdown("<br>", unsafe_allow_html=True)
                 else:
                     st.markdown(f"""<div style="width:100%; height:200px; background-color:#222; border-radius:12px 12px 0px 0px; display:flex; align-items:center; justify-content:center;"><span style="font-size:50px; filter:grayscale(100%);">{icono_html}</span></div>""", unsafe_allow_html=True)
                     st.markdown(f"<div style='background-color:#151515; padding:20px; border-radius:0px 0px 12px 12px; border:2px solid #ff4b4b; text-align:center; margin-bottom:25px;'><p style='color: #ff4b4b; font-size:18px; font-weight: bold; margin:0;'>❌ {prod_html}<br>(AGOTADO)</p></div>", unsafe_allow_html=True)
         st.markdown("---")
-        resumen_previo = []
-        total_previo = 0.0
-        for prod, cant in cantidades_ingresadas.items():
-            if cant > 0:
-                subtotal_previo = cant * st.session_state.menu_dinamico[prod]["precio"]
-                resumen_previo.append(f"{cant}x {prod}")
-                total_previo += subtotal_previo
-        if resumen_previo:
-            st.info(f"Carrito actual: {', '.join(resumen_previo)} | Total parcial: S/{total_previo:.2f}")
-            st.markdown(f"""
-                <div class="floating-cart-bar">
-                    <div class="cart-summary">🛒 {len(resumen_previo)} ítems seleccionados</div>
-                    <div class="cart-total">Total: S/{total_previo:.2f}</div>
-                </div>
-            """, unsafe_allow_html=True)
-
-        if st.button("🛒 ENVIAR PEDIDO Y CONFIGURAR PAGO", use_container_width=True, disabled=not servicio_abierto):
-            st.session_state.carrito = []
-            st.session_state.total_acumulado = 0.0
+        
+        if st.session_state.get("solo_navegar", False):
+            if st.button("⬅️ VOLVER AL MENÚ DE INICIO", use_container_width=True, key="btn_volver_bienvenida_solo_nav"):
+                st.session_state.pantalla_actual = "bienvenida"
+                st.rerun()
+        else:
+            resumen_previo = []
+            total_previo = 0.0
             for prod, cant in cantidades_ingresadas.items():
                 if cant > 0:
-                    sub = cant * st.session_state.menu_dinamico[prod]["precio"]
-                    st.session_state.carrito.append({"producto": prod, "cantidad": cant, "subtotal": sub})
-                    st.session_state.total_acumulado += sub
-            
-            if st.session_state.total_acumulado > 0:
-                st.session_state.pedido_guardado = True
-                st.session_state.boleta_emitida = False
-                st.rerun()
-            else:
-                st.error("⚠️ Error: Debe seleccionar al menos 1 producto.")
+                    subtotal_previo = cant * st.session_state.menu_dinamico[prod]["precio"]
+                    resumen_previo.append(f"{cant}x {prod}")
+                    total_previo += subtotal_previo
+            if resumen_previo:
+                st.info(f"Carrito actual: {', '.join(resumen_previo)} | Total parcial: S/{total_previo:.2f}")
+                st.markdown(f"""
+                    <div class="floating-cart-bar">
+                        <div class="cart-summary">🛒 {len(resumen_previo)} ítems seleccionados</div>
+                        <div class="cart-total">Total: S/{total_previo:.2f}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            if st.button("🛒 ENVIAR PEDIDO Y CONFIGURAR PAGO", use_container_width=True, disabled=not servicio_abierto):
+                st.session_state.carrito = []
+                st.session_state.total_acumulado = 0.0
+                for prod, cant in cantidades_ingresadas.items():
+                    if cant > 0:
+                        sub = cant * st.session_state.menu_dinamico[prod]["precio"]
+                        st.session_state.carrito.append({"producto": prod, "cantidad": cant, "subtotal": sub})
+                        st.session_state.total_acumulado += sub
+                
+                if st.session_state.total_acumulado > 0:
+                    st.session_state.pedido_guardado = True
+                    st.session_state.boleta_emitida = False
+                    st.rerun()
+                else:
+                    st.error("⚠️ Error: Debe seleccionar al menos 1 producto.")
     elif st.session_state.pantalla_actual == "mis_pedidos":
         st.subheader("📋 MIS PEDIDOS ANTERIORES")
         if not st.session_state.user_info:
