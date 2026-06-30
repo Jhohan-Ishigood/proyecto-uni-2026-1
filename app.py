@@ -1643,7 +1643,7 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
         st.markdown("<h2 class='titulo-principal'>🪑 Selecciona tu Mesa</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: #aaa; font-size: 15px;'>Elige una mesa disponible para iniciar tu pedido</p>", unsafe_allow_html=True)
         
-        mesas = database.obtener_mesas(ttl=5)
+        mesas = database.obtener_mesas(ttl=1)
         if not mesas:
             st.warning("No hay mesas configuradas. Contacta al administrador.")
         else:
@@ -1690,6 +1690,8 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                         else:
                             st.session_state.nombre_cliente = nombre_cliente_input.strip()
                             st.session_state.mesa_seleccionada = mesa_elegida
+                            # Cambiar estado en GSheets y vaciar caché para que se propague de inmediato
+                            st.cache_data.clear()
                             database.actualizar_estado_mesa(mesa_elegida, "ocupada")
                             st.session_state.pantalla_actual = "catalogo"
                             st.session_state.boleta_emitida = False
