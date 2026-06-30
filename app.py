@@ -286,11 +286,23 @@ def obtener_src_foto(ruta_foto):
             
     return "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='8.5' cy='8.5' r='1.5'/><polyline points='21 15 16 10 5 21'/></svg>"
 
-def puede_ver(rol, seccion):
-    """Verifica si un rol tiene permiso para ver una sección. El Dueño siempre puede ver todo."""
+def _get_perm(rol, seccion):
+    """Devuelve el nivel de permiso: 'oculto', 'ver', o 'editar'."""
     if rol == "Dueño":
-        return True
-    return st.session_state.get("permisos_roles", {}).get(rol, {}).get(seccion, False)
+        return "editar"
+    raw = st.session_state.get("permisos_roles", {}).get(rol, {}).get(seccion, "oculto")
+    # compatibilidad con formato bool antiguo
+    if isinstance(raw, bool):
+        return "ver" if raw else "oculto"
+    return raw
+
+def puede_ver(rol, seccion):
+    """True si el rol puede ver la sección (nivel 'ver' o 'editar')."""
+    return _get_perm(rol, seccion) in ("ver", "editar")
+
+def puede_editar(rol, seccion):
+    """True si el rol puede editar/modificar la sección (nivel 'editar')."""
+    return _get_perm(rol, seccion) == "editar"
 
 # ============================================================================
 # 3. INICIALIZACIÓN DE VARIABLES REACTIVAS DE SESIÓN (ESTADOS DEL SISTEMA)
@@ -327,31 +339,32 @@ if "favoritos" not in st.session_state:
 if "ultima_boleta_time" not in st.session_state:
     st.session_state.ultima_boleta_time = 0
 
-# Permisos configurables por el Dueño para cada rol
-if "permisos_roles" not in st.session_state:
+# Permisos configurables por el Dueño — 3 niveles: "oculto" | "ver" | "editar"
+if "permisos_roles_v2" not in st.session_state:
     st.session_state.permisos_roles = {
         "Cocinero": {
-            "bitacora":     True,
-            "mesas_reservas": True,
-            "cupones":      False,
-            "finanzas":     False,
-            "carta":        False,
+            "bitacora":       "ver",
+            "mesas_reservas": "ver",
+            "cupones":        "oculto",
+            "finanzas":       "oculto",
+            "carta":          "oculto",
         },
         "Cajero": {
-            "bitacora":     True,
-            "mesas_reservas": True,
-            "cupones":      True,
-            "finanzas":     True,
-            "carta":        False,
+            "bitacora":       "ver",
+            "mesas_reservas": "ver",
+            "cupones":        "editar",
+            "finanzas":       "ver",
+            "carta":          "oculto",
         },
         "Mesero": {
-            "bitacora":     True,
-            "mesas_reservas": True,
-            "cupones":      False,
-            "finanzas":     False,
-            "carta":        False,
+            "bitacora":       "ver",
+            "mesas_reservas": "editar",
+            "cupones":        "oculto",
+            "finanzas":       "oculto",
+            "carta":          "oculto",
         },
     }
+    st.session_state.permisos_roles_v2 = True  # marca migración completada
 
 # Defensa contra categorías activas eliminadas
 if st.session_state.categoria_activa not in st.session_state.lista_categorias:
@@ -784,36 +797,62 @@ if es_admin:
     # ============================================================
     if rol_actual == "Dueño":
         with st.expander("🔐 GESTIÓN DE PERMISOS POR ROL", expanded=False):
-            st.caption("Activa o desactiva qué secciones puede ver cada miembro del equipo al ingresar al panel.")
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.caption("Configura para cada rol si puede **ver**, **editar**, u **ocultar** cada sección.")
+            st.markdown("""
+<div style='background:#1a1a2e; border:1px solid #333; border-radius:8px; padding:10px 16px; margin-bottom:12px; font-size:13px;'>
+🔴 <b>Oculto</b> — No aparece en su panel &nbsp;|&nbsp;
+👁️ <b>Solo Ver</b> — Lo ve pero no puede modificar nada &nbsp;|&nbsp;
+✏️ <b>Editar</b> — Acceso completo para modificar
+</div>
+""", unsafe_allow_html=True)
 
             LABELS_SECCIONES = {
-                "carta":        "📝 Gestión de carta (precios, stock, secciones, productos)",
-                "cupones":      "🎫 Gestión de cupones",
-                "finanzas":     "📊 Auditoría de caja / Analítica",
-                "bitacora":     "🕒 Bitácora de pedidos",
-                "mesas_reservas": "🪑 Mesas y reservaciones",
+                "carta":          ("📝", "Carta (precios, stock, productos)"),
+                "cupones":        ("🎫", "Cupones de descuento"),
+                "finanzas":       ("📊", "Auditoría de caja / Analítica"),
+                "bitacora":       ("🕒", "Bitácora de pedidos"),
+                "mesas_reservas": ("🪑", "Mesas y reservaciones"),
             }
             ROLES_EDITABLES = ["Cocinero", "Cajero", "Mesero"]
+            ICONOS_ROL = {"Cocinero": "🍳", "Cajero": "💰", "Mesero": "🚶"}
+            OPCIONES = ["oculto", "ver", "editar"]
+            OPCIONES_LABELS = {"oculto": "🔴 Oculto", "ver": "👁️ Solo Ver", "editar": "✏️ Editar"}
 
             permisos_tmp = {}
+            # Cabecera de tabla
+            header_cols = st.columns([1.5] + [1] * len(LABELS_SECCIONES))
+            with header_cols[0]:
+                st.markdown("**Rol**")
+            for idx, (clave, (icono, etiqueta)) in enumerate(LABELS_SECCIONES.items()):
+                with header_cols[idx + 1]:
+                    st.markdown(f"**{icono} {etiqueta}**")
+
+            st.markdown("---")
+
             for rol_e in ROLES_EDITABLES:
                 permisos_tmp[rol_e] = {}
-                iconos = {"Cocinero": "🍳", "Cajero": "💰", "Mesero": "🚶"}
-                st.markdown(f"**{iconos[rol_e]} {rol_e}**")
-                cols = st.columns(len(LABELS_SECCIONES))
-                for col, (clave, etiqueta) in zip(cols, LABELS_SECCIONES.items()):
-                    with col:
-                        actual = st.session_state.permisos_roles.get(rol_e, {}).get(clave, False)
-                        permisos_tmp[rol_e][clave] = st.checkbox(
-                            etiqueta,
-                            value=actual,
-                            key=f"perm_{rol_e}_{clave}"
+                row_cols = st.columns([1.5] + [1] * len(LABELS_SECCIONES))
+                with row_cols[0]:
+                    st.markdown(f"**{ICONOS_ROL[rol_e]} {rol_e}**")
+                for idx, (clave, _) in enumerate(LABELS_SECCIONES.items()):
+                    with row_cols[idx + 1]:
+                        actual = st.session_state.permisos_roles.get(rol_e, {}).get(clave, "oculto")
+                        if isinstance(actual, bool):
+                            actual = "ver" if actual else "oculto"
+                        sel = st.selectbox(
+                            "nivel",
+                            options=OPCIONES,
+                            index=OPCIONES.index(actual) if actual in OPCIONES else 0,
+                            format_func=lambda x: OPCIONES_LABELS[x],
+                            key=f"perm_{rol_e}_{clave}",
+                            label_visibility="collapsed"
                         )
-                st.markdown("---")
+                        permisos_tmp[rol_e][clave] = sel
+                st.markdown("")
 
             if st.button("💾 GUARDAR PERMISOS", use_container_width=True, key="btn_guardar_permisos"):
                 st.session_state.permisos_roles = permisos_tmp
+                st.session_state.permisos_roles_v2 = True
                 st.success("✔ ¡Permisos actualizados correctamente!")
                 st.rerun()
 
@@ -821,8 +860,11 @@ if es_admin:
     if puede_ver(rol_actual, "carta"):
         with st.expander("📁 ⚙️ CONFIGURACIÓN DE SECCIONES EN LA CARTA", expanded=False):
             st.caption("Añada nuevas pestañas al menú horizontal o elimine las secciones que ya no utilice en la jornada.")
+            if not puede_editar(rol_actual, "carta"):
+                st.info("👁️ Modo solo lectura — no tienes permiso para modificar las secciones.")
             st.markdown("<br>", unsafe_allow_html=True)
     
+            _editar_carta = puede_editar(rol_actual, "carta")
             col_cat1, col_cat2 = st.columns(2, gap="medium")
             
             with col_cat1:
@@ -832,10 +874,11 @@ if es_admin:
                         "Crear Sección", 
                         placeholder="Escribe aquí la nueva sección (Ej. Postres)...", 
                         key="input_create_cat_name",
-                        label_visibility="collapsed"
+                        label_visibility="collapsed",
+                        disabled=not _editar_carta
                     ).strip().capitalize()
                     
-                    if st.button("➕ CREAR NUEVA SECCIÓN", use_container_width=True, key="btn_create_cat"):
+                    if st.button("➕ CREAR NUEVA SECCIÓN", use_container_width=True, key="btn_create_cat", disabled=not _editar_carta):
                         if nueva_cat and nueva_cat != "Todos":
                             exito = database.crear_categoria(None, nueva_cat)
                             if exito:
@@ -858,10 +901,11 @@ if es_admin:
                         "Eliminar Sección", 
                         options=cats_borrables, 
                         key="select_delete_cat_name",
-                        label_visibility="collapsed"
+                        label_visibility="collapsed",
+                        disabled=not _editar_carta
                     )
                     
-                    if st.button("🗑️ ELIMINAR SECCIÓN SELECCIONADA", use_container_width=True, key="btn_delete_cat"):
+                    if st.button("🗑️ ELIMINAR SECCIÓN SELECCIONADA", use_container_width=True, key="btn_delete_cat", disabled=not _editar_carta):
                         if cat_a_borrar:
                             database.eliminar_categoria(None, cat_a_borrar)
                             if st.session_state.categoria_activa == cat_a_borrar:
@@ -876,22 +920,25 @@ if es_admin:
     if puede_ver(rol_actual, "carta"):
         with st.expander("➕ 🛠️ AÑADIR NUEVO PRODUCTO CON FOTO", expanded=False):
             st.caption("Complete los datos para agregar un plato nuevo subiendo una imagen desde su dispositivo.")
-            nuevo_nombre = st.text_input("Nombre del nuevo producto:", placeholder="Ej. Alitas BBQ, Papas Nativas...").strip()
+            _editar_carta2 = puede_editar(rol_actual, "carta")
+            if not _editar_carta2:
+                st.info("👁️ Modo solo lectura — no tienes permiso para agregar productos.")
+            nuevo_nombre = st.text_input("Nombre del nuevo producto:", placeholder="Ej. Alitas BBQ, Papas Nativas...", disabled=not _editar_carta2).strip()
             
             col_new1, col_new2, col_new3, col_new4 = st.columns(4)
             with col_new1:
-                nuevo_precio = st.number_input("Precio de venta (S/):", min_value=0.5, value=10.0, step=0.5)
+                nuevo_precio = st.number_input("Precio de venta (S/):", min_value=0.5, value=10.0, step=0.5, disabled=not _editar_carta2)
             with col_new2:
-                nuevo_icono = st.text_input("Icono (Emoji):", value="🍟", max_chars=2).strip()
+                nuevo_icono = st.text_input("Icono (Emoji):", value="🍟", max_chars=2, disabled=not _editar_carta2).strip()
             with col_new3:
-                nuevo_stock = st.number_input("Stock (Unidades):", min_value=0, value=15, step=1)
+                nuevo_stock = st.number_input("Stock (Unidades):", min_value=0, value=15, step=1, disabled=not _editar_carta2)
             with col_new4:
                 cats_creadas = [c for c in st.session_state.lista_categorias if c != "Todos"]
-                nueva_categoria_asociada = st.selectbox("Categoría asignada:", options=cats_creadas)
+                nueva_categoria_asociada = st.selectbox("Categoría asignada:", options=cats_creadas, disabled=not _editar_carta2)
                 
-            archivo_foto = st.file_uploader("Selecciona la foto del plato desde tu equipo:", type=["jpg", "jpeg", "png"], key="upload_nuevo_prod")
+            archivo_foto = st.file_uploader("Selecciona la foto del plato desde tu equipo:", type=["jpg", "jpeg", "png"], key="upload_nuevo_prod", disabled=not _editar_carta2)
                 
-            if st.button("🚀 GUARDAR E INTEGRAR NUEVO PRODUCTO", use_container_width=True):
+            if st.button("🚀 GUARDAR E INTEGRAR NUEVO PRODUCTO", use_container_width=True, disabled=not _editar_carta2):
                 if nuevo_nombre:
                     if nuevo_nombre not in st.session_state.menu_dinamico:
                         ruta_foto = convertir_imagen_a_base64(archivo_foto)
@@ -919,8 +966,11 @@ if es_admin:
     # 10. PANEL DE CONTROL DE ADMINISTRACIÓN - FILTRADO INTELIGENTE DE PRODUCTOS
     # ============================================================================
     if puede_ver(rol_actual, "carta"):
+        _editar_carta3 = puede_editar(rol_actual, "carta")
         st.markdown("### 📝 GESTIÓN DE PRECIOS, STOCK Y FOTOS")
         st.caption(f"Modifique los valores. Filtrado actual: **{st.session_state.categoria_activa}**")
+        if not _editar_carta3:
+            st.info("👁️ Modo solo lectura — puedes ver los productos pero no modificarlos.")
         
         eliminar_producto = None
         productos_lista = list(st.session_state.menu_dinamico.keys())
@@ -979,13 +1029,13 @@ if es_admin:
                     if cat_act_izq not in cats_izq and cats_izq: 
                         cats_izq.append(cat_act_izq)
                     
-                    nueva_cat_izq = st.selectbox(f"Sección de {p_izq}:", options=cats_izq, index=cats_izq.index(cat_act_izq) if cat_act_izq in cats_izq else 0, key=f"cat_edit_{p_izq}")
+                    nueva_cat_izq = st.selectbox(f"Sección de {p_izq}:", options=cats_izq, index=cats_izq.index(cat_act_izq) if cat_act_izq in cats_izq else 0, key=f"cat_edit_{p_izq}", disabled=not _editar_carta3)
                     
-                    p_izq_val = st.number_input(f"Precio (S/) - {p_izq}:", min_value=1.0, value=float(st.session_state.menu_dinamico[p_izq]["precio"]), step=0.5, key=f"p_{p_izq}")
-                    p_izq_disp = st.checkbox("Disponible para venta", value=st.session_state.menu_dinamico[p_izq]["disponible"], key=f"d_{p_izq}")
-                    p_izq_stock = st.number_input(f"Stock Disponible - {p_izq}:", min_value=0, value=int(st.session_state.menu_dinamico[p_izq].get("stock", 10)), step=1, key=f"s_{p_izq}")
+                    p_izq_val = st.number_input(f"Precio (S/) - {p_izq}:", min_value=1.0, value=float(st.session_state.menu_dinamico[p_izq]["precio"]), step=0.5, key=f"p_{p_izq}", disabled=not _editar_carta3)
+                    p_izq_disp = st.checkbox("Disponible para venta", value=st.session_state.menu_dinamico[p_izq]["disponible"], key=f"d_{p_izq}", disabled=not _editar_carta3)
+                    p_izq_stock = st.number_input(f"Stock Disponible - {p_izq}:", min_value=0, value=int(st.session_state.menu_dinamico[p_izq].get("stock", 10)), step=1, key=f"s_{p_izq}", disabled=not _editar_carta3)
                     
-                    foto_cambio_izq = st.file_uploader(f"Actualizar foto de {p_izq}:", type=["jpg", "jpeg", "png"], key=f"f_up_{p_izq}")
+                    foto_cambio_izq = st.file_uploader(f"Actualizar foto de {p_izq}:", type=["jpg", "jpeg", "png"], key=f"f_up_{p_izq}", disabled=not _editar_carta3)
                     
                     cambios_detectados[p_izq] = {
                         "precio": p_izq_val, 
@@ -995,7 +1045,7 @@ if es_admin:
                         "categoria": nueva_cat_izq
                     }
                     
-                    if st.button(f"❌ Eliminar {p_izq}", key=f"del_{p_izq}", use_container_width=True):
+                    if st.button(f"❌ Eliminar {p_izq}", key=f"del_{p_izq}", use_container_width=True, disabled=not _editar_carta3):
                         eliminar_producto = p_izq
                     
             # --- CONTROL DE PRODUCTO: COLUMNA DERECHA ---
@@ -1025,13 +1075,13 @@ if es_admin:
                         if cat_act_der not in cats_der and cats_der: 
                             cats_der.append(cat_act_der)
                         
-                        nueva_cat_der = st.selectbox(f"Sección de {p_der}:", options=cats_der, index=cats_der.index(cat_act_der) if cat_act_der in cats_der else 0, key=f"cat_edit_{p_der}")
+                        nueva_cat_der = st.selectbox(f"Sección de {p_der}:", options=cats_der, index=cats_der.index(cat_act_der) if cat_act_der in cats_der else 0, key=f"cat_edit_{p_der}", disabled=not _editar_carta3)
                         
-                        p_der_val = st.number_input(f"Precio (S/) - {p_der}:", min_value=1.0, value=float(st.session_state.menu_dinamico[p_der]["precio"]), step=0.5, key=f"p_{p_der}")
-                        p_der_disp = st.checkbox("Disponible para venta", value=st.session_state.menu_dinamico[p_der]["disponible"], key=f"d_{p_der}")
-                        p_der_stock = st.number_input(f"Stock Disponible - {p_der}:", min_value=0, value=int(st.session_state.menu_dinamico[p_der].get("stock", 10)), step=1, key=f"s_{p_der}")
+                        p_der_val = st.number_input(f"Precio (S/) - {p_der}:", min_value=1.0, value=float(st.session_state.menu_dinamico[p_der]["precio"]), step=0.5, key=f"p_{p_der}", disabled=not _editar_carta3)
+                        p_der_disp = st.checkbox("Disponible para venta", value=st.session_state.menu_dinamico[p_der]["disponible"], key=f"d_{p_der}", disabled=not _editar_carta3)
+                        p_der_stock = st.number_input(f"Stock Disponible - {p_der}:", min_value=0, value=int(st.session_state.menu_dinamico[p_der].get("stock", 10)), step=1, key=f"s_{p_der}", disabled=not _editar_carta3)
                         
-                        foto_cambio_der = st.file_uploader(f"Actualizar foto de {p_der}:", type=["jpg", "jpeg", "png"], key=f"f_up_{p_der}")
+                        foto_cambio_der = st.file_uploader(f"Actualizar foto de {p_der}:", type=["jpg", "jpeg", "png"], key=f"f_up_{p_der}", disabled=not _editar_carta3)
                         
                         cambios_detectados[p_der] = {
                             "precio": p_der_val, 
@@ -1041,7 +1091,7 @@ if es_admin:
                             "categoria": nueva_cat_der
                         }
                         
-                        if st.button(f"❌ Eliminar {p_der}", key=f"del_{p_der}", use_container_width=True):
+                        if st.button(f"❌ Eliminar {p_der}", key=f"del_{p_der}", use_container_width=True, disabled=not _editar_carta3):
                             eliminar_producto = p_der
             st.markdown("---")
     
@@ -1054,7 +1104,7 @@ if es_admin:
                 st.session_state["_forzar_recarga"] = True
                 st.rerun()
     
-        if st.button("💾 CONFIRMAR Y SINCRONIZAR CAMBIOS DE LA CARTA", use_container_width=True):
+        if st.button("💾 CONFIRMAR Y SINCRONIZAR CAMBIOS DE LA CARTA", use_container_width=True, disabled=not _editar_carta3):
             # Sincronizamos los cambios al almacenamiento de Google Sheets
             todos_guardados = True
             for prod_key, info_actualizada in cambios_detectados.items():
@@ -1082,19 +1132,22 @@ if es_admin:
     if puede_ver(rol_actual, "cupones"):
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### 🎫 GESTIÓN DE CUPONES")
+        _editar_cup = puede_editar(rol_actual, "cupones")
+        if not _editar_cup:
+            st.info("👁️ Modo solo lectura — puedes ver los cupones pero no agregarlos ni eliminarlos.")
         
         with st.expander("Añadir / Editar Cupones", expanded=False):
             c_col1, c_col2, c_col3, c_col4 = st.columns(4)
             with c_col1:
-                nuevo_codigo = st.text_input("Código del cupón (ej. VERANO20)").strip().upper()
+                nuevo_codigo = st.text_input("Código del cupón (ej. VERANO20)", disabled=not _editar_cup).strip().upper()
             with c_col2:
-                nuevo_tipo = st.selectbox("Tipo de descuento", ["porcentaje", "monto", "delivery"])
+                nuevo_tipo = st.selectbox("Tipo de descuento", ["porcentaje", "monto", "delivery"], disabled=not _editar_cup)
             with c_col3:
-                nuevo_valor = st.number_input("Valor (ej. 0.2 para 20%, o 10.0 para S/10)", min_value=0.0, step=0.1)
+                nuevo_valor = st.number_input("Valor (ej. 0.2 para 20%, o 10.0 para S/10)", min_value=0.0, step=0.1, disabled=not _editar_cup)
             with c_col4:
-                nueva_desc = st.text_input("Descripción breve")
+                nueva_desc = st.text_input("Descripción breve", disabled=not _editar_cup)
                 
-            if st.button("➕ Guardar Cupón", use_container_width=True):
+            if st.button("➕ Guardar Cupón", use_container_width=True, disabled=not _editar_cup):
                 if nuevo_codigo and nuevo_valor > 0:
                     if database.crear_cupon(nuevo_codigo, nuevo_tipo, nuevo_valor, nueva_desc, activo=True):
                         st.success(f"Cupón {nuevo_codigo} guardado.")
@@ -1113,12 +1166,12 @@ if es_admin:
                     with col_c2:
                         st.write(datos["descripcion"])
                     with col_c3:
-                        estado = st.toggle("Activo", value=bool(datos["activo"]), key=f"tgl_{cod}")
-                        if estado != bool(datos["activo"]):
+                        estado = st.toggle("Activo", value=bool(datos["activo"]), key=f"tgl_{cod}", disabled=not _editar_cup)
+                        if _editar_cup and estado != bool(datos["activo"]):
                             database.actualizar_estado_cupon(cod, estado)
                             st.rerun()
                     with col_c4:
-                        if st.button("🗑️", key=f"del_cup_{cod}"):
+                        if st.button("🗑️", key=f"del_cup_{cod}", disabled=not _editar_cup):
                             database.eliminar_cupon(cod)
                             st.rerun()
             else:
@@ -1285,7 +1338,10 @@ if es_admin:
     # 14B. PANEL DE CONTROL DE ADMINISTRACIÓN - GESTIÓN DE MESAS Y RESERVAS
     # ============================================================================
     if puede_ver(rol_actual, "mesas_reservas"):
+        _editar_mr = puede_editar(rol_actual, "mesas_reservas")
         st.markdown("### 🪑 GESTIÓN DE MESAS Y RESERVAS")
+        if not _editar_mr:
+            st.info("👁️ Modo solo lectura — puedes ver mesas y reservas pero no modificarlas.")
         
         col_mesas_admin, col_reservas_admin = st.columns(2)
         
@@ -1305,11 +1361,11 @@ if es_admin:
                     with col_m2:
                         nuevo_estado = "ocupada" if estado == "disponible" else "disponible"
                         label_btn = f"Marcar {'Ocupada' if estado == 'disponible' else 'Libre'}"
-                        if st.button(label_btn, key=f"btn_toggle_mesa_{nro}", use_container_width=True):
+                        if st.button(label_btn, key=f"btn_toggle_mesa_{nro}", use_container_width=True, disabled=not _editar_mr):
                             database.actualizar_estado_mesa(nro, nuevo_estado)
                             st.rerun()
                     with col_m3:
-                        if st.button("🗑️", key=f"btn_del_mesa_{nro}"):
+                        if st.button("🗑️", key=f"btn_del_mesa_{nro}", disabled=not _editar_mr):
                             database.eliminar_mesa(nro)
                             st.toast(f"Mesa {nro} eliminada", icon="🗑️")
                             st.rerun()
@@ -1317,7 +1373,7 @@ if es_admin:
                 st.info("No hay mesas configuradas.")
             
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("➕ Agregar Nueva Mesa", key="btn_add_mesa", use_container_width=True):
+            if st.button("➕ Agregar Nueva Mesa", key="btn_add_mesa", use_container_width=True, disabled=not _editar_mr):
                 nueva = database.agregar_mesa()
                 if nueva:
                     st.toast(f"Mesa {nueva} agregada", icon="✅")
@@ -1367,7 +1423,7 @@ if es_admin:
                     with col_btn_r1:
                         st.link_button("💬 Enviar WhatsApp", wa_url, use_container_width=True)
                     with col_btn_r2:
-                        if st.button(f"❌ Cancelar #{r_id}", key=f"btn_cancel_reserva_{r_id}", use_container_width=True):
+                        if st.button(f"❌ Cancelar #{r_id}", key=f"btn_cancel_reserva_{r_id}", use_container_width=True, disabled=not _editar_mr):
                             database.eliminar_reserva(r_id)
                             st.toast(f"Reserva #{r_id} cancelada", icon="❌")
                             st.rerun()
