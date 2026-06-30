@@ -1282,7 +1282,16 @@ if es_admin:
             use_container_width=True,
             key="btn_export_historial"
         )
-        df_historial.columns = ["🕒 FECHA Y HORA", "🧾 NRO. BOLETA", "📦 DETALLE ARTÍCULOS", "🛵 ENTREGA", "💳 MÉTODO PAGO", "💰 TOTAL"]
+        # Renombrar columnas de forma segura usando un diccionario de mapeo
+        df_historial = df_historial.rename(columns={
+            "fecha_hora": "🕒 FECHA Y HORA",
+            "nro_boleta": "🧾 NRO. BOLETA",
+            "detalle_articulos": "📦 DETALLE ARTÍCULOS",
+            "entrega": "🛵 ENTREGA",
+            "metodo_pago": "💳 MÉTODO PAGO",
+            "total": "💰 TOTAL",
+            "usuario_email": "📧 EMAIL USUARIO"
+        })
         st.dataframe(df_historial, use_container_width=True, hide_index=True)
     else:
         st.caption("Aún no se han registrado transacciones en la base de datos.")
