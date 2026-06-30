@@ -543,72 +543,158 @@ with st.container():
         db_user = database.obtener_usuario(u_info.get('email', ''))
         compras = int(float(db_user.get("compras_realizadas", 0))) if db_user else 0
         faltan = int(3 - (compras % 3))
-        # CSS para transformar el botón de st.popover en la pastilla hermosa con foto real
+        primer_nombre = u_info.get('name', '').split(' ')[0]
+        foto_url = u_info.get('picture', '')
+        email = u_info.get('email', '')
+        
+        # CSS para posicionar la pastilla de perfil arriba a la derecha
         st.markdown(f"""
         <style>
-        /* Posición forzada a la derecha debajo del header de Streamlit Cloud */
+        /* ===== PASTILLA DE PERFIL: FIJA ARRIBA A LA DERECHA ===== */
         div[data-testid="stPopover"] {{
             position: fixed !important;
-            top: 65px !important;
-            right: 20px !important;
+            top: 12px !important;
+            right: 18px !important;
             left: auto !important;
             transform: none !important;
             margin: 0 !important;
-            z-index: 99999 !important;
+            z-index: 999999 !important;
+            width: auto !important;
         }}
-        /* Estilizar el botón para que parezca el mini-perfil */
-        div[data-testid="stPopover"] button {{
-            background-color: rgba(18, 18, 18, 0.8) !important;
-            background-image: url('{u_info.get("picture", "")}') !important;
-            background-size: 30px 30px !important;
-            background-repeat: no-repeat !important;
-            background-position: 8px center !important;
-            border: 1px solid rgba(243, 156, 18, 0.8) !important;
+        /* Botón = pastilla con foto circular + nombre */
+        div[data-testid="stPopover"] > button {{
+            background: rgba(15, 15, 15, 0.85) !important;
+            border: 1.5px solid rgba(243, 156, 18, 0.7) !important;
             border-radius: 50px !important;
-            backdrop-filter: blur(8px) !important;
-            color: #fff !important;
-            padding: 6px 15px 6px 45px !important; /* Espacio para la foto a la izquierda */
-            box-shadow: 0 4px 6px rgba(0,0,0,0.4) !important;
-            min-height: 42px !important;
+            backdrop-filter: blur(12px) !important;
+            padding: 5px 16px 5px 5px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+            min-height: 40px !important;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
+            transition: all 0.25s ease !important;
+            width: auto !important;
+            min-width: 0 !important;
         }}
-        div[data-testid="stPopover"] button:hover {{
-            background-color: rgba(243, 156, 18, 0.4) !important;
-            border-color: #fff !important;
+        div[data-testid="stPopover"] > button:hover {{
+            background: rgba(243, 156, 18, 0.2) !important;
+            border-color: #f39c12 !important;
+            box-shadow: 0 6px 20px rgba(243, 156, 18, 0.3) !important;
         }}
-        /* Ajustar el texto dentro del botón */
-        div[data-testid="stPopover"] button p {{
+        /* Ocultar el texto default y reemplazar con nuestro HTML */
+        div[data-testid="stPopover"] > button p {{
             margin: 0 !important;
-            font-size: 14px !important;
-            font-weight: bold !important;
+            font-size: 13px !important;
+            font-weight: 700 !important;
             color: #fff !important;
+            letter-spacing: 0.3px !important;
+        }}
+        /* Panel desplegable: ancho y con estilo premium */
+        div[data-testid="stPopoverBody"] {{
+            background: rgba(12, 12, 12, 0.95) !important;
+            backdrop-filter: blur(20px) !important;
+            border: 1px solid rgba(243, 156, 18, 0.3) !important;
+            border-radius: 16px !important;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.7) !important;
+            min-width: 280px !important;
+            padding: 0 !important;
+        }}
+        /* Botones dentro del popover */
+        div[data-testid="stPopoverBody"] button[data-testid="baseButton-secondary"] {{
+            background: transparent !important;
+            border: none !important;
+            border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+            border-radius: 0 !important;
+            color: #ddd !important;
+            padding: 14px 20px !important;
+            text-align: left !important;
+            justify-content: flex-start !important;
+            transition: background 0.2s !important;
+        }}
+        div[data-testid="stPopoverBody"] button[data-testid="baseButton-secondary"]:hover {{
+            background: rgba(243, 156, 18, 0.1) !important;
+            color: #f39c12 !important;
+        }}
+        div[data-testid="stPopoverBody"] button[data-testid="baseButton-secondary"] p {{
+            font-size: 14px !important;
+            font-weight: 500 !important;
+        }}
+        /* Celular: ajustar posición */
+        @media (max-width: 768px) {{
+            div[data-testid="stPopover"] {{
+                top: 8px !important;
+                right: 10px !important;
+            }}
+            div[data-testid="stPopover"] > button {{
+                padding: 4px 12px 4px 4px !important;
+                min-height: 36px !important;
+            }}
+            div[data-testid="stPopover"] > button p {{
+                font-size: 12px !important;
+            }}
+            div[data-testid="stPopoverBody"] {{
+                min-width: 240px !important;
+            }}
         }}
         </style>
         """, unsafe_allow_html=True)
 
-        with st.popover(f"{u_info.get('name', '').split(' ')[0]}"):
-            # Contenido dentro del menú emergente
+        with st.popover(f"📷 {primer_nombre}"):
+            # --- Cabecera del menú: foto + info ---
             st.markdown(
-                f"<div class='status-strip' style='border-color: #f39c12; justify-content: flex-start !important; padding: 12px 15px !important; margin-bottom: 10px !important; width: 100% !important; display: flex; align-items: center; gap: 12px; background: rgba(18,18,18,0.3); border-radius: 12px;'>"
-                f"<img src='{u_info.get('picture', '')}' style='border-radius:50%; width:45px; height:45px; object-fit:cover; border: 2px solid #f39c12;'>"
-                f"<div style='line-height:1.2; text-align: left;'><span style='font-size:15px; font-weight:bold; color:#fff;'>Hola, {u_info.get('name', '').split(' ')[0]}</span><br><span style='font-size:11px; color:#aaa;'>🏆 {compras} compras (Faltan {faltan})</span></div>"
-                f"</div>",
+                f"<div style='padding: 20px 18px 15px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 14px;'>"
+                f"<img src='{foto_url}' style='border-radius:50%; width:50px; height:50px; object-fit:cover; border: 2px solid #f39c12; flex-shrink:0;'>"
+                f"<div style='line-height:1.3;'>"
+                f"<span style='font-size:16px; font-weight:800; color:#fff;'>Hola, {primer_nombre}</span><br>"
+                f"<span style='font-size:11px; color:#888;'>{email}</span><br>"
+                f"<span style='font-size:11px; color:#f39c12; font-weight:600;'>🏆 {compras} compras realizadas</span>"
+                f"</div></div>",
                 unsafe_allow_html=True
             )
             
-            if st.session_state.pantalla_actual == "mis_pedidos":
-                if st.button("Ver Menú", use_container_width=True, key="btn_ver_menu_pop"):
-                    st.session_state.pantalla_actual = "catalogo"
-                    st.rerun()
-            else:
-                if st.button("📝 Mis Pedidos", use_container_width=True, key="btn_mis_pedidos_pop"):
-                    st.session_state.pantalla_actual = "mis_pedidos"
-                    st.rerun()
-                    
-            if st.button("Salir", use_container_width=True, key="btn_logout_pop"):
+            # --- Barra de progreso hacia descuento ---
+            progreso = (compras % 3) / 3
+            st.markdown(
+                f"<div style='padding: 10px 18px 12px;'>"
+                f"<span style='font-size:11px; color:#aaa;'>Próximo descuento en {faltan} compra{'s' if faltan > 1 else ''}</span>"
+                f"<div style='background: rgba(255,255,255,0.08); border-radius: 10px; height: 6px; margin-top: 5px; overflow: hidden;'>"
+                f"<div style='background: linear-gradient(90deg, #f39c12, #e67e22); height: 100%; width: {progreso*100}%; border-radius: 10px; transition: width 0.5s;'></div>"
+                f"</div></div>",
+                unsafe_allow_html=True
+            )
+            
+            st.markdown("<div style='padding: 0;'>", unsafe_allow_html=True)
+            
+            # --- Opciones del menú ---
+            if st.button("📋  Mis Pedidos", use_container_width=True, key="btn_pop_pedidos"):
+                st.session_state.pantalla_actual = "mis_pedidos"
+                st.rerun()
+                
+            if st.button("🍽️  Ver Menú", use_container_width=True, key="btn_pop_menu"):
+                st.session_state.pantalla_actual = "catalogo"
+                st.rerun()
+            
+            if st.button("📅  Hacer Reserva", use_container_width=True, key="btn_pop_reserva"):
+                st.session_state.pantalla_actual = "bienvenida"
+                st.toast("🚧 Reservas próximamente disponibles", icon="📅")
+                
+            if st.button("⭐  Programa de Fidelidad", use_container_width=True, key="btn_pop_fidelidad"):
+                st.toast(f"🏆 Llevas {compras} compras. ¡Cada 3 compras obtienes descuento!", icon="⭐")
+            
+            if st.button("💬  Soporte WhatsApp", use_container_width=True, key="btn_pop_soporte"):
+                st.markdown("<meta http-equiv='refresh' content='0;url=https://wa.me/51982174847'>", unsafe_allow_html=True)
+            
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+            # --- Botón salir (rojo) ---
+            st.markdown("<div style='padding: 5px 0; border-top: 1px solid rgba(255,255,255,0.08);'>", unsafe_allow_html=True)
+            if st.button("🚪  Cerrar Sesión", use_container_width=True, key="btn_pop_logout"):
                 st.session_state.user_info = None
                 if st.session_state.pantalla_actual == "mis_pedidos":
                     st.session_state.pantalla_actual = "bienvenida"
                 st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
     else:
         auth_url = get_google_auth_url()
         st.markdown(
