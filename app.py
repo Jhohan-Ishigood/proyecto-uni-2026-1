@@ -2207,7 +2207,8 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
         valor_cupon_defecto = st.session_state.cupon_aplicado
         if st.session_state.user_info and not valor_cupon_defecto:
             db_user = database.obtener_usuario(st.session_state.user_info.get("email", ""))
-            if db_user:
+            # VALIDACIÓN: Solo se aplica automáticamente si es su primera compra (compras_realizadas == 0)
+            if db_user and int(db_user.get("compras_realizadas", 0)) == 0:
                 nombre_pila = db_user.get("nombre", "").split(" ")[0].upper()
                 cupon_bienvenida = f"BIENVENIDO-{nombre_pila}"
                 cupones_bd = database.obtener_cupones(ttl=database.TTL_LECTURA)
@@ -2218,7 +2219,7 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
         st.session_state.cupon_aplicado = st.text_input(
             "Cupón de descuento",
             value=valor_cupon_defecto,
-            placeholder="BUFFALO10, DELIVERYFREE o COMBO5",
+            placeholder="Ingresa un cupón si tienes uno...",
         ).strip().upper()
         descuento, mensaje_cupon = calcular_descuento(
             st.session_state.cupon_aplicado,
