@@ -132,9 +132,17 @@ def generar_numero_boleta(historial_ordenes):
     return mayor + 1
 
 def validar_carrito_con_stock(carrito):
-    """Relee el menú sin caché y confirma que el carrito todavía tenga stock suficiente."""
+    """Relee el menú sin caché y confirma que el carrito todavía tenga stock suficiente.
+    Si la lectura fresca falla (API quota), usa el menú cacheado como fallback."""
     menu_actualizado = database.obtener_menu(ttl=1)
+
+    # Fallback: si la lectura fresca retornó vacío pero hay un menú cacheado,
+    # usar el caché en lugar de marcar todo como "no existe".
+    if not menu_actualizado and st.session_state.get("menu_dinamico"):
+        menu_actualizado = st.session_state.menu_dinamico
+
     errores = []
+    carrito_limpio = []
 
     for item in carrito:
         producto = item["producto"]
@@ -142,14 +150,30 @@ def validar_carrito_con_stock(carrito):
         info = menu_actualizado.get(producto)
 
         if not info:
-            errores.append(f"'{producto}' ya no existe en la carta.")
+            errores.append(f"'{producto}' fue eliminado de la carta y se quitó del carrito.")
             continue
 
         stock_actual = int(info.get("stock", 0))
         if not info.get("disponible", False):
-            errores.append(f"'{producto}' ya no está disponible.")
-        elif stock_actual < cantidad:
-            errores.append(f"'{producto}' solo tiene {stock_actual} unidad(es) disponibles.")
+            errores.append(f"'{producto}' ya no está disponible y se quitó del carrito.")
+            continue
+
+        if stock_actual < cantidad:
+            if stock_actual > 0:
+                # Ajustar cantidad al stock real
+                item["cantidad"] = stock_actual
+                item["subtotal"] = stock_actual * float(info["precio"])
+                errores.append(f"'{producto}' solo tiene {stock_actual} unidad(es). Se ajustó la cantidad.")
+                carrito_limpio.append(item)
+            else:
+                errores.append(f"'{producto}' se agotó y se quitó del carrito.")
+        else:
+            carrito_limpio.append(item)
+
+    # Actualizar el carrito en session_state con los items válidos
+    if len(carrito_limpio) != len(carrito):
+        st.session_state.carrito = carrito_limpio
+        st.session_state.total_acumulado = sum(i["subtotal"] for i in carrito_limpio)
 
     return len(errores) == 0, menu_actualizado, errores
 
@@ -2452,9 +2476,16 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                 stock_valido, menu_actualizado, errores_stock = validar_carrito_con_stock(st.session_state.carrito)
                 if not stock_valido:
                     for error_stock in errores_stock:
-                        st.error(f"⚠️ {error_stock}")
+                        st.warning(f"⚠️ {error_stock}")
                     st.session_state.menu_dinamico = menu_actualizado
-                    st.session_state["_forzar_recarga"] = True
+                    if not st.session_state.carrito:
+                        st.error("🛒 Tu carrito quedó vacío. Serás redirigido al catálogo.")
+                        st.session_state.pedido_guardado = False
+                        st.session_state.pantalla_actual = "catalogo"
+                        import time; time.sleep(2)
+                        st.rerun()
+                    else:
+                        st.info("🔄 Tu carrito fue ajustado. Presiona de nuevo **Emitir Boleta** para continuar.")
                     st.stop()
 
                 historial_actualizado = database.obtener_ordenes(ttl=1)
