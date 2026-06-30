@@ -340,6 +340,7 @@ if "code" in st.query_params:
         user_info = get_google_user_info(token_data["access_token"])
         if user_info:
             st.session_state.user_info = user_info
+            st.session_state.db_user = None
             email = user_info.get("email")
             nombre = user_info.get("name")
             foto = user_info.get("picture")
@@ -540,7 +541,9 @@ if "promo_mostrada" not in st.session_state:
 with st.container():
     if st.session_state.user_info:
         u_info = st.session_state.user_info
-        db_user = database.obtener_usuario(u_info.get('email', ''))
+        if "db_user" not in st.session_state or st.session_state.db_user is None:
+            st.session_state.db_user = database.obtener_usuario(u_info.get('email', ''))
+        db_user = st.session_state.db_user
         compras = int(float(db_user.get("compras_realizadas", 0))) if db_user else 0
         faltan = int(3 - (compras % 3))
         primer_nombre = u_info.get('name', '').split(' ')[0]
@@ -724,6 +727,7 @@ with st.container():
             st.markdown("<div style='padding: 5px 0; border-top: 1px solid rgba(255,255,255,0.08);'>", unsafe_allow_html=True)
             if st.button("🚪  Cerrar Sesión", use_container_width=True, key="btn_pop_logout"):
                 st.session_state.user_info = None
+                st.session_state.db_user = None
                 if st.session_state.pantalla_actual == "mis_pedidos":
                     st.session_state.pantalla_actual = "bienvenida"
                 st.rerun()
@@ -2089,6 +2093,7 @@ else:
                             
                         # Incrementar compra
                         nuevo_premio = database.incrementar_compra_usuario(email_usuario)
+                        st.session_state.db_user = None
                         if nuevo_premio:
                             st.toast(f"¡Felicidades! Desbloqueaste un nuevo premio: {nuevo_premio}", icon="🎁")
 
