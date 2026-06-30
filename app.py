@@ -1190,157 +1190,42 @@ if es_admin:
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 else:
-    # Limpiar clase hero-active por defecto (la pantalla bienvenida la vuelve a agregar)
-    if st.session_state.pantalla_actual != "bienvenida":
-        st.markdown("""<script>document.body.classList.remove('hero-active');</script>""", unsafe_allow_html=True)
-    
+
     # ============================================================================
-    # 15. ENTORNO CLIENTE - PANTALLA 1: BIENVENIDA MULTIMEDIA PREMIUM (HERO SECTION)
+    # 15. ENTORNO CLIENTE - PANTALLA 1: BIENVENIDA MULTIMEDIA PREMIUM
     # ============================================================================
     if st.session_state.pantalla_actual == "bienvenida":
-        estado_servicio = "ABIERTO AHORA" if servicio_abierto else "CERRADO TEMPORALMENTE"
-        clase_dot = "" if servicio_abierto else "cerrado"
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<h2 class='titulo-principal'>🔥 CARNES & BYTES — Tu gusto, nuestra meta</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; font-size: 18px; color: #ffffff;'>¿Desea registrar un nuevo pedido de nuestra deliciosa parrilla?</p>", unsafe_allow_html=True)
+        estado_servicio = "ABIERTO" if servicio_abierto else "CERRADO"
+        color_estado = "#2ecc71" if servicio_abierto else "#e74c3c"
+        st.markdown(
+            f"<div class='status-strip' style='border-color:{color_estado};'>"
+            f"<strong style='color:{color_estado};'>{estado_servicio}</strong>"
+            f"<span>Atención: {HORA_APERTURA}:00 - {HORA_CIERRE}:00 | Recojo 15-20 min | Delivery 30-45 min</span>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        if not servicio_abierto:
+            st.warning("Los pedidos están deshabilitados por horario de atención o pausa operativa.")
+        st.markdown("<br>", unsafe_allow_html=True)
         
-        # Cargar imágenes de fondo como base64 para PC y Celular
-        import base64 as _b64
-        _hero_pc_path = os.path.join(os.path.dirname(__file__), "hero_bg_pc.png")
-        _hero_mob_path = os.path.join(os.path.dirname(__file__), "hero_bg_mobile.png")
-        with open(_hero_pc_path, "rb") as _f:
-            _hero_pc_b64 = _b64.b64encode(_f.read()).decode()
-        with open(_hero_mob_path, "rb") as _f:
-            _hero_mob_b64 = _b64.b64encode(_f.read()).decode()
-        
-        # CSS ENCAPSULADO: Solo se activa con la clase .hero-active en el body
-        st.markdown(f"""
-        <style>
-        /* ===== HERO: TODO SCOPED bajo .hero-active ===== */
-        .hero-active #fondo-espacio {{ display: none !important; }}
-        .hero-active .comida-lluvia {{ display: none !important; }}
-        
-        .hero-active .stApp {{
-            background: linear-gradient(to right, rgba(10,10,10,0.92) 0%, rgba(10,10,10,0.65) 40%, rgba(0,0,0,0.08) 100%), 
-                        url('data:image/png;base64,{_hero_pc_b64}') !important;
-            background-size: cover !important;
-            background-position: center !important;
-            background-attachment: fixed !important;
-        }}
-
-        .hero-navbar {{
-            padding: 25px 50px;
-            display: flex; justify-content: space-between; align-items: center;
-        }}
-        .hero-logo {{
-            font-size: 22px; font-weight: 900; color: #fff;
-            letter-spacing: 1px; display: flex; align-items: center; gap: 8px;
-        }}
-        .hero-logo span {{ color: #f39c12; }}
-        .hero-nav-links {{ display: flex; gap: 40px; color: #ddd; font-size: 14px; font-weight: 600; }}
-        .hero-nav-links span {{ cursor: pointer; transition: color 0.2s; }}
-        .hero-nav-links span:hover {{ color: #f39c12; }}
-
-        .hero-content {{
-            margin-top: 8vh;
-            max-width: 650px;
-            text-align: left;
-            animation: heroFadeIn 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-        }}
-
-        .hero-status-badge {{
-            display: inline-flex; align-items: center; gap: 8px;
-            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
-            padding: 6px 16px; border-radius: 30px;
-            color: #ddd; font-size: 13px; font-weight: bold; letter-spacing: 1px;
-            margin-bottom: 25px; backdrop-filter: blur(5px);
-        }}
-        .status-dot {{ width: 8px; height: 8px; border-radius: 50%; background-color: #2ecc71; box-shadow: 0 0 10px #2ecc71; }}
-        .status-dot.cerrado {{ background-color: #e74c3c; box-shadow: 0 0 10px #e74c3c; }}
-
-        .hero-title {{
-            font-size: 5.5rem; font-weight: 900; color: #ffffff;
-            line-height: 1.05; margin-bottom: 20px;
-            text-shadow: 2px 4px 15px rgba(0,0,0,0.8);
-            font-family: 'Outfit', sans-serif;
-        }}
-        .hero-title span {{ color: #f39c12; }}
-
-        .hero-subtitle {{
-            font-size: 1.15rem; color: #cccccc; line-height: 1.6;
-            margin-bottom: 40px; text-shadow: 1px 1px 5px rgba(0,0,0,0.9);
-            font-family: 'Outfit', sans-serif;
-        }}
-
-        /* Botón CTA: SOLO dentro del hero-wrapper */
-        .hero-wrapper button[data-testid="baseButton-primary"] {{
-            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%) !important;
-            color: white !important; font-size: 1.1rem !important; font-weight: 800 !important;
-            padding: 1.2rem 3.5rem !important; border-radius: 50px !important; border: none !important;
-            box-shadow: 0 10px 25px rgba(243, 156, 18, 0.4) !important;
-            transition: all 0.3s ease !important;
-        }}
-        .hero-wrapper button[data-testid="baseButton-primary"] p {{ font-size: 1.15rem !important; margin: 0; }}
-        .hero-wrapper button[data-testid="baseButton-primary"]:hover {{ 
-            transform: translateY(-3px) !important; 
-            box-shadow: 0 15px 30px rgba(243, 156, 18, 0.6) !important; 
-        }}
-
-        /* MEDIA QUERIES para celular */
-        @media (max-width: 768px) {{
-            .hero-active .stApp {{
-                background: linear-gradient(to bottom, rgba(10,10,10,0.8) 0%, rgba(10,10,10,0.5) 40%, rgba(10,10,10,0.9) 100%), 
-                            url('data:image/png;base64,{_hero_mob_b64}') !important;
-                background-size: cover !important; background-position: center center !important;
-            }}
-            .hero-navbar {{ padding: 18px 15px; justify-content: center; }}
-            .hero-nav-links {{ display: none !important; }}
-            .hero-content {{ 
-                margin-top: 3vh; text-align: center; 
-                display: flex; flex-direction: column; align-items: center; 
-            }}
-            .hero-title {{ font-size: 3rem; }}
-            .hero-subtitle {{ font-size: 0.95rem; padding: 0 10px; margin-bottom: 25px; }}
-        }}
-
-        @keyframes heroFadeIn {{
-            from {{ opacity: 0; transform: translateX(-30px); }}
-            to {{ opacity: 1; transform: translateX(0); }}
-        }}
-        </style>
-
-        <script>
-        // Agregar clase hero-active al body para activar los estilos
-        document.body.classList.add('hero-active');
-        </script>
-
-        <!-- ESTRUCTURA HTML DEL HERO -->
-        <div class="hero-navbar">
-            <div class="hero-logo">🔥 CARNES <span>&</span> BYTES</div>
-            <div class="hero-nav-links">
-                <span>INICIO</span>
-                <span>EL MENÚ</span>
-                <span>RESERVAS</span>
-                <span>CONTACTO</span>
-            </div>
-        </div>
-        
-        <div class="hero-content">
-            <div class="hero-status-badge">
-                <span class="status-dot {clase_dot}"></span> {estado_servicio}
-            </div>
-            <h1 class="hero-title">Premium<br><span>Steakhouse</span></h1>
-            <p class="hero-subtitle">Tu gusto, nuestra meta. Experimenta la verdadera parrilla artesanal al carbón con los cortes de carne más exclusivos. Una experiencia culinaria de alto nivel, directamente a tu mesa.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Botón nativo dentro de un div wrapper para scoping CSS
-        st.markdown("<div class='hero-wrapper'>", unsafe_allow_html=True)
-        if st.button("🔥 ORDENAR AHORA", use_container_width=True, type="primary", key="btn_hero_cta", disabled=not servicio_abierto):
+        if st.button("🛒 EMPEZAR MI PEDIDO", use_container_width=True, key="btn_empezar_pedido_master", disabled=not servicio_abierto):
             st.session_state.pantalla_actual = "catalogo"
             st.session_state.boleta_emitida = False
             st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
             
-        if not servicio_abierto:
-            st.markdown("<p style='color: #e74c3c; font-weight: bold; margin-top: 10px; text-align: left;'>⚠️ Los pedidos están deshabilitados temporalmente.</p>", unsafe_allow_html=True)
+        # Bloque de Redes Sociales Corporativas de Carnes & Bytes
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+        st.markdown("""
+            <div class='social-footer'>
+                <p style='margin-bottom: 10px; font-size: 14px; letter-spacing: 2px; color: #888; font-weight: bold;'>SÍGUENOS EN REDES SOCIALES</p>
+                <a href='https://www.facebook.com' target='_blank' class='social-icon'>📘 Facebook</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                <a href='https://instagram.com' target='_blank' class='social-icon'>📸 Instagram</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                <a href='https://wa.me/51982174847' target='_blank' class='social-icon'>🟢 WhatsApp</a>
+            </div>
+        """, unsafe_allow_html=True)
 
 
     # ============================================================================
