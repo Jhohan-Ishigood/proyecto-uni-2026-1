@@ -553,55 +553,54 @@ with st.container():
         /* ===== PASTILLA DE PERFIL: FIJA ARRIBA A LA DERECHA ===== */
         div[data-testid="stPopover"] {{
             position: fixed !important;
-            top: 12px !important;
-            right: 18px !important;
+            top: 10px !important;
+            right: 15px !important;
             left: auto !important;
             transform: none !important;
             margin: 0 !important;
             z-index: 999999 !important;
             width: auto !important;
         }}
-        /* Botón = pastilla con foto circular + nombre */
-        div[data-testid="stPopover"] > button {{
-            background: rgba(15, 15, 15, 0.85) !important;
+        /* Botón = pastilla oscura con foto de fondo + nombre */
+        div[data-testid="stPopover"] button {{
+            background-color: rgba(12, 12, 12, 0.9) !important;
+            background-image: url('{foto_url}') !important;
+            background-size: 32px 32px !important;
+            background-repeat: no-repeat !important;
+            background-position: 5px center !important;
             border: 1.5px solid rgba(243, 156, 18, 0.7) !important;
             border-radius: 50px !important;
             backdrop-filter: blur(12px) !important;
-            padding: 5px 16px 5px 5px !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 10px !important;
-            min-height: 40px !important;
+            padding: 5px 16px 5px 44px !important;
+            min-height: 42px !important;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
             transition: all 0.25s ease !important;
             width: auto !important;
             min-width: 0 !important;
         }}
-        div[data-testid="stPopover"] > button:hover {{
-            background: rgba(243, 156, 18, 0.2) !important;
+        div[data-testid="stPopover"] button:hover {{
+            background-color: rgba(243, 156, 18, 0.25) !important;
             border-color: #f39c12 !important;
             box-shadow: 0 6px 20px rgba(243, 156, 18, 0.3) !important;
         }}
-        /* Ocultar el texto default y reemplazar con nuestro HTML */
-        div[data-testid="stPopover"] > button p {{
+        /* Texto del botón */
+        div[data-testid="stPopover"] button p {{
             margin: 0 !important;
             font-size: 13px !important;
             font-weight: 700 !important;
             color: #fff !important;
-            letter-spacing: 0.3px !important;
         }}
-        /* Panel desplegable: ancho y con estilo premium */
+        /* Panel desplegable premium */
         div[data-testid="stPopoverBody"] {{
-            background: rgba(12, 12, 12, 0.95) !important;
+            background: rgba(12, 12, 12, 0.96) !important;
             backdrop-filter: blur(20px) !important;
             border: 1px solid rgba(243, 156, 18, 0.3) !important;
             border-radius: 16px !important;
             box-shadow: 0 20px 60px rgba(0,0,0,0.7) !important;
             min-width: 280px !important;
-            padding: 0 !important;
         }}
-        /* Botones dentro del popover */
-        div[data-testid="stPopoverBody"] button[data-testid="baseButton-secondary"] {{
+        /* Botones del menú desplegable */
+        div[data-testid="stPopoverBody"] button {{
             background: transparent !important;
             border: none !important;
             border-bottom: 1px solid rgba(255,255,255,0.06) !important;
@@ -612,29 +611,31 @@ with st.container():
             justify-content: flex-start !important;
             transition: background 0.2s !important;
         }}
-        div[data-testid="stPopoverBody"] button[data-testid="baseButton-secondary"]:hover {{
-            background: rgba(243, 156, 18, 0.1) !important;
+        div[data-testid="stPopoverBody"] button:hover {{
+            background: rgba(243, 156, 18, 0.12) !important;
             color: #f39c12 !important;
         }}
-        div[data-testid="stPopoverBody"] button[data-testid="baseButton-secondary"] p {{
+        div[data-testid="stPopoverBody"] button p {{
             font-size: 14px !important;
             font-weight: 500 !important;
         }}
-        /* Celular: ajustar posición */
+        /* Celular */
         @media (max-width: 768px) {{
             div[data-testid="stPopover"] {{
                 top: 8px !important;
-                right: 10px !important;
+                right: 8px !important;
             }}
-            div[data-testid="stPopover"] > button {{
-                padding: 4px 12px 4px 4px !important;
-                min-height: 36px !important;
+            div[data-testid="stPopover"] button {{
+                padding: 4px 12px 4px 40px !important;
+                min-height: 38px !important;
+                background-size: 28px 28px !important;
+                background-position: 5px center !important;
             }}
-            div[data-testid="stPopover"] > button p {{
+            div[data-testid="stPopover"] button p {{
                 font-size: 12px !important;
             }}
             div[data-testid="stPopoverBody"] {{
-                min-width: 240px !important;
+                min-width: 250px !important;
             }}
         }}
         </style>
