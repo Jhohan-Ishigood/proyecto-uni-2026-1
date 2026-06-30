@@ -651,6 +651,8 @@ if st.session_state.mostrar_login_admin:
     with st.sidebar.container():
         usuario_input = st.text_input("Nombre de Usuario:", key="user_login").strip()
         clave_input = st.text_input("Contraseña:", type="password", key="pass_login").strip()
+        rol_seleccionado = st.selectbox("Ingresar como:", ["Dueño", "Cocinero", "Cajero", "Mesero"], key="rol_login_select")
+        st.session_state.rol_actual = rol_seleccionado
 
 # Validación de credenciales blindada: sin secrets configurados no hay acceso admin
 USER_PROD = st.secrets.get("admin_user", "Grupo 5")
@@ -661,9 +663,9 @@ es_admin = credenciales_admin_configuradas and usuario_input == USER_PROD and cl
 
 # Retroalimentación interactiva del estado del usuario
 if es_admin:
-    st.sidebar.success("✔ Modo Administrador Activo")
+    st.sidebar.success(f"✔ Modo {st.session_state.get('rol_actual', 'Dueño')} Activo")
 elif st.session_state.mostrar_login_admin and not credenciales_admin_configuradas:
-    st.sidebar.warning("Admin no configurado. Agregue admin_user y admin_password en Streamlit Secrets.")
+    st.sidebar.warning("Admin no configurado. Agregue admin_user and admin_password en Streamlit Secrets.")
 elif usuario_input or clave_input:
     st.sidebar.error("❌ Credenciales incorrectas")
 
@@ -731,419 +733,427 @@ if es_admin or (st.session_state.pantalla_actual == "catalogo" and not st.sessio
 # 8. PANEL DE CONTROL DE ADMINISTRACIÓN - GESTOR DE SECCIONES (JSON)
 # ============================================================================
 if es_admin:
-    st.markdown("<h1 class='titulo-principal'>📊 PANEL DE ADMINISTRACIÓN</h1>", unsafe_allow_html=True)
+    rol_actual = st.session_state.get("rol_actual", "Dueño")
+    st.markdown(f"<h1 class='titulo-principal'>📊 PANEL DE ADMINISTRACIÓN ({rol_actual.upper()})</h1>", unsafe_allow_html=True)
     st.info(f"📋 **Reporte Gerencial del Grupo 5** — Sincronizado en tiempo real: {fecha_actual}")
-    st.session_state.pedidos_pausados = st.toggle(
-        "Pausar recepción de pedidos de clientes",
-        value=st.session_state.pedidos_pausados,
-        help="Bloquea temporalmente nuevos pedidos sin modificar la carta.",
-    )
-    if st.session_state.pedidos_pausados:
-        st.warning("La recepción de pedidos está pausada para esta sesión.")
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Bloque expandible de control de pestañas y categorías
-    with st.expander("📁 ⚙️ CONFIGURACIÓN DE SECCIONES EN LA CARTA", expanded=False):
-        st.caption("Añada nuevas pestañas al menú horizontal o elimine las secciones que ya no utilice en la jornada.")
+    
+    if rol_actual == "Dueño":
+        st.session_state.pedidos_pausados = st.toggle(
+            "Pausar recepción de pedidos de clientes",
+            value=st.session_state.pedidos_pausados,
+            help="Bloquea temporalmente nuevos pedidos sin modificar la carta.",
+        )
+        if st.session_state.pedidos_pausados:
+            st.warning("La recepción de pedidos está pausada para esta sesión.")
         st.markdown("<br>", unsafe_allow_html=True)
 
-        col_cat1, col_cat2 = st.columns(2, gap="medium")
-        
-        with col_cat1:
-            with st.container(border=True):
-                st.markdown("##### ➕ Crear Nueva Sección")
-                nueva_cat = st.text_input(
-                    "Crear Sección", 
-                    placeholder="Escribe aquí la nueva sección (Ej. Postres)...", 
-                    key="input_create_cat_name",
-                    label_visibility="collapsed"
-                ).strip().capitalize()
-                
-                if st.button("➕ CREAR NUEVA SECCIÓN", use_container_width=True, key="btn_create_cat"):
-                    if nueva_cat and nueva_cat != "Todos":
-                        exito = database.crear_categoria(None, nueva_cat)
-                        if exito:
-                            st.success(f"✔ ¡Sección '{nueva_cat}' integrada con éxito!")
+    # Bloque expandible de control de pestañas y categorías
+    if rol_actual == "Dueño":
+        with st.expander("📁 ⚙️ CONFIGURACIÓN DE SECCIONES EN LA CARTA", expanded=False):
+            st.caption("Añada nuevas pestañas al menú horizontal o elimine las secciones que ya no utilice en la jornada.")
+            st.markdown("<br>", unsafe_allow_html=True)
+    
+            col_cat1, col_cat2 = st.columns(2, gap="medium")
+            
+            with col_cat1:
+                with st.container(border=True):
+                    st.markdown("##### ➕ Crear Nueva Sección")
+                    nueva_cat = st.text_input(
+                        "Crear Sección", 
+                        placeholder="Escribe aquí la nueva sección (Ej. Postres)...", 
+                        key="input_create_cat_name",
+                        label_visibility="collapsed"
+                    ).strip().capitalize()
+                    
+                    if st.button("➕ CREAR NUEVA SECCIÓN", use_container_width=True, key="btn_create_cat"):
+                        if nueva_cat and nueva_cat != "Todos":
+                            exito = database.crear_categoria(None, nueva_cat)
+                            if exito:
+                                st.success(f"✔ ¡Sección '{nueva_cat}' integrada con éxito!")
+                                st.session_state["_forzar_recarga"] = True
+                                st.rerun()
+                            else:
+                                st.error("⚠️ Error: Esta categoría ya existe en el menú.")
+                        elif nueva_cat == "Todos":
+                            st.error("⚠️ Error: 'Todos' es una sección reservada.")
+                        else:
+                            st.error("⚠️ Error: El nombre no puede estar vacío.")
+                        
+            with col_cat2:
+                with st.container(border=True):
+                    st.markdown("##### 🗑️ Eliminar Sección Seleccionada")
+                    cats_borrables = [c for c in st.session_state.lista_categorias if c != "Todos"]
+                    
+                    cat_a_borrar = st.selectbox(
+                        "Eliminar Sección", 
+                        options=cats_borrables, 
+                        key="select_delete_cat_name",
+                        label_visibility="collapsed"
+                    )
+                    
+                    if st.button("🗑️ ELIMINAR SECCIÓN SELECCIONADA", use_container_width=True, key="btn_delete_cat"):
+                        if cat_a_borrar:
+                            database.eliminar_categoria(None, cat_a_borrar)
+                            if st.session_state.categoria_activa == cat_a_borrar:
+                                st.session_state.categoria_activa = "Todos"
+                                
+                            st.warning(f"🗑️ Sección '{cat_a_borrar}' removida físicamente de la carta.")
                             st.session_state["_forzar_recarga"] = True
                             st.rerun()
-                        else:
-                            st.error("⚠️ Error: Esta categoría ya existe en el menú.")
-                    elif nueva_cat == "Todos":
-                        st.error("⚠️ Error: 'Todos' es una sección reservada.")
-                    else:
-                        st.error("⚠️ Error: El nombre no puede estar vacío.")
-                    
-        with col_cat2:
-            with st.container(border=True):
-                st.markdown("##### 🗑️ Eliminar Sección Seleccionada")
-                cats_borrables = [c for c in st.session_state.lista_categorias if c != "Todos"]
-                
-                cat_a_borrar = st.selectbox(
-                    "Eliminar Sección", 
-                    options=cats_borrables, 
-                    key="select_delete_cat_name",
-                    label_visibility="collapsed"
-                )
-                
-                if st.button("🗑️ ELIMINAR SECCIÓN SELECCIONADA", use_container_width=True, key="btn_delete_cat"):
-                    if cat_a_borrar:
-                        database.eliminar_categoria(None, cat_a_borrar)
-                        if st.session_state.categoria_activa == cat_a_borrar:
-                            st.session_state.categoria_activa = "Todos"
-                            
-                        st.warning(f"🗑️ Sección '{cat_a_borrar}' removida físicamente de la carta.")
-                        st.session_state["_forzar_recarga"] = True
-                        st.rerun()
     # ============================================================================
     # 9. PANEL DE CONTROL DE ADMINISTRACIÓN - INSERCIÓN DE PRODUCTOS MULTIMEDIA
     # ============================================================================
-    with st.expander("➕ 🛠️ AÑADIR NUEVO PRODUCTO CON FOTO", expanded=False):
-        st.caption("Complete los datos para agregar un plato nuevo subiendo una imagen desde su dispositivo.")
-        nuevo_nombre = st.text_input("Nombre del nuevo producto:", placeholder="Ej. Alitas BBQ, Papas Nativas...").strip()
-        
-        col_new1, col_new2, col_new3, col_new4 = st.columns(4)
-        with col_new1:
-            nuevo_precio = st.number_input("Precio de venta (S/):", min_value=0.5, value=10.0, step=0.5)
-        with col_new2:
-            nuevo_icono = st.text_input("Icono (Emoji):", value="🍟", max_chars=2).strip()
-        with col_new3:
-            nuevo_stock = st.number_input("Stock (Unidades):", min_value=0, value=15, step=1)
-        with col_new4:
-            cats_creadas = [c for c in st.session_state.lista_categorias if c != "Todos"]
-            nueva_categoria_asociada = st.selectbox("Categoría asignada:", options=cats_creadas)
+    if rol_actual == "Dueño":
+        with st.expander("➕ 🛠️ AÑADIR NUEVO PRODUCTO CON FOTO", expanded=False):
+            st.caption("Complete los datos para agregar un plato nuevo subiendo una imagen desde su dispositivo.")
+            nuevo_nombre = st.text_input("Nombre del nuevo producto:", placeholder="Ej. Alitas BBQ, Papas Nativas...").strip()
             
-        archivo_foto = st.file_uploader("Selecciona la foto del plato desde tu equipo:", type=["jpg", "jpeg", "png"], key="upload_nuevo_prod")
-            
-        if st.button("🚀 GUARDAR E INTEGRAR NUEVO PRODUCTO", use_container_width=True):
-            if nuevo_nombre:
-                if nuevo_nombre not in st.session_state.menu_dinamico:
-                    ruta_foto = convertir_imagen_a_base64(archivo_foto)
-
-                    exito_guardado = database.guardar_producto(
-                        db_path=None,
-                        nombre=nuevo_nombre,
-                        precio=nuevo_precio,
-                        icono=nuevo_icono,
-                        disponible=True,
-                        foto_ruta=ruta_foto,
-                        stock=int(nuevo_stock),
-                        categoria_nombre=nueva_categoria_asociada
-                    )
-                    if exito_guardado:
-                        st.success(f"✔ ¡{nuevo_icono} {nuevo_nombre} integrado con éxito en '{nueva_categoria_asociada}'!")
-                        st.session_state["_forzar_recarga"] = True
-                        st.rerun()
+            col_new1, col_new2, col_new3, col_new4 = st.columns(4)
+            with col_new1:
+                nuevo_precio = st.number_input("Precio de venta (S/):", min_value=0.5, value=10.0, step=0.5)
+            with col_new2:
+                nuevo_icono = st.text_input("Icono (Emoji):", value="🍟", max_chars=2).strip()
+            with col_new3:
+                nuevo_stock = st.number_input("Stock (Unidades):", min_value=0, value=15, step=1)
+            with col_new4:
+                cats_creadas = [c for c in st.session_state.lista_categorias if c != "Todos"]
+                nueva_categoria_asociada = st.selectbox("Categoría asignada:", options=cats_creadas)
+                
+            archivo_foto = st.file_uploader("Selecciona la foto del plato desde tu equipo:", type=["jpg", "jpeg", "png"], key="upload_nuevo_prod")
+                
+            if st.button("🚀 GUARDAR E INTEGRAR NUEVO PRODUCTO", use_container_width=True):
+                if nuevo_nombre:
+                    if nuevo_nombre not in st.session_state.menu_dinamico:
+                        ruta_foto = convertir_imagen_a_base64(archivo_foto)
+    
+                        exito_guardado = database.guardar_producto(
+                            db_path=None,
+                            nombre=nuevo_nombre,
+                            precio=nuevo_precio,
+                            icono=nuevo_icono,
+                            disponible=True,
+                            foto_ruta=ruta_foto,
+                            stock=int(nuevo_stock),
+                            categoria_nombre=nueva_categoria_asociada
+                        )
+                        if exito_guardado:
+                            st.success(f"✔ ¡{nuevo_icono} {nuevo_nombre} integrado con éxito en '{nueva_categoria_asociada}'!")
+                            st.session_state["_forzar_recarga"] = True
+                            st.rerun()
+                    else:
+                        st.error("⚠️ Error: Ese producto ya existe en la carta actual.")
                 else:
-                    st.error("⚠️ Error: Ese producto ya existe en la carta actual.")
-            else:
-                st.error("⚠️ Error: El nombre del producto no puede estar vacío.")
+                    st.error("⚠️ Error: El nombre del producto no puede estar vacío.")
 
     # ============================================================================
     # 10. PANEL DE CONTROL DE ADMINISTRACIÓN - FILTRADO INTELIGENTE DE PRODUCTOS
     # ============================================================================
-    st.markdown("### 📝 GESTIÓN DE PRECIOS, STOCK Y FOTOS")
-    st.caption(f"Modifique los valores. Filtrado actual: **{st.session_state.categoria_activa}**")
-    
-    eliminar_producto = None
-    productos_lista = list(st.session_state.menu_dinamico.keys())
-    productos_filtrados_admin = []
-    
-    for prod in productos_lista:
-        if busqueda and busqueda not in prod.lower():
-            continue
+    if rol_actual == "Dueño":
+        st.markdown("### 📝 GESTIÓN DE PRECIOS, STOCK Y FOTOS")
+        st.caption(f"Modifique los valores. Filtrado actual: **{st.session_state.categoria_activa}**")
+        
+        eliminar_producto = None
+        productos_lista = list(st.session_state.menu_dinamico.keys())
+        productos_filtrados_admin = []
+        
+        for prod in productos_lista:
+            if busqueda and busqueda not in prod.lower():
+                continue
+                
+            info_prod = st.session_state.menu_dinamico[prod]
+            cat_prod = info_prod.get("categoria", "Parrillas")
             
-        info_prod = st.session_state.menu_dinamico[prod]
-        cat_prod = info_prod.get("categoria", "Parrillas")
-        
-        if st.session_state.categoria_activa == "Todos" or st.session_state.categoria_activa == cat_prod:
-            productos_filtrados_admin.append(prod)
-
-    # Alertas de stock bajo
-    productos_stock_bajo = [p for p, info in st.session_state.menu_dinamico.items() if info.get('stock', 0) <= 3 and info.get('stock', 0) > 0]
-    productos_agotados = [p for p, info in st.session_state.menu_dinamico.items() if info.get('stock', 0) == 0]
-    if productos_stock_bajo:
-        st.warning(f"⚠️ Stock bajo ({len(productos_stock_bajo)}): {', '.join(productos_stock_bajo)}")
-    if productos_agotados:
-        st.error(f"🚫 Agotados ({len(productos_agotados)}): {', '.join(productos_agotados)}")
-
-    # ============================================================================
-    # 11. PANEL DE CONTROL DE ADMINISTRACIÓN - BUCLE DE EDICIÓN RESPONSIVO INDEPENDIENTE
-    # ============================================================================
-    # Inicializamos un diccionario temporal para capturar cambios sin destruir la reactividad en caliente
-    cambios_detectados = {}
-
-    for i in range(0, len(productos_filtrados_admin), 2):
-        col_ed1, col_ed2 = st.columns(2, gap="medium")
-        
-        # --- CONTROL DE PRODUCTO: COLUMNA IZQUIERDA ---
-        p_izq = productos_filtrados_admin[i]
-        with col_ed1:
-            with st.container(border=True):
-                st.markdown(f"### {st.session_state.menu_dinamico[p_izq]['icono']} {p_izq}")
-                foto_actual_izq = st.session_state.menu_dinamico[p_izq].get("foto", "")
-                
-                # Cargar preview (de disco, Base64 o la subida actualmente en session_state)
-                foto_preview_izq = obtener_src_foto(foto_actual_izq)
-                if f"f_up_{p_izq}" in st.session_state and st.session_state[f"f_up_{p_izq}"] is not None:
-                    try:
-                        bytes_f = st.session_state[f"f_up_{p_izq}"].getvalue()
-                        encoded_f = base64.b64encode(bytes_f).decode()
-                        foto_preview_izq = f"data:image/png;base64,{encoded_f}"
-                    except Exception:
-                        pass
-                        
-                if foto_preview_izq:
-                    st.markdown(f"""<img src="{foto_preview_izq}" style="width:100%; height:120px; object-fit:cover; border-radius:6px; margin-bottom:10px; border: 1px solid #444;">""", unsafe_allow_html=True)
-                
-                # Selector dinámico de secciones para reasignar categorías en caliente
-                cats_izq = [c for c in st.session_state.lista_categorias if c != "Todos"]
-                cat_act_izq = st.session_state.menu_dinamico[p_izq].get("categoria", "Parrillas")
-                if cat_act_izq not in cats_izq and cats_izq: 
-                    cats_izq.append(cat_act_izq)
-                
-                nueva_cat_izq = st.selectbox(f"Sección de {p_izq}:", options=cats_izq, index=cats_izq.index(cat_act_izq) if cat_act_izq in cats_izq else 0, key=f"cat_edit_{p_izq}")
-                
-                p_izq_val = st.number_input(f"Precio (S/) - {p_izq}:", min_value=1.0, value=float(st.session_state.menu_dinamico[p_izq]["precio"]), step=0.5, key=f"p_{p_izq}")
-                p_izq_disp = st.checkbox("Disponible para venta", value=st.session_state.menu_dinamico[p_izq]["disponible"], key=f"d_{p_izq}")
-                p_izq_stock = st.number_input(f"Stock Disponible - {p_izq}:", min_value=0, value=int(st.session_state.menu_dinamico[p_izq].get("stock", 10)), step=1, key=f"s_{p_izq}")
-                
-                foto_cambio_izq = st.file_uploader(f"Actualizar foto de {p_izq}:", type=["jpg", "jpeg", "png"], key=f"f_up_{p_izq}")
-                
-                cambios_detectados[p_izq] = {
-                    "precio": p_izq_val, 
-                    "icono": st.session_state.menu_dinamico[p_izq]["icono"], 
-                    "disponible": p_izq_disp, 
-                    "stock": p_izq_stock, 
-                    "categoria": nueva_cat_izq
-                }
-                
-                if st.button(f"❌ Eliminar {p_izq}", key=f"del_{p_izq}", use_container_width=True):
-                    eliminar_producto = p_izq
-                
-        # --- CONTROL DE PRODUCTO: COLUMNA DERECHA ---
-        if i + 1 < len(productos_filtrados_admin):
-            p_der = productos_filtrados_admin[i+1]
-            with col_ed2:
+            if st.session_state.categoria_activa == "Todos" or st.session_state.categoria_activa == cat_prod:
+                productos_filtrados_admin.append(prod)
+    
+        # Alertas de stock bajo
+        productos_stock_bajo = [p for p, info in st.session_state.menu_dinamico.items() if info.get('stock', 0) <= 3 and info.get('stock', 0) > 0]
+        productos_agotados = [p for p, info in st.session_state.menu_dinamico.items() if info.get('stock', 0) == 0]
+        if productos_stock_bajo:
+            st.warning(f"⚠️ Stock bajo ({len(productos_stock_bajo)}): {', '.join(productos_stock_bajo)}")
+        if productos_agotados:
+            st.error(f"🚫 Agotados ({len(productos_agotados)}): {', '.join(productos_agotados)}")
+    
+        # ============================================================================
+        # 11. PANEL DE CONTROL DE ADMINISTRACIÓN - BUCLE DE EDICIÓN RESPONSIVO INDEPENDIENTE
+        # ============================================================================
+        # Inicializamos un diccionario temporal para capturar cambios sin destruir la reactividad en caliente
+        cambios_detectados = {}
+    
+        for i in range(0, len(productos_filtrados_admin), 2):
+            col_ed1, col_ed2 = st.columns(2, gap="medium")
+            
+            # --- CONTROL DE PRODUCTO: COLUMNA IZQUIERDA ---
+            p_izq = productos_filtrados_admin[i]
+            with col_ed1:
                 with st.container(border=True):
-                    st.markdown(f"### {st.session_state.menu_dinamico[p_der]['icono']} {p_der}")
-                    foto_actual_der = st.session_state.menu_dinamico[p_der].get("foto", "")
+                    st.markdown(f"### {st.session_state.menu_dinamico[p_izq]['icono']} {p_izq}")
+                    foto_actual_izq = st.session_state.menu_dinamico[p_izq].get("foto", "")
                     
                     # Cargar preview (de disco, Base64 o la subida actualmente en session_state)
-                    foto_preview_der = obtener_src_foto(foto_actual_der)
-                    if f"f_up_{p_der}" in st.session_state and st.session_state[f"f_up_{p_der}"] is not None:
+                    foto_preview_izq = obtener_src_foto(foto_actual_izq)
+                    if f"f_up_{p_izq}" in st.session_state and st.session_state[f"f_up_{p_izq}"] is not None:
                         try:
-                            bytes_f = st.session_state[f"f_up_{p_der}"].getvalue()
+                            bytes_f = st.session_state[f"f_up_{p_izq}"].getvalue()
                             encoded_f = base64.b64encode(bytes_f).decode()
-                            foto_preview_der = f"data:image/png;base64,{encoded_f}"
+                            foto_preview_izq = f"data:image/png;base64,{encoded_f}"
                         except Exception:
                             pass
                             
-                    if foto_preview_der:
-                        st.markdown(f"""<img src="{foto_preview_der}" style="width:100%; height:120px; object-fit:cover; border-radius:6px; margin-bottom:10px; border: 1px solid #444;">""", unsafe_allow_html=True)
+                    if foto_preview_izq:
+                        st.markdown(f"""<img src="{foto_preview_izq}" style="width:100%; height:120px; object-fit:cover; border-radius:6px; margin-bottom:10px; border: 1px solid #444;">""", unsafe_allow_html=True)
                     
-                    # Selector dinámico de secciones para la columna derecha
-                    cats_der = [c for c in st.session_state.lista_categorias if c != "Todos"]
-                    cat_act_der = st.session_state.menu_dinamico[p_der].get("categoria", "Parrillas")
-                    if cat_act_der not in cats_der and cats_der: 
-                        cats_der.append(cat_act_der)
+                    # Selector dinámico de secciones para reasignar categorías en caliente
+                    cats_izq = [c for c in st.session_state.lista_categorias if c != "Todos"]
+                    cat_act_izq = st.session_state.menu_dinamico[p_izq].get("categoria", "Parrillas")
+                    if cat_act_izq not in cats_izq and cats_izq: 
+                        cats_izq.append(cat_act_izq)
                     
-                    nueva_cat_der = st.selectbox(f"Sección de {p_der}:", options=cats_der, index=cats_der.index(cat_act_der) if cat_act_der in cats_der else 0, key=f"cat_edit_{p_der}")
+                    nueva_cat_izq = st.selectbox(f"Sección de {p_izq}:", options=cats_izq, index=cats_izq.index(cat_act_izq) if cat_act_izq in cats_izq else 0, key=f"cat_edit_{p_izq}")
                     
-                    p_der_val = st.number_input(f"Precio (S/) - {p_der}:", min_value=1.0, value=float(st.session_state.menu_dinamico[p_der]["precio"]), step=0.5, key=f"p_{p_der}")
-                    p_der_disp = st.checkbox("Disponible para venta", value=st.session_state.menu_dinamico[p_der]["disponible"], key=f"d_{p_der}")
-                    p_der_stock = st.number_input(f"Stock Disponible - {p_der}:", min_value=0, value=int(st.session_state.menu_dinamico[p_der].get("stock", 10)), step=1, key=f"s_{p_der}")
+                    p_izq_val = st.number_input(f"Precio (S/) - {p_izq}:", min_value=1.0, value=float(st.session_state.menu_dinamico[p_izq]["precio"]), step=0.5, key=f"p_{p_izq}")
+                    p_izq_disp = st.checkbox("Disponible para venta", value=st.session_state.menu_dinamico[p_izq]["disponible"], key=f"d_{p_izq}")
+                    p_izq_stock = st.number_input(f"Stock Disponible - {p_izq}:", min_value=0, value=int(st.session_state.menu_dinamico[p_izq].get("stock", 10)), step=1, key=f"s_{p_izq}")
                     
-                    foto_cambio_der = st.file_uploader(f"Actualizar foto de {p_der}:", type=["jpg", "jpeg", "png"], key=f"f_up_{p_der}")
+                    foto_cambio_izq = st.file_uploader(f"Actualizar foto de {p_izq}:", type=["jpg", "jpeg", "png"], key=f"f_up_{p_izq}")
                     
-                    cambios_detectados[p_der] = {
-                        "precio": p_der_val, 
-                        "icono": st.session_state.menu_dinamico[p_der]["icono"], 
-                        "disponible": p_der_disp, 
-                        "stock": p_der_stock, 
-                        "categoria": nueva_cat_der
+                    cambios_detectados[p_izq] = {
+                        "precio": p_izq_val, 
+                        "icono": st.session_state.menu_dinamico[p_izq]["icono"], 
+                        "disponible": p_izq_disp, 
+                        "stock": p_izq_stock, 
+                        "categoria": nueva_cat_izq
                     }
                     
-                    if st.button(f"❌ Eliminar {p_der}", key=f"del_{p_der}", use_container_width=True):
-                        eliminar_producto = p_der
-        st.markdown("---")
-
-    # ============================================================================
-    # 12. MANEJADOR OPERATIVO DE PERSISTENCIA SEGURA
-    # ============================================================================
-    if eliminar_producto is not None:
-        if database.eliminar_producto(None, eliminar_producto):
-            st.success(f"✔ ¡Producto '{eliminar_producto}' eliminado con éxito!")
-            st.session_state["_forzar_recarga"] = True
-            st.rerun()
-
-    if st.button("💾 CONFIRMAR Y SINCRONIZAR CAMBIOS DE LA CARTA", use_container_width=True):
-        # Sincronizamos los cambios al almacenamiento de Google Sheets
-        todos_guardados = True
-        for prod_key, info_actualizada in cambios_detectados.items():
-            archivo_subido = st.session_state.get(f"f_up_{prod_key}")
-            ruta_foto = convertir_imagen_a_base64(archivo_subido)
-                
-            todos_guardados = database.guardar_producto(
-                db_path=None,
-                nombre=prod_key,
-                precio=info_actualizada["precio"],
-                icono=info_actualizada["icono"],
-                disponible=info_actualizada["disponible"],
-                foto_ruta=ruta_foto,
-                stock=info_actualizada["stock"],
-                categoria_nombre=info_actualizada["categoria"]
-            ) and todos_guardados
-        if todos_guardados:
-            st.success("✔ ¡Cambios guardados físicamente con éxito!")
-            st.session_state["_forzar_recarga"] = True
-            st.rerun()
+                    if st.button(f"❌ Eliminar {p_izq}", key=f"del_{p_izq}", use_container_width=True):
+                        eliminar_producto = p_izq
+                    
+            # --- CONTROL DE PRODUCTO: COLUMNA DERECHA ---
+            if i + 1 < len(productos_filtrados_admin):
+                p_der = productos_filtrados_admin[i+1]
+                with col_ed2:
+                    with st.container(border=True):
+                        st.markdown(f"### {st.session_state.menu_dinamico[p_der]['icono']} {p_der}")
+                        foto_actual_der = st.session_state.menu_dinamico[p_der].get("foto", "")
+                        
+                        # Cargar preview (de disco, Base64 o la subida actualmente en session_state)
+                        foto_preview_der = obtener_src_foto(foto_actual_der)
+                        if f"f_up_{p_der}" in st.session_state and st.session_state[f"f_up_{p_der}"] is not None:
+                            try:
+                                bytes_f = st.session_state[f"f_up_{p_der}"].getvalue()
+                                encoded_f = base64.b64encode(bytes_f).decode()
+                                foto_preview_der = f"data:image/png;base64,{encoded_f}"
+                            except Exception:
+                                pass
+                                
+                        if foto_preview_der:
+                            st.markdown(f"""<img src="{foto_preview_der}" style="width:100%; height:120px; object-fit:cover; border-radius:6px; margin-bottom:10px; border: 1px solid #444;">""", unsafe_allow_html=True)
+                        
+                        # Selector dinámico de secciones para la columna derecha
+                        cats_der = [c for c in st.session_state.lista_categorias if c != "Todos"]
+                        cat_act_der = st.session_state.menu_dinamico[p_der].get("categoria", "Parrillas")
+                        if cat_act_der not in cats_der and cats_der: 
+                            cats_der.append(cat_act_der)
+                        
+                        nueva_cat_der = st.selectbox(f"Sección de {p_der}:", options=cats_der, index=cats_der.index(cat_act_der) if cat_act_der in cats_der else 0, key=f"cat_edit_{p_der}")
+                        
+                        p_der_val = st.number_input(f"Precio (S/) - {p_der}:", min_value=1.0, value=float(st.session_state.menu_dinamico[p_der]["precio"]), step=0.5, key=f"p_{p_der}")
+                        p_der_disp = st.checkbox("Disponible para venta", value=st.session_state.menu_dinamico[p_der]["disponible"], key=f"d_{p_der}")
+                        p_der_stock = st.number_input(f"Stock Disponible - {p_der}:", min_value=0, value=int(st.session_state.menu_dinamico[p_der].get("stock", 10)), step=1, key=f"s_{p_der}")
+                        
+                        foto_cambio_der = st.file_uploader(f"Actualizar foto de {p_der}:", type=["jpg", "jpeg", "png"], key=f"f_up_{p_der}")
+                        
+                        cambios_detectados[p_der] = {
+                            "precio": p_der_val, 
+                            "icono": st.session_state.menu_dinamico[p_der]["icono"], 
+                            "disponible": p_der_disp, 
+                            "stock": p_der_stock, 
+                            "categoria": nueva_cat_der
+                        }
+                        
+                        if st.button(f"❌ Eliminar {p_der}", key=f"del_{p_der}", use_container_width=True):
+                            eliminar_producto = p_der
+            st.markdown("---")
+    
+        # ============================================================================
+        # 12. MANEJADOR OPERATIVO DE PERSISTENCIA SEGURA
+        # ============================================================================
+        if eliminar_producto is not None:
+            if database.eliminar_producto(None, eliminar_producto):
+                st.success(f"✔ ¡Producto '{eliminar_producto}' eliminado con éxito!")
+                st.session_state["_forzar_recarga"] = True
+                st.rerun()
+    
+        if st.button("💾 CONFIRMAR Y SINCRONIZAR CAMBIOS DE LA CARTA", use_container_width=True):
+            # Sincronizamos los cambios al almacenamiento de Google Sheets
+            todos_guardados = True
+            for prod_key, info_actualizada in cambios_detectados.items():
+                archivo_subido = st.session_state.get(f"f_up_{prod_key}")
+                ruta_foto = convertir_imagen_a_base64(archivo_subido)
+                    
+                todos_guardados = database.guardar_producto(
+                    db_path=None,
+                    nombre=prod_key,
+                    precio=info_actualizada["precio"],
+                    icono=info_actualizada["icono"],
+                    disponible=info_actualizada["disponible"],
+                    foto_ruta=ruta_foto,
+                    stock=info_actualizada["stock"],
+                    categoria_nombre=info_actualizada["categoria"]
+                ) and todos_guardados
+            if todos_guardados:
+                st.success("✔ ¡Cambios guardados físicamente con éxito!")
+                st.session_state["_forzar_recarga"] = True
+                st.rerun()
 
     # ============================================================================
     # 12.5 PANEL DE CONTROL DE ADMINISTRACIÓN - GESTIÓN DE CUPONES
     # ============================================================================
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### 🎫 GESTIÓN DE CUPONES")
-    
-    with st.expander("Añadir / Editar Cupones", expanded=False):
-        c_col1, c_col2, c_col3, c_col4 = st.columns(4)
-        with c_col1:
-            nuevo_codigo = st.text_input("Código del cupón (ej. VERANO20)").strip().upper()
-        with c_col2:
-            nuevo_tipo = st.selectbox("Tipo de descuento", ["porcentaje", "monto", "delivery"])
-        with c_col3:
-            nuevo_valor = st.number_input("Valor (ej. 0.2 para 20%, o 10.0 para S/10)", min_value=0.0, step=0.1)
-        with c_col4:
-            nueva_desc = st.text_input("Descripción breve")
-            
-        if st.button("➕ Guardar Cupón", use_container_width=True):
-            if nuevo_codigo and nuevo_valor > 0:
-                if database.crear_cupon(nuevo_codigo, nuevo_tipo, nuevo_valor, nueva_desc, activo=True):
-                    st.success(f"Cupón {nuevo_codigo} guardado.")
-                    st.rerun()
-            else:
-                st.error("Ingrese código y valor mayor a 0.")
+    if rol_actual in ["Dueño", "Cajero"]:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("### 🎫 GESTIÓN DE CUPONES")
+        
+        with st.expander("Añadir / Editar Cupones", expanded=False):
+            c_col1, c_col2, c_col3, c_col4 = st.columns(4)
+            with c_col1:
+                nuevo_codigo = st.text_input("Código del cupón (ej. VERANO20)").strip().upper()
+            with c_col2:
+                nuevo_tipo = st.selectbox("Tipo de descuento", ["porcentaje", "monto", "delivery"])
+            with c_col3:
+                nuevo_valor = st.number_input("Valor (ej. 0.2 para 20%, o 10.0 para S/10)", min_value=0.0, step=0.1)
+            with c_col4:
+                nueva_desc = st.text_input("Descripción breve")
                 
-        st.markdown("#### Cupones Actuales")
-        cupones_db = database.obtener_cupones(ttl=database.TTL_LECTURA)
-        if cupones_db:
-            for cod, datos in cupones_db.items():
-                col_c1, col_c2, col_c3, col_c4 = st.columns([2, 3, 1, 1])
-                with col_c1:
-                    st.markdown(f"**{cod}**")
-                    st.caption(f"{datos['tipo']} - {datos['valor']}")
-                with col_c2:
-                    st.write(datos["descripcion"])
-                with col_c3:
-                    estado = st.toggle("Activo", value=bool(datos["activo"]), key=f"tgl_{cod}")
-                    if estado != bool(datos["activo"]):
-                        database.actualizar_estado_cupon(cod, estado)
+            if st.button("➕ Guardar Cupón", use_container_width=True):
+                if nuevo_codigo and nuevo_valor > 0:
+                    if database.crear_cupon(nuevo_codigo, nuevo_tipo, nuevo_valor, nueva_desc, activo=True):
+                        st.success(f"Cupón {nuevo_codigo} guardado.")
                         st.rerun()
-                with col_c4:
-                    if st.button("🗑️", key=f"del_cup_{cod}"):
-                        database.eliminar_cupon(cod)
-                        st.rerun()
-        else:
-            st.info("No hay cupones registrados.")
+                else:
+                    st.error("Ingrese código y valor mayor a 0.")
+                    
+            st.markdown("#### Cupones Actuales")
+            cupones_db = database.obtener_cupones(ttl=database.TTL_LECTURA)
+            if cupones_db:
+                for cod, datos in cupones_db.items():
+                    col_c1, col_c2, col_c3, col_c4 = st.columns([2, 3, 1, 1])
+                    with col_c1:
+                        st.markdown(f"**{cod}**")
+                        st.caption(f"{datos['tipo']} - {datos['valor']}")
+                    with col_c2:
+                        st.write(datos["descripcion"])
+                    with col_c3:
+                        estado = st.toggle("Activo", value=bool(datos["activo"]), key=f"tgl_{cod}")
+                        if estado != bool(datos["activo"]):
+                            database.actualizar_estado_cupon(cod, estado)
+                            st.rerun()
+                    with col_c4:
+                        if st.button("🗑️", key=f"del_cup_{cod}"):
+                            database.eliminar_cupon(cod)
+                            st.rerun()
+            else:
+                st.info("No hay cupones registrados.")
 
     # ============================================================================
     # 13. PANEL DE CONTROL DE ADMINISTRACIÓN - AUDITORÍA FINANCIERA Y ANALÍTICA
     # ============================================================================
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### 📊 AUDITORÍA GENERAL DE CAJA CHICA")
-
-    col_kpi1, col_kpi2 = st.columns(2)
-    with col_kpi1:
-        st.markdown(f"<div style='background-color: #151515; padding: 20px; border-radius: 8px; border-left: 5px solid #27ae60; box-shadow: 0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0; font-size:14px; color:#aaa; font-weight:bold;'>💰 RECAUDACIÓN TOTAL ACUMULADA</p><h2 style='margin:5px 0 0 0; color:#fff; font-size:32px;'>S/{total_caja:.2f}</h2></div>", unsafe_allow_html=True)
-    with col_kpi2:
-        st.markdown(f"<div style='background-color: #151515; padding: 20px; border-radius: 8px; border-left: 5px solid #f39c12; box-shadow: 0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0; font-size:14px; color:#aaa; font-weight:bold;'>📦 ÓRDENES HISTÓRICAS PROCESADAS</p><h2 style='margin:5px 0 0 0; color:#fff; font-size:32px;'>{total_pedidos} Pedidos</h2></div>", unsafe_allow_html=True)
-
-    col_kpi3, col_kpi4 = st.columns(2)
-    ticket_promedio = total_caja / total_pedidos if total_pedidos > 0 else 0
-    with col_kpi3:
-        st.markdown(f"<div style='background-color:#151515;padding:20px;border-radius:8px;border-left:5px solid #d35400;box-shadow:0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0;font-size:14px;color:#aaa;font-weight:bold;'>🎯 TICKET PROMEDIO</p><h2 style='margin:5px 0 0 0;color:#fff;font-size:32px;'>S/{ticket_promedio:.2f}</h2></div>", unsafe_allow_html=True)
+    if rol_actual in ["Dueño", "Cajero"]:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("### 📊 AUDITORÍA GENERAL DE CAJA CHICA")
     
-    # Hora pico
-    horas_pedidos: "dict[str, int]" = {}
-    for orden in st.session_state.historial_ordenes:
-        try:
-            hora = orden.get('Fecha y Hora', '').split(' ')[1].split(':')[0]
-            horas_pedidos[hora] = horas_pedidos.get(hora, 0) + 1
-        except (IndexError, KeyError):
-            pass
-    hora_pico = max(horas_pedidos, key=lambda k: horas_pedidos[k]) if horas_pedidos else "--"
-    with col_kpi4:
-        st.markdown(f"<div style='background-color:#151515;padding:20px;border-radius:8px;border-left:5px solid #3498db;box-shadow:0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0;font-size:14px;color:#aaa;font-weight:bold;'>⏰ HORA PICO</p><h2 style='margin:5px 0 0 0;color:#fff;font-size:32px;'>{hora_pico}:00 hrs</h2></div>", unsafe_allow_html=True)
-
-    fecha_reporte = st.date_input("Filtrar reporte por fecha", value=ahora_peru.date(), key="fecha_reporte_admin")
-    ordenes_fecha = []
-    for orden in st.session_state.historial_ordenes:
-        try:
-            fecha_orden = datetime.strptime(orden.get("Fecha y Hora", "")[:10], "%d/%m/%Y").date()
-            if fecha_orden == fecha_reporte:
-                ordenes_fecha.append(orden)
-        except ValueError:
-            continue
-
-    ventas_fecha = 0.0
-    for orden in ordenes_fecha:
-        try:
-            ventas_fecha += float(orden["Total"].replace("S/", "").strip())
-        except (ValueError, KeyError):
-            pass
-    ticket_fecha = ventas_fecha / len(ordenes_fecha) if ordenes_fecha else 0.0
-
-    col_dia1, col_dia2, col_dia3 = st.columns(3)
-    col_dia1.metric("Ventas del día", f"S/{ventas_fecha:.2f}")
-    col_dia2.metric("Pedidos del día", len(ordenes_fecha))
-    col_dia3.metric("Ticket promedio día", f"S/{ticket_fecha:.2f}")
+        col_kpi1, col_kpi2 = st.columns(2)
+        with col_kpi1:
+            st.markdown(f"<div style='background-color: #151515; padding: 20px; border-radius: 8px; border-left: 5px solid #27ae60; box-shadow: 0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0; font-size:14px; color:#aaa; font-weight:bold;'>💰 RECAUDACIÓN TOTAL ACUMULADA</p><h2 style='margin:5px 0 0 0; color:#fff; font-size:32px;'>S/{total_caja:.2f}</h2></div>", unsafe_allow_html=True)
+        with col_kpi2:
+            st.markdown(f"<div style='background-color: #151515; padding: 20px; border-radius: 8px; border-left: 5px solid #f39c12; box-shadow: 0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0; font-size:14px; color:#aaa; font-weight:bold;'>📦 ÓRDENES HISTÓRICAS PROCESADAS</p><h2 style='margin:5px 0 0 0; color:#fff; font-size:32px;'>{total_pedidos} Pedidos</h2></div>", unsafe_allow_html=True)
+    
+        col_kpi3, col_kpi4 = st.columns(2)
+        ticket_promedio = total_caja / total_pedidos if total_pedidos > 0 else 0
+        with col_kpi3:
+            st.markdown(f"<div style='background-color:#151515;padding:20px;border-radius:8px;border-left:5px solid #d35400;box-shadow:0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0;font-size:14px;color:#aaa;font-weight:bold;'>🎯 TICKET PROMEDIO</p><h2 style='margin:5px 0 0 0;color:#fff;font-size:32px;'>S/{ticket_promedio:.2f}</h2></div>", unsafe_allow_html=True)
         
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### 📈 ANALÍTICA: UNIDADES VENDIDAS DE LA JORNADA")
+        # Hora pico
+        horas_pedidos: "dict[str, int]" = {}
+        for orden in st.session_state.historial_ordenes:
+            try:
+                hora = orden.get('Fecha y Hora', '').split(' ')[1].split(':')[0]
+                horas_pedidos[hora] = horas_pedidos.get(hora, 0) + 1
+            except (IndexError, KeyError):
+                pass
+        hora_pico = max(horas_pedidos, key=lambda k: horas_pedidos[k]) if horas_pedidos else "--"
+        with col_kpi4:
+            st.markdown(f"<div style='background-color:#151515;padding:20px;border-radius:8px;border-left:5px solid #3498db;box-shadow:0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0;font-size:14px;color:#aaa;font-weight:bold;'>⏰ HORA PICO</p><h2 style='margin:5px 0 0 0;color:#fff;font-size:32px;'>{hora_pico}:00 hrs</h2></div>", unsafe_allow_html=True)
     
-    df_grafico = pd.DataFrame({
-        'Producto': list(conteos_productos.keys()),
-        'Cantidad': list(conteos_productos.values())
-    })
+        fecha_reporte = st.date_input("Filtrar reporte por fecha", value=ahora_peru.date(), key="fecha_reporte_admin")
+        ordenes_fecha = []
+        for orden in st.session_state.historial_ordenes:
+            try:
+                fecha_orden = datetime.strptime(orden.get("Fecha y Hora", "")[:10], "%d/%m/%Y").date()
+                if fecha_orden == fecha_reporte:
+                    ordenes_fecha.append(orden)
+            except ValueError:
+                continue
     
-    barras = alt.Chart(df_grafico).mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6).encode(
-        x=alt.X('Producto:N', title='Productos del Menú', sort=None, axis=alt.Axis(
-            labelAngle=-90,           # Inclina los nombres en diagonal para que entren todos
-            labelOverlap=False,       # OBLIGATORIO: Fuerza a Altair a mostrar el 100% de nombres
-            labelColor='#ffffff',     
-            titleColor='#f39c12', 
-            labelFontSize=11
-        )),
-        y=alt.Y('Cantidad:Q', title='Unidades Vendidas', axis=alt.Axis(
-            grid=True, 
-            gridColor='#2c2c2c', 
-            labelColor='#ffffff', 
-            titleColor='#f39c12'
-        )),
-        color=alt.Color('Cantidad:Q', scale=alt.Scale(scheme='orangered'), legend=None)
-    )
+        ventas_fecha = 0.0
+        for orden in ordenes_fecha:
+            try:
+                ventas_fecha += float(orden["Total"].replace("S/", "").strip())
+            except (ValueError, KeyError):
+                pass
+        ticket_fecha = ventas_fecha / len(ordenes_fecha) if ordenes_fecha else 0.0
     
-    texto_etiquetas = barras.mark_text(align='center', baseline='bottom', dy=-5, color='#ffffff', fontSize=13, fontWeight='bold').encode(text='Cantidad:Q')
-    grafico_final = (barras + texto_etiquetas).properties(width=600, height=320).configure_view(strokeWidth=0).configure_axis(domainWidth=1, domainColor='#444444')
-    st.altair_chart(grafico_final, use_container_width=True)
-    
-    # Tendencia por horas
-    st.markdown("### 📈 TENDENCIA DE VENTAS POR HORA")
-    horas_pedidos = {}
-    for orden in st.session_state.historial_ordenes:
-        try:
-            # Buscar llave "Fecha y Hora" o la equivalente en keys
-            llave_fecha = "Fecha y Hora" if "Fecha y Hora" in orden else list(orden.keys())[0]
-            hora = orden[llave_fecha].split(" ")[1].split(":")[0]
-            horas_pedidos[hora] = horas_pedidos.get(hora, 0) + 1
-        except Exception:
-            pass
-    if horas_pedidos:
-        df_horas = pd.DataFrame(list(horas_pedidos.items()), columns=['Hora', 'Pedidos']).sort_values('Hora')
-        line_chart = alt.Chart(df_horas).mark_line(point=True, color='#f39c12', strokeWidth=3).encode(
-            x=alt.X('Hora:N', title='Hora del Día'),
-            y=alt.Y('Pedidos:Q', title='Cantidad de Pedidos')
-        ).properties(height=250)
-        st.altair_chart(line_chart, use_container_width=True)
+        col_dia1, col_dia2, col_dia3 = st.columns(3)
+        col_dia1.metric("Ventas del día", f"S/{ventas_fecha:.2f}")
+        col_dia2.metric("Pedidos del día", len(ordenes_fecha))
+        col_dia3.metric("Ticket promedio día", f"S/{ticket_fecha:.2f}")
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("### 📈 ANALÍTICA: UNIDADES VENDIDAS DE LA JORNADA")
+        
+        df_grafico = pd.DataFrame({
+            'Producto': list(conteos_productos.keys()),
+            'Cantidad': list(conteos_productos.values())
+        })
+        
+        barras = alt.Chart(df_grafico).mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6).encode(
+            x=alt.X('Producto:N', title='Productos del Menú', sort=None, axis=alt.Axis(
+                labelAngle=-90,           # Inclina los nombres en diagonal para que entren todos
+                labelOverlap=False,       # OBLIGATORIO: Fuerza a Altair a mostrar el 100% de nombres
+                labelColor='#ffffff',     
+                titleColor='#f39c12', 
+                labelFontSize=11
+            )),
+            y=alt.Y('Cantidad:Q', title='Unidades Vendidas', axis=alt.Axis(
+                grid=True, 
+                gridColor='#2c2c2c', 
+                labelColor='#ffffff', 
+                titleColor='#f39c12'
+            )),
+            color=alt.Color('Cantidad:Q', scale=alt.Scale(scheme='orangered'), legend=None)
+        )
+        
+        texto_etiquetas = barras.mark_text(align='center', baseline='bottom', dy=-5, color='#ffffff', fontSize=13, fontWeight='bold').encode(text='Cantidad:Q')
+        grafico_final = (barras + texto_etiquetas).properties(width=600, height=320).configure_view(strokeWidth=0).configure_axis(domainWidth=1, domainColor='#444444')
+        st.altair_chart(grafico_final, use_container_width=True)
+        
+        # Tendencia por horas
+        st.markdown("### 📈 TENDENCIA DE VENTAS POR HORA")
+        horas_pedidos = {}
+        for orden in st.session_state.historial_ordenes:
+            try:
+                # Buscar llave "Fecha y Hora" o la equivalente en keys
+                llave_fecha = "Fecha y Hora" if "Fecha y Hora" in orden else list(orden.keys())[0]
+                hora = orden[llave_fecha].split(" ")[1].split(":")[0]
+                horas_pedidos[hora] = horas_pedidos.get(hora, 0) + 1
+            except Exception:
+                pass
+        if horas_pedidos:
+            df_horas = pd.DataFrame(list(horas_pedidos.items()), columns=['Hora', 'Pedidos']).sort_values('Hora')
+            line_chart = alt.Chart(df_horas).mark_line(point=True, color='#f39c12', strokeWidth=3).encode(
+                x=alt.X('Hora:N', title='Hora del Día'),
+                y=alt.Y('Pedidos:Q', title='Cantidad de Pedidos')
+            ).properties(height=250)
+            st.altair_chart(line_chart, use_container_width=True)
 
     # ============================================================================
     # 14. PANEL DE CONTROL DE ADMINISTRACIÓN - BITÁCORA HISTÓRICA DE PEDIDOS
@@ -1200,100 +1210,100 @@ if es_admin:
         st.altair_chart(pie, use_container_width=True)
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
-    
     # ============================================================================
     # 14B. PANEL DE CONTROL DE ADMINISTRACIÓN - GESTIÓN DE MESAS Y RESERVAS
     # ============================================================================
-    st.markdown("### 🪑 GESTIÓN DE MESAS Y RESERVAS")
-    
-    col_mesas_admin, col_reservas_admin = st.columns(2)
-    
-    with col_mesas_admin:
-        st.markdown("#### 🪑 Mesas del Local")
-        mesas_admin = database.obtener_mesas(ttl=1)
+    if rol_actual in ["Dueño", "Mesero"]:
+        st.markdown("### 🪑 GESTIÓN DE MESAS Y RESERVAS")
         
-        if mesas_admin:
-            for mesa in mesas_admin:
-                nro = int(mesa.get("nro_mesa", 0))
-                estado = str(mesa.get("estado", "disponible")).strip().lower()
-                icono_estado = "🟢" if estado == "disponible" else "🔴"
-                
-                col_m1, col_m2, col_m3 = st.columns([2, 2, 1])
-                with col_m1:
-                    st.markdown(f"{icono_estado} **Mesa {nro}** — {estado.upper()}")
-                with col_m2:
-                    nuevo_estado = "ocupada" if estado == "disponible" else "disponible"
-                    label_btn = f"Marcar {'Ocupada' if estado == 'disponible' else 'Libre'}"
-                    if st.button(label_btn, key=f"btn_toggle_mesa_{nro}", use_container_width=True):
-                        database.actualizar_estado_mesa(nro, nuevo_estado)
-                        st.rerun()
-                with col_m3:
-                    if st.button("🗑️", key=f"btn_del_mesa_{nro}"):
-                        database.eliminar_mesa(nro)
-                        st.toast(f"Mesa {nro} eliminada", icon="🗑️")
-                        st.rerun()
-        else:
-            st.info("No hay mesas configuradas.")
+        col_mesas_admin, col_reservas_admin = st.columns(2)
         
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("➕ Agregar Nueva Mesa", key="btn_add_mesa", use_container_width=True):
-            nueva = database.agregar_mesa()
-            if nueva:
-                st.toast(f"Mesa {nueva} agregada", icon="✅")
-                st.rerun()
-    
-    with col_reservas_admin:
-        st.markdown("#### 📅 Reservaciones Activas")
-        reservas_admin = database.obtener_reservas(ttl=1)
+        with col_mesas_admin:
+            st.markdown("#### 🪑 Mesas del Local")
+            mesas_admin = database.obtener_mesas(ttl=1)
+            
+            if mesas_admin:
+                for mesa in mesas_admin:
+                    nro = int(mesa.get("nro_mesa", 0))
+                    estado = str(mesa.get("estado", "disponible")).strip().lower()
+                    icono_estado = "🟢" if estado == "disponible" else "🔴"
+                    
+                    col_m1, col_m2, col_m3 = st.columns([2, 2, 1])
+                    with col_m1:
+                        st.markdown(f"{icono_estado} **Mesa {nro}** — {estado.upper()}")
+                    with col_m2:
+                        nuevo_estado = "ocupada" if estado == "disponible" else "disponible"
+                        label_btn = f"Marcar {'Ocupada' if estado == 'disponible' else 'Libre'}"
+                        if st.button(label_btn, key=f"btn_toggle_mesa_{nro}", use_container_width=True):
+                            database.actualizar_estado_mesa(nro, nuevo_estado)
+                            st.rerun()
+                    with col_m3:
+                        if st.button("🗑️", key=f"btn_del_mesa_{nro}"):
+                            database.eliminar_mesa(nro)
+                            st.toast(f"Mesa {nro} eliminada", icon="🗑️")
+                            st.rerun()
+            else:
+                st.info("No hay mesas configuradas.")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("➕ Agregar Nueva Mesa", key="btn_add_mesa", use_container_width=True):
+                nueva = database.agregar_mesa()
+                if nueva:
+                    st.toast(f"Mesa {nueva} agregada", icon="✅")
+                    st.rerun()
         
-        if reservas_admin:
-            for reserva in reservas_admin:
-                r_id = reserva.get("id", "?")
-                # Quitar decimal del ID si viene de pandas
-                if str(r_id).endswith(".0"):
-                    r_id = str(r_id)[:-2]
-                r_nombre = reserva.get("nombre", "?")
-                r_mesa = reserva.get("nro_mesa", "?")
-                if str(r_mesa).endswith(".0"):
-                    r_mesa = str(r_mesa)[:-2]
-                r_fecha = reserva.get("fecha", "?")
-                r_hora = reserva.get("hora", "?")
-                r_tel = reserva.get("datos_contacto", "")
-                r_personas = reserva.get("personas", "2")
-                if str(r_personas).endswith(".0"):
-                    r_personas = str(r_personas)[:-2]
-                r_nombres = reserva.get("nombres_invitados", "")
-                
-                # Formatear el teléfono limpio quitando decimales (.0)
-                clean_tel = str(r_tel).split(".")[0].strip()
-                import urllib.parse
-                mensaje_wa = f"Hola {r_nombre}, te escribimos de Carnes & Bytes sobre tu reserva #{r_id} de la Mesa {r_mesa} para el día {r_fecha} a las {r_hora}."
-                mensaje_encoded = urllib.parse.quote(mensaje_wa)
-                wa_url = f"https://wa.me/51{clean_tel}?text={mensaje_encoded}"
-                
-                st.markdown(
-                    f"<div class='status-strip' style='border-color: #f39c12; padding: 12px 18px !important; margin-bottom: 8px !important;'>"
-                    f"<div style='line-height:1.4; text-align: left;'>"
-                    f"<strong style='color:#fff; font-size: 14px;'>#{r_id} — {r_nombre}</strong><br>"
-                    f"<span style='font-size:12px; color:#aaa;'>🪑 Mesa {r_mesa} | 📆 {r_fecha} | 🕐 {r_hora}</span><br>"
-                    f"<span style='font-size:12px; color:#888;'>📱 Tel: {clean_tel} | 👥 {r_personas} integrantes</span><br>"
-                    f"<span style='font-size:11px; color:#f39c12;'>📝 Integrantes: {r_nombres}</span>"
-                    f"</div>"
-                    f"</div>",
-                    unsafe_allow_html=True
-                )
-                col_btn_r1, col_btn_r2 = st.columns(2)
-                with col_btn_r1:
-                    st.link_button("💬 Enviar WhatsApp", wa_url, use_container_width=True)
-                with col_btn_r2:
-                    if st.button(f"❌ Cancelar #{r_id}", key=f"btn_cancel_reserva_{r_id}", use_container_width=True):
-                        database.eliminar_reserva(r_id)
-                        st.toast(f"Reserva #{r_id} cancelada", icon="❌")
-                        st.rerun()
-        else:
-            st.info("No hay reservaciones activas.")
+        with col_reservas_admin:
+            st.markdown("#### 📅 Reservaciones Activas")
+            reservas_admin = database.obtener_reservas(ttl=1)
+            
+            if reservas_admin:
+                for reserva in reservas_admin:
+                    r_id = reserva.get("id", "?")
+                    # Quitar decimal del ID si viene de pandas
+                    if str(r_id).endswith(".0"):
+                        r_id = str(r_id)[:-2]
+                    r_nombre = reserva.get("nombre", "?")
+                    r_mesa = reserva.get("nro_mesa", "?")
+                    if str(r_mesa).endswith(".0"):
+                        r_mesa = str(r_mesa)[:-2]
+                    r_fecha = reserva.get("fecha", "?")
+                    r_hora = reserva.get("hora", "?")
+                    r_tel = reserva.get("datos_contacto", "")
+                    r_personas = reserva.get("personas", "2")
+                    if str(r_personas).endswith(".0"):
+                        r_personas = str(r_personas)[:-2]
+                    r_nombres = reserva.get("nombres_invitados", "")
+                    
+                    # Formatear el teléfono limpio quitando decimales (.0)
+                    clean_tel = str(r_tel).split(".")[0].strip()
+                    import urllib.parse
+                    mensaje_wa = f"Hola {r_nombre}, te escribimos de Carnes & Bytes sobre tu reserva #{r_id} de la Mesa {r_mesa} para el día {r_fecha} a las {r_hora}."
+                    mensaje_encoded = urllib.parse.quote(mensaje_wa)
+                    wa_url = f"https://wa.me/51{clean_tel}?text={mensaje_encoded}"
+                    
+                    st.markdown(
+                        f"<div class='status-strip' style='border-color: #f39c12; padding: 12px 18px !important; margin-bottom: 8px !important;'>"
+                        f"<div style='line-height:1.4; text-align: left;'>"
+                        f"<strong style='color:#fff; font-size: 14px;'>#{r_id} — {r_nombre}</strong><br>"
+                        f"<span style='font-size:12px; color:#aaa;'>🪑 Mesa {r_mesa} | 📆 {r_fecha} | 🕐 {r_hora}</span><br>"
+                        f"<span style='font-size:12px; color:#888;'>📱 Tel: {clean_tel} | 👥 {r_personas} integrantes</span><br>"
+                        f"<span style='font-size:11px; color:#f39c12;'>📝 Integrantes: {r_nombres}</span>"
+                        f"</div>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+                    col_btn_r1, col_btn_r2 = st.columns(2)
+                    with col_btn_r1:
+                        st.link_button("💬 Enviar WhatsApp", wa_url, use_container_width=True)
+                    with col_btn_r2:
+                        if st.button(f"❌ Cancelar #{r_id}", key=f"btn_cancel_reserva_{r_id}", use_container_width=True):
+                            database.eliminar_reserva(r_id)
+                            st.toast(f"Reserva #{r_id} cancelada", icon="❌")
+                            st.rerun()
+            else:
+                st.info("No hay reservaciones activas.")
 
-    st.markdown("<br><hr><br>", unsafe_allow_html=True)
+        st.markdown("<br><hr><br>", unsafe_allow_html=True)
 else:
 
     # ============================================================================
