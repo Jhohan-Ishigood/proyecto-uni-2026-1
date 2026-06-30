@@ -588,11 +588,12 @@ def _obtener_mesas_cached(ttl=60):
     try:
         conn = get_connection()
         df = conn.read(worksheet="mesas", ttl=ttl)
-        if df.empty:
-            return []
+        if df.empty or "nro_mesa" not in df.columns:
+            return [{"nro_mesa": i, "estado": "disponible"} for i in range(1, 21)]
         return df.to_dict(orient="records")
     except Exception:
-        return []
+        # Retornamos 20 mesas offline por defecto si hay un bloqueo temporal de cuota
+        return [{"nro_mesa": i, "estado": "disponible"} for i in range(1, 21)]
 
 def obtener_mesas(ttl=TTL_LECTURA):
     return _obtener_mesas_cached(ttl=ttl)
