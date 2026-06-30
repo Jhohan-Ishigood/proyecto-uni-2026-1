@@ -841,6 +841,38 @@ if es_admin_autenticado and st.session_state.rol_actual is None:
 if es_admin:
     rol_actual = st.session_state.get("rol_actual", "Dueño")
     
+    # --- SISTEMA DE ALERTA DE NUEVOS PEDIDOS Y LLAMADOS DE MESA ---
+    # Inicializar estado para registrar conteo de órdenes
+    if "total_ordenes_previo" not in st.session_state:
+        st.session_state.total_ordenes_previo = len(st.session_state.get("historial_ordenes", []))
+        
+    conteo_ordenes_actual = len(st.session_state.get("historial_ordenes", []))
+    sonido_alerta = False
+    
+    # 1. Alerta por nuevas órdenes registradas
+    if conteo_ordenes_actual > st.session_state.total_ordenes_previo:
+        st.session_state.total_ordenes_previo = conteo_ordenes_actual
+        sonido_alerta = True
+        st.toast("🔥 ¡NUEVO PEDIDO RECIBIDO EN COCINA! 🔥", icon="🔔")
+
+    # 2. Alerta por llamados activos de clientes en mesa
+    alertas_activas = database.obtener_alertas(ttl=2)
+    if "conteo_alertas_previo" not in st.session_state:
+        st.session_state.conteo_alertas_previo = len(alertas_activas)
+        
+    if len(alertas_activas) > st.session_state.conteo_alertas_previo:
+        st.session_state.conteo_alertas_previo = len(alertas_activas)
+        sonido_alerta = True
+        st.toast("🚨 ¡NUEVO LLAMADO DE CLIENTE EN MESA! 🚨", icon="🙋‍♂️")
+    elif len(alertas_activas) < st.session_state.conteo_alertas_previo:
+        st.session_state.conteo_alertas_previo = len(alertas_activas)
+
+    # Inyección de audio HTML para campana (ding) de cocina real si se activa una alerta
+    if sonido_alerta:
+        # Sonido clásico de campana
+        audio_src = "https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav"
+        st.markdown(f'<audio src="{audio_src}" autoplay style="display:none;"></audio>', unsafe_allow_html=True)
+
     # Cabecera con título y botones de control de sesión/rol
     col_admin_t, col_admin_b1, col_admin_b2 = st.columns([2.5, 1.0, 1.0])
     with col_admin_t:
@@ -856,6 +888,25 @@ if es_admin:
             st.rerun()
             
     st.info(f"📋 **Reporte Gerencial del Grupo 5** — Sincronizado en tiempo real: {fecha_actual}")
+
+    # Panel visual de Llamadas de Mesa activas (para roles con permiso de bitácora)
+    if puede_ver(rol_actual, "bitacora") and alertas_activas:
+        st.markdown("### 🚨 LLAMADAS DE CLIENTES EN ESPERA")
+        with st.container(border=True):
+            for alert in alertas_activas:
+                col_al_info, col_al_btn = st.columns([4, 1])
+                with col_al_info:
+                    emoji_tipo = "🙋‍♂️" if alert["tipo_alerta"] == "Llamado a Mesero" else "💵"
+                    st.markdown(f"**{emoji_tipo} {alert['tipo_alerta'].upper()}** — Mesa **{int(float(alert['nro_mesa']))}** ({alert['cliente_nombre']})")
+                    st.caption(f"Enviado a las {alert['fecha_hora']}")
+                with col_al_btn:
+                    if st.button("✅ Atendido", key=f"btn_atender_{alert['nro_mesa']}_{alert['tipo_alerta']}", use_container_width=True):
+                        database.atender_alerta_salon(alert['nro_mesa'], alert['tipo_alerta'])
+                        st.toast("Llamado marcado como atendido", icon="✅")
+                        st.rerun()
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🔕 Silenciar / Actualizar todo", use_container_width=True, key="btn_refresh_alerts"):
+                st.rerun()
     
     if puede_ver(rol_actual, "carta"):
         st.session_state.pedidos_pausados = st.toggle(
@@ -1954,6 +2005,23 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                 👤 Cliente: {cli_nom} &nbsp;|&nbsp; 🪑 Mesa: {cli_mesa} &nbsp;|&nbsp; 🛒 Listo para armar tu pedido
             </div>
             """, unsafe_allow_html=True)
+            
+            # Panel de solicitudes para llamar al Mesero / Cuenta
+            col_llamar_m, col_llamar_c = st.columns(2)
+            with col_llamar_m:
+                if st.button("🙋‍♂️ LLAMAR AL MESERO", use_container_width=True, key="btn_llamar_mesero_salon"):
+                    exito_alert = database.crear_alerta_salon(cli_mesa, cli_nom, "Llamado a Mesero")
+                    if exito_alert:
+                        st.success("🔔 Llamando al mesero. En breve se acercarán a tu mesa.")
+                    else:
+                        st.error("Error al enviar llamada. Intente de nuevo.")
+            with col_llamar_c:
+                if st.button("💳 SOLICITAR LA CUENTA", use_container_width=True, key="btn_pedir_cuenta_salon"):
+                    exito_alert = database.crear_alerta_salon(cli_mesa, cli_nom, "Pedir la Cuenta")
+                    if exito_alert:
+                        st.warning("💵 Cuenta solicitada. El cajero/mesero traerá el comprobante.")
+                    else:
+                        st.error("Error al enviar llamada. Intente de nuevo.")
             
         st.markdown("\n<h2 class='titulo-principal'>🔥 CARNES & BYTES — Tu gusto, nuestra meta</h2>", unsafe_allow_html=True)
         st.text(f"Fecha y hora oficial de Perú (GMT-5): {fecha_actual}\n")

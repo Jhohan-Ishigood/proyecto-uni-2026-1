@@ -100,6 +100,9 @@ def inicializar_db(db_path=None):
         _asegurar_hoja(conn, "reservas",
             pd.DataFrame(columns=["id", "email", "nombre", "nro_mesa", "fecha", "hora", "datos_contacto", "personas", "nombres_invitados"]))
 
+        _asegurar_hoja(conn, "alertas_salon",
+            pd.DataFrame(columns=["fecha_hora", "nro_mesa", "cliente_nombre", "tipo_alerta", "atendido"]))
+
         st.session_state["_db_inicializada"] = True
     except Exception as e:
         st.error(f"Error al inicializar Google Sheets (Verifica tus secrets y permisos de cuenta de servicio): {e}")
@@ -708,5 +711,62 @@ def eliminar_reserva(id_reserva):
         return False
     except Exception as e:
         st.error(f"Error  reserva {id_reserva}: {e}")
+        return False
+
+
+# ============================================================================
+# FUNCIONES DE ALERTAS EN SALÓN (LLAMAR MESERO / CUENTA)
+# ============================================================================
+@st.cache_data(ttl=5)
+def _obtener_alertas_cached(ttl=5):
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="alertas_salon", ttl=ttl)
+        if df.empty or "nro_mesa" not in df.columns:
+            return []
+        return df.to_dict(orient="records")
+    except Exception:
+        return []
+
+def obtener_alertas(ttl=5):
+    return _obtener_alertas_cached(ttl=ttl)
+
+def crear_alerta_salon(nro_mesa, cliente_nombre, tipo_alerta):
+    """Crea una alerta de llamado a mesero o cuenta."""
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="alertas_salon", ttl=1)
+        if df.empty or "nro_mesa" not in df.columns:
+            df = pd.DataFrame(columns=["fecha_hora", "nro_mesa", "cliente_nombre", "tipo_alerta", "atendido"])
+
+        new_row = pd.DataFrame([{
+            "fecha_hora": str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+            "nro_mesa": int(nro_mesa),
+            "cliente_nombre": str(cliente_nombre),
+            "tipo_alerta": str(tipo_alerta),
+            "atendido": 0
+        }])
+        
+        updated_df = pd.concat([df, new_row], ignore_index=True)
+        conn.update(worksheet="alertas_salon", data=updated_df)
+        st.cache_data.clear()
+        return True
+    except Exception as e:
+        st.error(f"Error creando alerta de salón: {e}")
+        return False
+
+def atender_alerta_salon(nro_mesa, tipo_alerta):
+    """Elimina la alerta de llamado una vez que el mesero la atiende."""
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="alertas_salon", ttl=1)
+        if not df.empty and "nro_mesa" in df.columns:
+            df = df[~((df["nro_mesa"].astype(int) == int(nro_mesa)) & (df["tipo_alerta"].astype(str) == str(tipo_alerta)))]
+            conn.update(worksheet="alertas_salon", data=df)
+            st.cache_data.clear()
+            return True
+        return False
+    except Exception as e:
+        st.error(f"Error atendiendo alerta: {e}")
         return False
 
