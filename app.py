@@ -1799,9 +1799,9 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                         else:
                             st.session_state.nombre_cliente = nombre_cliente_input.strip()
                             st.session_state.mesa_seleccionada = mesa_elegida
-                            # Cambiar estado en GSheets y vaciar caché para que se propague de inmediato
-                            st.cache_data.clear()
+                            # Cambiar estado en GSheets y vaciar caché DESPUÉS para que se propague
                             database.actualizar_estado_mesa(mesa_elegida, "ocupada")
+                            st.cache_data.clear()
                             st.session_state.pantalla_actual = "catalogo"
                             st.session_state.boleta_emitida = False
                             st.rerun()
@@ -2523,6 +2523,14 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                         st.session_state.db_user = None
                         if nuevo_premio:
                             st.toast(f"¡Felicidades! Desbloqueaste un nuevo premio: {nuevo_premio}", icon="🎁")
+
+                # Marcar mesa como OCUPADA al confirmar pedido (refuerzo)
+                if st.session_state.get("tipo_servicio") == "salon" and st.session_state.get("mesa_seleccionada"):
+                    try:
+                        database.actualizar_estado_mesa(st.session_state.mesa_seleccionada, "ocupada")
+                        st.cache_data.clear()
+                    except Exception:
+                        pass  # No bloquear la boleta si falla la mesa
 
                 st.session_state.ultima_boleta_time = tiempo_actual_ts
                 st.session_state.boleta_emitida = True
