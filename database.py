@@ -113,7 +113,7 @@ def inicializar_db(db_path=None):
         try:
             conn.read(worksheet="reservas", ttl=TTL_LECTURA)
         except Exception:
-            df_res = pd.DataFrame(columns=["id", "email", "nombre", "nro_mesa", "fecha", "hora", "datos_contacto"])
+            df_res = pd.DataFrame(columns=["id", "email", "nombre", "nro_mesa", "fecha", "hora", "datos_contacto", "personas", "nombres_invitados"])
             conn.create(worksheet="reservas", data=df_res)
             
         st.session_state["_db_inicializada"] = True
@@ -634,12 +634,12 @@ def obtener_reservas(ttl=1):
         st.error(f"Error obteniendo reservas: {e}")
         return []
 
-def crear_reserva(email, nombre, nro_mesa, fecha, hora, datos_contacto):
+def crear_reserva(email, nombre, nro_mesa, fecha, hora, datos_contacto, personas, nombres_invitados):
     try:
         conn = get_connection()
         df = conn.read(worksheet="reservas", ttl=1)
         if df.empty or "id" not in df.columns:
-            df = pd.DataFrame(columns=["id", "email", "nombre", "nro_mesa", "fecha", "hora", "datos_contacto"])
+            df = pd.DataFrame(columns=["id", "email", "nombre", "nro_mesa", "fecha", "hora", "datos_contacto", "personas", "nombres_invitados"])
         
         nuevo_id = 1
         if not df.empty and "id" in df.columns:
@@ -655,7 +655,9 @@ def crear_reserva(email, nombre, nro_mesa, fecha, hora, datos_contacto):
             "nro_mesa": int(nro_mesa),
             "fecha": str(fecha),
             "hora": str(hora),
-            "datos_contacto": str(datos_contacto)
+            "datos_contacto": str(datos_contacto),
+            "personas": int(personas),
+            "nombres_invitados": str(nombres_invitados)
         }])
         
         updated_df = pd.concat([df, new_row], ignore_index=True)

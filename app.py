@@ -1370,25 +1370,47 @@ if es_admin:
         if reservas_admin:
             for reserva in reservas_admin:
                 r_id = reserva.get("id", "?")
+                # Quitar decimal del ID si viene de pandas
+                if str(r_id).endswith(".0"):
+                    r_id = str(r_id)[:-2]
                 r_nombre = reserva.get("nombre", "?")
                 r_mesa = reserva.get("nro_mesa", "?")
+                if str(r_mesa).endswith(".0"):
+                    r_mesa = str(r_mesa)[:-2]
                 r_fecha = reserva.get("fecha", "?")
                 r_hora = reserva.get("hora", "?")
                 r_tel = reserva.get("datos_contacto", "")
+                r_personas = reserva.get("personas", "2")
+                if str(r_personas).endswith(".0"):
+                    r_personas = str(r_personas)[:-2]
+                r_nombres = reserva.get("nombres_invitados", "")
+                
+                # Formatear el teléfono limpio quitando decimales (.0)
+                clean_tel = str(r_tel).split(".")[0].strip()
+                import urllib.parse
+                mensaje_wa = f"Hola {r_nombre}, te escribimos de Carnes & Bytes sobre tu reserva #{r_id} de la Mesa {r_mesa} para el día {r_fecha} a las {r_hora}."
+                mensaje_encoded = urllib.parse.quote(mensaje_wa)
+                wa_url = f"https://wa.me/51{clean_tel}?text={mensaje_encoded}"
                 
                 st.markdown(
-                    f"<div class='status-strip' style='border-color: #f39c12; padding: 10px 15px !important; margin-bottom: 8px !important;'>"
-                    f"<div style='line-height:1.4;'>"
-                    f"<strong style='color:#fff;'>#{r_id} — {r_nombre}</strong><br>"
-                    f"<span style='font-size:12px; color:#aaa;'>🪑 Mesa {r_mesa} | 📆 {r_fecha} | 🕐 {r_hora} | 📱 {r_tel}</span>"
+                    f"<div class='status-strip' style='border-color: #f39c12; padding: 12px 18px !important; margin-bottom: 8px !important;'>"
+                    f"<div style='line-height:1.4; text-align: left;'>"
+                    f"<strong style='color:#fff; font-size: 14px;'>#{r_id} — {r_nombre}</strong><br>"
+                    f"<span style='font-size:12px; color:#aaa;'>🪑 Mesa {r_mesa} | 📆 {r_fecha} | 🕐 {r_hora}</span><br>"
+                    f"<span style='font-size:12px; color:#888;'>📱 Tel: {clean_tel} | 👥 {r_personas} integrantes</span><br>"
+                    f"<span style='font-size:11px; color:#f39c12;'>📝 Integrantes: {r_nombres}</span>"
                     f"</div>"
                     f"</div>",
                     unsafe_allow_html=True
                 )
-                if st.button(f"❌ Cancelar Reserva #{r_id}", key=f"btn_cancel_reserva_{r_id}", use_container_width=True):
-                    database.eliminar_reserva(r_id)
-                    st.toast(f"Reserva #{r_id} cancelada", icon="❌")
-                    st.rerun()
+                col_btn_r1, col_btn_r2 = st.columns(2)
+                with col_btn_r1:
+                    st.link_button("💬 Enviar WhatsApp", wa_url, use_container_width=True)
+                with col_btn_r2:
+                    if st.button(f"❌ Cancelar #{r_id}", key=f"btn_cancel_reserva_{r_id}", use_container_width=True):
+                        database.eliminar_reserva(r_id)
+                        st.toast(f"Reserva #{r_id} cancelada", icon="❌")
+                        st.rerun()
         else:
             st.info("No hay reservaciones activas.")
 
@@ -1553,6 +1575,12 @@ else:
                         hora_reserva = st.time_input("🕐 Hora", value=dt_module.time(19, 0), key="input_hora_reserva")
                     
                     mesa_reserva = st.selectbox("🪑 Mesa", mesas_disponibles, format_func=lambda x: f"Mesa {x}", key="select_mesa_reserva")
+                    col_r3, col_r4 = st.columns(2)
+                    with col_r3:
+                        personas = st.number_input("👥 Cantidad de integrantes", min_value=1, max_value=15, value=2, step=1, key="input_cant_reserva")
+                    with col_r4:
+                        nombres_invitados = st.text_input("📝 Nombres de los integrantes", placeholder="Ej: Jhohan, María, Carlos...", key="input_invitados_reserva")
+                        
                     telefono = st.text_input("📱 Teléfono de contacto", placeholder="Ej: 987654321", key="input_tel_reserva")
                     
                     submitted = st.form_submit_button("✅ Confirmar Reservación", use_container_width=True, type="primary")
@@ -1560,6 +1588,8 @@ else:
                     if submitted:
                         if not telefono.strip():
                             st.error("Por favor ingresa un teléfono de contacto.")
+                        elif not nombres_invitados.strip():
+                            st.error("Por favor ingresa los nombres de los integrantes.")
                         else:
                             resultado = database.crear_reserva(
                                 email=u_info.get("email", ""),
@@ -1567,7 +1597,9 @@ else:
                                 nro_mesa=mesa_reserva,
                                 fecha=str(fecha_reserva),
                                 hora=str(hora_reserva),
-                                datos_contacto=telefono.strip()
+                                datos_contacto=telefono.strip(),
+                                personas=int(personas),
+                                nombres_invitados=nombres_invitados.strip()
                             )
                             if resultado:
                                 st.success(f"🎉 ¡Reservación #{resultado} confirmada! Mesa {mesa_reserva} el {fecha_reserva} a las {hora_reserva}.")
@@ -1609,20 +1641,27 @@ else:
                 st.markdown(f"<p style='text-align:center; color:#aaa;'>Tienes <strong style='color:#f39c12;'>{len(mis_reservas)}</strong> reserva(s) activa(s)</p>", unsafe_allow_html=True)
                 for reserva in mis_reservas:
                     r_id = reserva.get("id", "?")
+                    if str(r_id).endswith(".0"):
+                        r_id = str(r_id)[:-2]
                     r_mesa = reserva.get("nro_mesa", "?")
+                    if str(r_mesa).endswith(".0"):
+                        r_mesa = str(r_mesa)[:-2]
                     r_fecha = reserva.get("fecha", "?")
                     r_hora = reserva.get("hora", "?")
                     r_tel = reserva.get("datos_contacto", "")
+                    clean_tel = str(r_tel).split(".")[0].strip()
+                    r_personas = reserva.get("personas", "2")
+                    if str(r_personas).endswith(".0"):
+                        r_personas = str(r_personas)[:-2]
+                    r_nombres = reserva.get("nombres_invitados", "")
                     
                     st.markdown(
-                        f"<div style='background: rgba(243,156,18,0.08); border: 1.5px solid rgba(243,156,18,0.4); border-radius: 14px; padding: 18px 20px; margin-bottom: 12px;'>"
-                        f"<div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;'>"
-                        f"<div>"
+                        f"<div style='background: rgba(243,156,18,0.08); border: 1.5px solid rgba(243,156,18,0.4); border-radius: 14px; padding: 18px 20px; margin-bottom: 12px; text-align: left;'>"
                         f"<span style='font-size: 14px; font-weight: 800; color: #f39c12;'>Reserva #{r_id}</span><br>"
                         f"<span style='font-size: 13px; color: #ddd;'>🪑 Mesa {r_mesa}  &nbsp;|&nbsp;  📆 {r_fecha}  &nbsp;|&nbsp;  🕐 {r_hora}</span><br>"
-                        f"<span style='font-size: 12px; color: #888;'>📱 {r_tel}</span>"
-                        f"</div>"
-                        f"</div></div>",
+                        f"<span style='font-size: 12px; color: #888;'>📱 Tel: {clean_tel} &nbsp;|&nbsp; 👥 {r_personas} integrantes</span><br>"
+                        f"<span style='font-size: 12px; color: #aaa;'>📝 Integrantes: {r_nombres}</span>"
+                        f"</div>",
                         unsafe_allow_html=True
                     )
                     if st.button(f"❌ Cancelar Reserva #{r_id}", key=f"btn_cancel_mi_reserva_{r_id}", use_container_width=True):
