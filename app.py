@@ -1191,40 +1191,142 @@ if es_admin:
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 else:
     # ============================================================================
-    # 15. ENTORNO CLIENTE - PANTALLA 1: BIENVENIDA MULTIMEDIA PREMIUM
+    # 15. ENTORNO CLIENTE - PANTALLA 1: BIENVENIDA MULTIMEDIA PREMIUM (HERO SECTION)
     # ============================================================================
     if st.session_state.pantalla_actual == "bienvenida":
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("<h2 class='titulo-principal'>🔥 CARNES & BYTES — Tu gusto, nuestra meta</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; font-size: 18px; color: #ffffff;'>¿Desea registrar un nuevo pedido de nuestra deliciosa parrilla?</p>", unsafe_allow_html=True)
-        estado_servicio = "ABIERTO" if servicio_abierto else "CERRADO"
-        color_estado = "#2ecc71" if servicio_abierto else "#e74c3c"
-        st.markdown(
-            f"<div class='status-strip' style='border-color:{color_estado};'>"
-            f"<strong style='color:{color_estado};'>{estado_servicio}</strong>"
-            f"<span>Atención: {HORA_APERTURA}:00 - {HORA_CIERRE}:00 | Recojo 15-20 min | Delivery 30-45 min</span>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-        if not servicio_abierto:
-            st.warning("Los pedidos están deshabilitados por horario de atención o pausa operativa.")
-        st.markdown("<br>", unsafe_allow_html=True)
+        estado_servicio = "ABIERTO AHORA" if servicio_abierto else "CERRADO TEMPORALMENTE"
+        clase_dot = "" if servicio_abierto else "cerrado"
         
-        if st.button("🛒 EMPEZAR MI PEDIDO", use_container_width=True, key="btn_empezar_pedido_master", disabled=not servicio_abierto):
+        # INYECCIÓN DE CSS PARA EL HERO SECTION (RESPONSIVE CELULAR/PC)
+        st.markdown(f"""
+        <style>
+        /* Ocultar el fondo espacial interactivo solo en bienvenida */
+        #fondo-espacio {{ display: none !important; }}
+        
+        /* Fondo Full Screen para la App */
+        .stApp {{
+            background: linear-gradient(to right, rgba(10,10,10,0.95) 0%, rgba(10,10,10,0.7) 40%, rgba(0,0,0,0.1) 100%), 
+                        url('https://images.unsplash.com/photo-1544025162-8360d84a7536?q=80&w=2070&auto=format&fit=crop') !important;
+            background-size: cover !important;
+            background-position: center !important;
+            background-attachment: fixed !important;
+        }}
+        
+        /* Navbar falsa superior */
+        .hero-navbar {{
+            position: absolute;
+            top: 0; left: 0; width: 100%;
+            padding: 25px 50px;
+            display: flex; justify-content: space-between; align-items: center;
+            z-index: 999;
+        }}
+        .hero-logo {{
+            font-size: 22px; font-weight: 900; color: #fff;
+            letter-spacing: 1px; display: flex; align-items: center; gap: 8px;
+        }}
+        .hero-logo span {{ color: #f39c12; }}
+        .hero-nav-links {{ display: flex; gap: 40px; color: #ddd; font-size: 14px; font-weight: 600; cursor: pointer; }}
+        .hero-nav-links span:hover {{ color: #f39c12; }}
+        
+        /* Contenedor central alineado a la izquierda */
+        .hero-content {{
+            margin-top: 15vh;
+            max-width: 650px;
+            text-align: left;
+            animation: fadeIn 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }}
+        
+        /* Badge de estado (Abierto/Cerrado) */
+        .hero-status-badge {{
+            display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
+            padding: 6px 16px; border-radius: 30px;
+            color: #ddd; font-size: 13px; font-weight: bold; letter-spacing: 1px;
+            margin-bottom: 25px; backdrop-filter: blur(5px);
+        }}
+        .status-dot {{ width: 8px; height: 8px; border-radius: 50%; background-color: #2ecc71; box-shadow: 0 0 10px #2ecc71; }}
+        .status-dot.cerrado {{ background-color: #e74c3c; box-shadow: 0 0 10px #e74c3c; }}
+        
+        .hero-title {{
+            font-size: 5.5rem; font-weight: 900; color: #ffffff;
+            line-height: 1.05; margin-bottom: 20px;
+            text-shadow: 2px 4px 15px rgba(0,0,0,0.8);
+            font-family: 'Outfit', sans-serif;
+        }}
+        .hero-title span {{ color: #f39c12; }}
+        
+        .hero-subtitle {{
+            font-size: 1.15rem; color: #cccccc; line-height: 1.6;
+            margin-bottom: 40px; text-shadow: 1px 1px 5px rgba(0,0,0,0.9);
+            font-family: 'Outfit', sans-serif;
+        }}
+        
+        /* Estilizar SOLO el botón primario (CTA) usando Streamlit natively */
+        button[data-testid="baseButton-primary"] {{
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%) !important;
+            color: white !important; font-size: 1.1rem !important; font-weight: 800 !important;
+            padding: 1.5rem 3.5rem !important; border-radius: 50px !important; border: none !important;
+            box-shadow: 0 10px 25px rgba(243, 156, 18, 0.4) !important;
+            transition: all 0.3s ease !important; width: auto !important;
+        }}
+        button[data-testid="baseButton-primary"] p {{ font-size: 1.2rem !important; margin: 0; }}
+        button[data-testid="baseButton-primary"]:hover {{ transform: translateY(-4px) !important; box-shadow: 0 15px 30px rgba(243, 156, 18, 0.6) !important; }}
+        div[data-testid="stButton"] {{ display: flex; justify-content: flex-start; }}
+        
+        /* Ocultar padding extra del block-container para efecto Edge-to-Edge */
+        .block-container {{ padding-top: 1rem !important; max-width: 1300px !important; }}
+        
+        /* MEDIA QUERIES PARA ADAPTACIÓN PERFECTA A CELULAR */
+        @media (max-width: 768px) {{
+            .stApp {{
+                background: linear-gradient(to bottom, rgba(10,10,10,0.8) 0%, rgba(10,10,10,0.6) 40%, rgba(10,10,10,0.95) 100%), 
+                            url('https://images.unsplash.com/photo-1544025162-8360d84a7536?q=80&w=2070&auto=format&fit=crop') !important;
+                background-size: cover !important; background-position: right center !important;
+            }}
+            .hero-navbar {{ padding: 20px 20px; justify-content: center; }}
+            .hero-nav-links {{ display: none; }}
+            .hero-content {{ margin-top: 5vh; text-align: center; display: flex; flex-direction: column; align-items: center; }}
+            .hero-title {{ font-size: 4rem; }}
+            .hero-subtitle {{ font-size: 1rem; padding: 0 15px; margin-bottom: 30px; }}
+            div[data-testid="stButton"] {{ justify-content: center; width: 100%; }}
+            button[data-testid="baseButton-primary"] {{ width: 100% !important; padding: 1.2rem !important; }}
+        }}
+        
+        @keyframes fadeIn {{
+            from {{ opacity: 0; transform: translateX(-30px); }}
+            to {{ opacity: 1; transform: translateX(0); }}
+        }}
+        </style>
+        
+        <!-- ESTRUCTURA HTML DEL HERO -->
+        <div class="hero-navbar">
+            <div class="hero-logo">🔥 CARNES <span>&</span> BYTES</div>
+            <div class="hero-nav-links">
+                <span>INICIO</span>
+                <span>EL MENÚ</span>
+                <span>RESERVAS</span>
+                <span>CONTACTO</span>
+            </div>
+        </div>
+        
+        <div class="hero-content">
+            <div class="hero-status-badge">
+                <span class="status-dot {clase_dot}"></span> {estado_servicio}
+            </div>
+            <h1 class="hero-title">Premium<br><span>Steakhouse</span></h1>
+            <p class="hero-subtitle">Tu gusto, nuestra meta. Experimenta la verdadera parrilla artesanal al carbón con los cortes de carne más exclusivos. Una experiencia culinaria de alto nivel, directamente a tu mesa.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Botón nativo de Streamlit (Type Primary para targetear el CSS)
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+        if st.button("ORDENAR AHORA", use_container_width=True, type="primary", key="btn_hero_cta", disabled=not servicio_abierto):
             st.session_state.pantalla_actual = "catalogo"
             st.session_state.boleta_emitida = False
             st.rerun()
             
-        # Bloque de Redes Sociales Corporativas de Carnes & Bytes
-        st.markdown("<br><br><br>", unsafe_allow_html=True)
-        st.markdown("""
-            <div class='social-footer'>
-                <p style='margin-bottom: 10px; font-size: 14px; letter-spacing: 2px; color: #888; font-weight: bold;'>SÍGUENOS EN REDES SOCIALES</p>
-                <a href='https://www.facebook.com' target='_blank' class='social-icon'>📘 Facebook</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                <a href='https://instagram.com' target='_blank' class='social-icon'>📸 Instagram</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                <a href='https://wa.me/51982174847' target='_blank' class='social-icon'>🟢 WhatsApp</a>
-            </div>
-        """, unsafe_allow_html=True)
+        if not servicio_abierto:
+            st.markdown("<p style='color: #e74c3c; font-weight: bold; margin-top: 10px;'>⚠️ Los pedidos están deshabilitados temporalmente.</p>", unsafe_allow_html=True)
 
 
     # ============================================================================
