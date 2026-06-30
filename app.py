@@ -1108,8 +1108,15 @@ if es_admin:
                         "categoria": nueva_cat_izq
                     }
                     
-                    if st.button(f"❌ Eliminar {p_izq}", key=f"del_{p_izq}", use_container_width=True, disabled=not _editar_carta3):
-                        eliminar_producto = p_izq
+                    if _editar_carta3:
+                        if st.button(f"❌ Eliminar {p_izq}", key=f"del_{p_izq}", use_container_width=True):
+                            eliminar_producto = p_izq
+                    else:
+                        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+                        if p_izq_stock > 0 and p_izq_disp:
+                            st.markdown(f"<div style='background-color:rgba(39,174,96,0.15); border:1px solid #27ae60; color:#2cc76b; padding:8px; border-radius:6px; text-align:center; font-weight:bold; font-size:13px;'>🟢 En Stock ({p_izq_stock} uds)</div>", unsafe_allow_html=True)
+                        else:
+                            st.markdown("<div style='background-color:rgba(231,76,60,0.15); border:1px solid #e74c3c; color:#ff6b6b; padding:8px; border-radius:6px; text-align:center; font-weight:bold; font-size:13px;'>🔴 Agotado / No Disponible</div>", unsafe_allow_html=True)
                     
             # --- CONTROL DE PRODUCTO: COLUMNA DERECHA ---
             if i + 1 < len(productos_filtrados_admin):
@@ -1154,8 +1161,15 @@ if es_admin:
                             "categoria": nueva_cat_der
                         }
                         
-                        if st.button(f"❌ Eliminar {p_der}", key=f"del_{p_der}", use_container_width=True, disabled=not _editar_carta3):
-                            eliminar_producto = p_der
+                        if _editar_carta3:
+                            if st.button(f"❌ Eliminar {p_der}", key=f"del_{p_der}", use_container_width=True):
+                                eliminar_producto = p_der
+                        else:
+                            st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+                            if p_der_stock > 0 and p_der_disp:
+                                st.markdown(f"<div style='background-color:rgba(39,174,96,0.15); border:1px solid #27ae60; color:#2cc76b; padding:8px; border-radius:6px; text-align:center; font-weight:bold; font-size:13px;'>🟢 En Stock ({p_der_stock} uds)</div>", unsafe_allow_html=True)
+                            else:
+                                st.markdown("<div style='background-color:rgba(231,76,60,0.15); border:1px solid #e74c3c; color:#ff6b6b; padding:8px; border-radius:6px; text-align:center; font-weight:bold; font-size:13px;'>🔴 Agotado / No Disponible</div>", unsafe_allow_html=True)
             st.markdown("---")
     
         # ============================================================================
