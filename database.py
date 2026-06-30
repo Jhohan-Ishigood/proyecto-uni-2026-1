@@ -341,23 +341,22 @@ def actualizar_stock_multiple(db_path, actualizaciones_dict):
             # Intentar lectura directa sin caché
             df = conn.read(worksheet="productos", ttl=1)
         except Exception as e:
-            # Fallback en caso de 429: Reconstruir DataFrame usando el caché local de obtener_menu
-            menu_cache = _obtener_menu_cached(ttl=60)
+            # Fallback en caso de 429: Usar st.session_state.menu_dinamico en memoria libre de red
+            menu_cache = st.session_state.get("menu_dinamico")
             if menu_cache:
                 rows = []
                 for nombre_p, info in menu_cache.items():
                     rows.append({
                         "nombre": nombre_p,
-                        "precio": info["precio"],
-                        "icono": info["icono"],
-                        "disponible": 1 if info["disponible"] else 0,
-                        "foto": info["foto"],
-                        "stock": info["stock"],
-                        "categoria": info["categoria"]
+                        "precio": info.get("precio", 10.0),
+                        "icono": info.get("icono", "🍔"),
+                        "disponible": 1 if info.get("disponible", True) else 0,
+                        "foto": info.get("foto", ""),
+                        "stock": info.get("stock", 0),
+                        "categoria": info.get("categoria", "")
                     })
                 df = pd.DataFrame(rows)
             else:
-                # Si todo falla, propagar excepción
                 raise e
 
         if df is not None and not df.empty and "nombre" in df.columns:
@@ -632,10 +631,15 @@ def actualizar_estado_mesa(nro_mesa, estado):
         try:
             df = conn.read(worksheet="mesas", ttl=1)
         except Exception:
-            # Fallback en caso de cuota 429
-            mesas_cache = _obtener_mesas_cached(ttl=60)
-            if mesas_cache:
-                df = pd.DataFrame(mesas_cache)
+            # Fallback en caso de cuota 429: intentar caché, si falla usar 20 mesas offline
+            try:
+                mesas_cache = _obtener_mesas_cached(ttl=60)
+                if mesas_cache:
+                    df = pd.DataFrame(mesas_cache)
+                else:
+                    df = pd.DataFrame([{"nro_mesa": i, "estado": "disponible"} for i in range(1, 21)])
+            except Exception:
+                df = pd.DataFrame([{"nro_mesa": i, "estado": "disponible"} for i in range(1, 21)])
         
         if df is not None and not df.empty and "nro_mesa" in df.columns:
             mask = df["nro_mesa"].astype(int) == int(nro_mesa)
