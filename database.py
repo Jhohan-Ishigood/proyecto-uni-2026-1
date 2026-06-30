@@ -166,7 +166,7 @@ def _obtener_menu_cached(ttl=60):
         conn = get_connection()
         df = conn.read(worksheet="productos", ttl=ttl)
         if df.empty or "nombre" not in df.columns:
-            return {}
+            return _obtener_menu_defecto()
             
         menu = {}
         for _, row in df.iterrows():
@@ -195,7 +195,52 @@ def _obtener_menu_cached(ttl=60):
         menu_memoria = st.session_state.get("menu_dinamico")
         if menu_memoria:
             return menu_memoria
-        return {}
+        return _obtener_menu_defecto()
+
+def _obtener_menu_defecto():
+    """Retorna un menú de respaldo local precargado con los platos del restaurante."""
+    return {
+        "PARILLA DE RES": {
+            "precio": 30.00,
+            "icono": "🥩",
+            "disponible": True,
+            "foto": "https://images.unsplash.com/photo-1544025162-d76694265947?w=500&auto=format&fit=crop&q=60",
+            "stock": 10,
+            "categoria": "Parrillas"
+        },
+        "ALITAS BBQ": {
+            "precio": 20.00,
+            "icono": "🍗",
+            "disponible": True,
+            "foto": "https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=500&auto=format&fit=crop&q=60",
+            "stock": 15,
+            "categoria": "Parrillas"
+        },
+        "HAMBURGUESA CLÁSICA": {
+            "precio": 15.00,
+            "icono": "🍔",
+            "disponible": True,
+            "foto": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60",
+            "stock": 12,
+            "categoria": "Hamburguesas"
+        },
+        "CHICHA MORADA JARRAS": {
+            "precio": 12.00,
+            "icono": "🥤",
+            "disponible": True,
+            "foto": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=500&auto=format&fit=crop&q=60",
+            "stock": 20,
+            "categoria": "Bebidas"
+        },
+        "COMBO PARRILLERO": {
+            "precio": 60.00,
+            "icono": "👪",
+            "disponible": True,
+            "foto": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&auto=format&fit=crop&q=60",
+            "stock": 5,
+            "categoria": "Combos"
+        }
+    }
 
 def obtener_menu(db_path=None, ttl=TTL_LECTURA):
     """Retorna los productos en un diccionario con la estructura original del menú dinámico."""
