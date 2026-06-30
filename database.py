@@ -333,20 +333,44 @@ def crear_orden(db_path, fecha_hora, nro_boleta, detalle_articulos, entrega, met
         return False
 
 def actualizar_stock_multiple(db_path, actualizaciones_dict):
-    """Actualiza el stock de múltiples productos en una sola lectura/escritura."""
+    """Actualiza el stock de múltiples productos en una sola lectura/escritura con fallback a caché."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="productos", ttl=1)
-        if not df.empty and "nombre" in df.columns:
+        df = None
+        try:
+            # Intentar lectura directa sin caché
+            df = conn.read(worksheet="productos", ttl=1)
+        except Exception as e:
+            # Fallback en caso de 429: Reconstruir DataFrame usando el caché local de obtener_menu
+            menu_cache = _obtener_menu_cached(ttl=60)
+            if menu_cache:
+                rows = []
+                for nombre_p, info in menu_cache.items():
+                    rows.append({
+                        "nombre": nombre_p,
+                        "precio": info["precio"],
+                        "icono": info["icono"],
+                        "disponible": 1 if info["disponible"] else 0,
+                        "foto": info["foto"],
+                        "stock": info["stock"],
+                        "categoria": info["categoria"]
+                    })
+                df = pd.DataFrame(rows)
+            else:
+                # Si todo falla, propagar excepción
+                raise e
+
+        if df is not None and not df.empty and "nombre" in df.columns:
             for nombre, stock_restante in actualizaciones_dict.items():
                 if nombre in df["nombre"].astype(str).values:
                     idx = df[df["nombre"].astype(str) == nombre].index[0]
                     df.at[idx, "stock"] = _convertir_tipo(stock_restante, "int", default=0)
             conn.update(worksheet="productos", data=df)
+            st.cache_data.clear() # Limpiar la caché local para forzar actualización visual
             return True
         return False
     except Exception as e:
-        st.error(f"Error actualizando stock en GSheets: {e}")
+        st.error(f"Error actualizando stock en GSheets (se intentó fallback): {e}")
         return False
 
 def actualizar_stock(db_path, nombre, stock_restante):
@@ -604,8 +628,16 @@ def obtener_mesas(ttl=TTL_LECTURA):
 def actualizar_estado_mesa(nro_mesa, estado):
     try:
         conn = get_connection()
-        df = conn.read(worksheet="mesas", ttl=1)
-        if not df.empty and "nro_mesa" in df.columns:
+        df = None
+        try:
+            df = conn.read(worksheet="mesas", ttl=1)
+        except Exception:
+            # Fallback en caso de cuota 429
+            mesas_cache = _obtener_mesas_cached(ttl=60)
+            if mesas_cache:
+                df = pd.DataFrame(mesas_cache)
+        
+        if df is not None and not df.empty and "nro_mesa" in df.columns:
             mask = df["nro_mesa"].astype(int) == int(nro_mesa)
             if mask.any():
                 df.loc[mask, "estado"] = estado
