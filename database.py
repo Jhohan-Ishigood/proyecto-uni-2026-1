@@ -282,13 +282,35 @@ def obtener_ordenes(db_path=None, ttl=TTL_LECTURA):
     return _obtener_ordenes_cached(ttl=ttl)
 
 def crear_orden(db_path, fecha_hora, nro_boleta, detalle_articulos, entrega, metodo_pago, total, usuario_email=""):
-    """Inserta una nueva orden en el historial de Google Sheets."""
+    """Inserta una nueva orden en el historial de Google Sheets sin agotar la cuota de lectura."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="ordenes", ttl=1)
+        
+        # Leemos de caché local para evitar solicitudes innecesarias al Sheets
+        ordenes_locales = obtener_ordenes(ttl=30)
+        
+        if ordenes_locales:
+            # Reconstruir DataFrame mapeado a partir del diccionario de caché
+            df = pd.DataFrame(ordenes_locales)
+            df = df.rename(columns={
+                "Fecha y Hora": "fecha_hora",
+                "Nro. Boleta": "nro_boleta",
+                "Detalle Artículos": "detalle_articulos",
+                "Entrega": "entrega",
+                "Método Pago": "metodo_pago",
+                "Total": "total",
+                "Usuario Email": "usuario_email"
+            })
+        else:
+            # Fallback en caso de que esté vacía la base de datos o falle la conversión
+            try:
+                df = conn.read(worksheet="ordenes", ttl=30)
+            except Exception:
+                df = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "detalle_articulos", "entrega", "metodo_pago", "total", "usuario_email"])
+
         if df.empty or "nro_boleta" not in df.columns:
             df = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "detalle_articulos", "entrega", "metodo_pago", "total", "usuario_email"])
-            
+
         new_row = pd.DataFrame([{
             "fecha_hora": fecha_hora,
             "nro_boleta": nro_boleta,
@@ -298,8 +320,10 @@ def crear_orden(db_path, fecha_hora, nro_boleta, detalle_articulos, entrega, met
             "total": total,
             "usuario_email": usuario_email
         }])
-        df = pd.concat([df, new_row], ignore_index=True)
-        conn.update(worksheet="ordenes", data=df)
+        
+        updated_df = pd.concat([df, new_row], ignore_index=True)
+        conn.update(worksheet="ordenes", data=updated_df)
+        st.cache_data.clear() # Limpiar la caché local para forzar actualización en la bitácora
         return True
     except Exception as e:
         st.error(f"Error registrando orden en GSheets: {e}")
