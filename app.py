@@ -1201,8 +1201,16 @@ else:
         estado_servicio = "ABIERTO AHORA" if servicio_abierto else "CERRADO TEMPORALMENTE"
         clase_dot = "" if servicio_abierto else "cerrado"
         
+        # Cargar imágenes de fondo como base64 para PC y Celular
+        import base64 as _b64
+        _hero_pc_path = os.path.join(os.path.dirname(__file__), "hero_bg_pc.png")
+        _hero_mob_path = os.path.join(os.path.dirname(__file__), "hero_bg_mobile.png")
+        with open(_hero_pc_path, "rb") as _f:
+            _hero_pc_b64 = _b64.b64encode(_f.read()).decode()
+        with open(_hero_mob_path, "rb") as _f:
+            _hero_mob_b64 = _b64.b64encode(_f.read()).decode()
+        
         # CSS ENCAPSULADO: Solo se activa con la clase .hero-active en el body
-        # + Script JS que agrega/remueve la clase automáticamente
         st.markdown(f"""
         <style>
         /* ===== HERO: TODO SCOPED bajo .hero-active ===== */
@@ -1210,8 +1218,8 @@ else:
         .hero-active .comida-lluvia {{ display: none !important; }}
         
         .hero-active .stApp {{
-            background: linear-gradient(to right, rgba(10,10,10,0.95) 0%, rgba(10,10,10,0.7) 40%, rgba(0,0,0,0.1) 100%), 
-                        url('https://images.unsplash.com/photo-1544025162-8360d84a7536?q=80&w=2070&auto=format&fit=crop') !important;
+            background: linear-gradient(to right, rgba(10,10,10,0.92) 0%, rgba(10,10,10,0.65) 40%, rgba(0,0,0,0.08) 100%), 
+                        url('data:image/png;base64,{_hero_pc_b64}') !important;
             background-size: cover !important;
             background-position: center !important;
             background-attachment: fixed !important;
@@ -1278,9 +1286,9 @@ else:
         /* MEDIA QUERIES para celular */
         @media (max-width: 768px) {{
             .hero-active .stApp {{
-                background: linear-gradient(to bottom, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.6) 40%, rgba(10,10,10,0.95) 100%), 
-                            url('https://images.unsplash.com/photo-1544025162-8360d84a7536?q=80&w=2070&auto=format&fit=crop') !important;
-                background-size: cover !important; background-position: right center !important;
+                background: linear-gradient(to bottom, rgba(10,10,10,0.8) 0%, rgba(10,10,10,0.5) 40%, rgba(10,10,10,0.9) 100%), 
+                            url('data:image/png;base64,{_hero_mob_b64}') !important;
+                background-size: cover !important; background-position: center center !important;
             }}
             .hero-navbar {{ padding: 18px 15px; justify-content: center; }}
             .hero-nav-links {{ display: none !important; }}
