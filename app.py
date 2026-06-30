@@ -607,20 +607,15 @@ with st.container():
             align-items: center !important;
             gap: 4px !important;
         }}
-        /* CORRECCIÓN CRÍTICA: Forzar al cuerpo del popover a aparecer fijo justo debajo del botón */
+        /* Panel desplegable premium (dejamos que Streamlit lo posicione automáticamente) */
         div[data-testid="stPopoverBody"] {{
-            position: fixed !important;
-            top: 65px !important;
-            right: 20px !important;
-            left: auto !important;
-            transform: none !important;
-            z-index: 1000000 !important;
             background: rgba(12, 12, 12, 0.96) !important;
             backdrop-filter: blur(20px) !important;
             border: 1px solid rgba(243, 156, 18, 0.3) !important;
             border-radius: 16px !important;
             box-shadow: 0 20px 60px rgba(0,0,0,0.8) !important;
             min-width: 285px !important;
+            z-index: 1000000 !important;
         }}
         /* Botones del menú desplegable */
         div[data-testid="stPopoverBody"] button {{
