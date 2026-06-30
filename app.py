@@ -328,6 +328,10 @@ if "pantalla_actual" not in st.session_state:
     st.session_state.pantalla_actual = "bienvenida"
 if "solo_navegar" not in st.session_state:
     st.session_state.solo_navegar = False
+if "tipo_servicio" not in st.session_state:
+    st.session_state.tipo_servicio = "salon" # "salon" | "delivery" | "navegar"
+if "direccion_cliente" not in st.session_state:
+    st.session_state.direccion_cliente = ""
 if "nombre_cliente" not in st.session_state:
     st.session_state.nombre_cliente = ""
 if "categoria_activa" not in st.session_state:
@@ -1535,39 +1539,60 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
         st.markdown("<br>", unsafe_allow_html=True)
         
         if servicio_abierto:
-            col_opt1, col_opt2 = st.columns(2, gap="large")
+            col_opt1, col_opt2, col_opt3 = st.columns(3, gap="medium")
             with col_opt1:
                 st.markdown("""
-                <div style='background-color:#151515; padding:20px; border-radius:12px; border:2px solid #2ecc71; text-align:center; height:180px; display:flex; flex-direction:column; justify-content:space-between;'>
+                <div style='background-color:#151515; padding:20px; border-radius:12px; border:2px solid #2ecc71; text-align:center; height:200px; display:flex; flex-direction:column; justify-content:space-between;'>
                     <div>
-                        <span style='font-size:35px;'>🛒</span>
-                        <h3 style='margin:10px 0 5px 0; color:#2ecc71;'>Registrar Mesa y Pedir</h3>
-                        <p style='font-size:12px; color:#888; margin:0;'>Elige tu mesa, ingresa tu nombre y haz tu pedido al instante.</p>
+                        <span style='font-size:35px;'>🪑</span>
+                        <h3 style='margin:10px 0 5px 0; color:#2ecc71; font-size:16px;'>Pedido en Salón</h3>
+                        <p style='font-size:11px; color:#888; margin:0;'>Elige tu mesa, ingresa tu nombre y haz tu pedido desde tu mesa.</p>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
                 st.markdown("<div style='margin-top:-25px;'></div>", unsafe_allow_html=True)
-                if st.button("🍽️ EMPEZAR PEDIDO", use_container_width=True, key="btn_empezar_pedido_real"):
+                if st.button("🍽️ PEDIR EN SALÓN", use_container_width=True, key="btn_empezar_pedido_salon"):
                     st.session_state.solo_navegar = False
+                    st.session_state.tipo_servicio = "salon"
                     st.session_state.pantalla_actual = "seleccion_mesa"
                     st.session_state.boleta_emitida = False
                     st.rerun()
 
             with col_opt2:
                 st.markdown("""
-                <div style='background-color:#151515; padding:20px; border-radius:12px; border:2px solid #3498db; text-align:center; height:180px; display:flex; flex-direction:column; justify-content:space-between;'>
+                <div style='background-color:#151515; padding:20px; border-radius:12px; border:2px solid #e67e22; text-align:center; height:200px; display:flex; flex-direction:column; justify-content:space-between;'>
+                    <div>
+                        <span style='font-size:35px;'>🛵</span>
+                        <h3 style='margin:10px 0 5px 0; color:#e67e22; font-size:16px;'>Pedido por Delivery</h3>
+                        <p style='font-size:11px; color:#888; margin:0;'>Ingresa tu dirección de entrega y recibe tu pedido en la puerta de tu hogar.</p>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.markdown("<div style='margin-top:-25px;'></div>", unsafe_allow_html=True)
+                if st.button("🛵 PEDIR POR DELIVERY", use_container_width=True, key="btn_empezar_pedido_delivery"):
+                    st.session_state.solo_navegar = False
+                    st.session_state.tipo_servicio = "delivery"
+                    st.session_state.pantalla_actual = "registro_delivery"
+                    st.session_state.boleta_emitida = False
+                    st.rerun()
+
+            with col_opt3:
+                st.markdown("""
+                <div style='background-color:#151515; padding:20px; border-radius:12px; border:2px solid #3498db; text-align:center; height:200px; display:flex; flex-direction:column; justify-content:space-between;'>
                     <div>
                         <span style='font-size:35px;'>👁️</span>
-                        <h3 style='margin:10px 0 5px 0; color:#3498db;'>Solo Navegar</h3>
-                        <p style='font-size:12px; color:#888; margin:0;'>Revisa los deliciosos platos, precios e ingredientes de nuestra carta.</p>
+                        <h3 style='margin:10px 0 5px 0; color:#3498db; font-size:16px;'>Solo Navegar</h3>
+                        <p style='font-size:11px; color:#888; margin:0;'>Revisa los deliciosos platos, precios e ingredientes de nuestra carta.</p>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
                 st.markdown("<div style='margin-top:-25px;'></div>", unsafe_allow_html=True)
                 if st.button("📖 VER LA CARTA", use_container_width=True, key="btn_empezar_solo_navegar"):
                     st.session_state.solo_navegar = True
+                    st.session_state.tipo_servicio = "navegar"
                     st.session_state.mesa_seleccionada = None
                     st.session_state.nombre_cliente = ""
+                    st.session_state.direccion_cliente = ""
                     st.session_state.pantalla_actual = "catalogo"
                     st.session_state.boleta_emitida = False
                     st.rerun()
@@ -1669,6 +1694,37 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                             st.session_state.pantalla_actual = "catalogo"
                             st.session_state.boleta_emitida = False
                             st.rerun()
+
+    # ============================================================================
+    # 15B-2. ENTORNO CLIENTE - REGISTRO DE DELIVERY
+    # ============================================================================
+    elif st.session_state.pantalla_actual == "registro_delivery":
+        st.markdown("<h2 class='titulo-principal'>🛵 Datos de Entrega</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #aaa; font-size: 15px;'>Ingresa tus datos para realizar el envío de tu pedido a domicilio</p>", unsafe_allow_html=True)
+        
+        with st.container(border=True):
+            nombre_del = st.text_input("Ingresa tu Nombre completo:", value=st.session_state.get("nombre_cliente", ""), placeholder="Ej: Jhohan Gomez", key="input_nombre_del")
+            direccion_del = st.text_input("Dirección exacta de entrega (ej: Av. Larco 123, Trujillo):", value=st.session_state.get("direccion_cliente", ""), placeholder="Ej: Calle Principal 456, Urb. El Recreo", key="input_direccion_del")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            col_del1, col_del2 = st.columns(2)
+            with col_del1:
+                if st.button("⬅️ Volver", use_container_width=True, key="btn_volver_del"):
+                    st.session_state.pantalla_actual = "bienvenida"
+                    st.rerun()
+            with col_del2:
+                if st.button("✅ Confirmar y Ver Carta", use_container_width=True, key="btn_confirmar_del", type="primary"):
+                    if not nombre_del.strip():
+                        st.error("⚠️ Por favor ingresa tu nombre antes de continuar.")
+                    elif not direccion_del.strip():
+                        st.error("⚠️ Por favor ingresa la dirección de entrega antes de continuar.")
+                    else:
+                        st.session_state.nombre_cliente = nombre_del.strip()
+                        st.session_state.direccion_cliente = direccion_del.strip()
+                        st.session_state.mesa_seleccionada = None
+                        st.session_state.pantalla_actual = "catalogo"
+                        st.session_state.boleta_emitida = False
+                        st.rerun()
 
 
     # ============================================================================
@@ -1814,13 +1870,22 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
     # 16. ENTORNO CLIENTE - PANTALLA 2: CATÁLOGO DINÁMICO DE PRODUCTOS
     # ============================================================================
     elif st.session_state.pantalla_actual == "catalogo" and not st.session_state.pedido_guardado:
-        if st.session_state.get("solo_navegar", False):
+        if st.session_state.get("tipo_servicio", "salon") == "navegar" or st.session_state.get("solo_navegar", False):
             st.markdown("""
             <div style='background-color:rgba(52,152,219,0.12); border:1px solid #3498db; color:#54aeff; padding:10px 16px; border-radius:8px; font-size:14px; text-align:center; font-weight:bold; margin-bottom:15px;'>
                 👁️ MODO CONSULTA — Estás navegando la carta digital. No es posible agregar productos al carrito.
             </div>
             """, unsafe_allow_html=True)
-        else:
+        elif st.session_state.get("tipo_servicio") == "delivery":
+            render_stepper(1)
+            cli_nom = st.session_state.get("nombre_cliente", "Cliente")
+            cli_dir = st.session_state.get("direccion_cliente", "No indicada")
+            st.markdown(f"""
+            <div style='background-color:rgba(230,126,34,0.12); border:1px solid #e67e22; color:#e67e22; padding:10px 16px; border-radius:8px; font-size:14px; text-align:center; font-weight:bold; margin-bottom:15px;'>
+                👤 Cliente: {cli_nom} &nbsp;|&nbsp; 🛵 Envío a: {cli_dir} &nbsp;|&nbsp; 🛒 Listo para armar tu pedido
+            </div>
+            """, unsafe_allow_html=True)
+        else: # salon
             render_stepper(1)
             cli_nom = st.session_state.get("nombre_cliente", "Cliente")
             cli_mesa = st.session_state.get("mesa_seleccionada", "?")
@@ -2100,7 +2165,7 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
         with col_cliente1:
             st.session_state.cliente_nombre = st.text_input(
                 "Nombre del cliente",
-                value=st.session_state.cliente_nombre,
+                value=st.session_state.get("nombre_cliente", st.session_state.cliente_nombre),
                 placeholder="Ej. María López",
             ).strip()
         with col_cliente2:
@@ -2110,7 +2175,16 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                 placeholder="Ej. 982174847",
             ).strip()
 
-        opcion_delivery = st.radio("¿Desea delivery? (+ S/6.00)", ["NO", "SI"], horizontal=True)
+        # Determinación automática de delivery según la selección inicial de bienvenida
+        servicio_inicial = st.session_state.get("tipo_servicio", "salon")
+        
+        if servicio_inicial == "delivery":
+            opcion_delivery = "SI"
+            st.info("🛵 Pedido registrado como **Delivery**")
+        else:
+            opcion_delivery = "NO"
+            st.info("🪑 Pedido registrado como **Consumo en Salón**")
+
         direccion_delivery = ""
         costo_delivery = 0.0
         tiene_delivery = False
@@ -2118,7 +2192,14 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
         if opcion_delivery == "SI":
             tiene_delivery = True
             costo_delivery = 6.0
-            direccion_delivery = st.text_input("Ingrese su dirección de entrega (Ubicación):", placeholder="Ej. Av. Larco 123...").strip()
+            direccion_delivery = st.text_input(
+                "Dirección de entrega:", 
+                value=st.session_state.get("direccion_cliente", ""),
+                placeholder="Ej. Av. Larco 123..."
+            ).strip()
+        else:
+            st.caption(f"Número de mesa asignado: **Mesa {st.session_state.get('mesa_seleccionada', '?')}**")
+            
         st.caption(f"Tiempo estimado: {tiempo_estimado_texto(tiene_delivery)}")
 
         total_items_checkout = sum(int(item["cantidad"]) for item in st.session_state.carrito)
@@ -2263,7 +2344,12 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                     items_resumen_lista.append("1x Delivery")
                 
                 resumen_articulos_linea = ", ".join(items_resumen_lista)
-                tipo_entrega_db = f"DELIVERY ({direccion_delivery})" if tiene_delivery else "LOCAL"
+                
+                if tiene_delivery:
+                    tipo_entrega_db = f"DELIVERY ({direccion_delivery})"
+                else:
+                    tipo_entrega_db = f"SALÓN (Mesa {st.session_state.get('mesa_seleccionada', '?')}) - {st.session_state.cliente_nombre}"
+                    
                 tipo_entrega_html = escapar_html(tipo_entrega_db)
                 
                 actualizaciones_stock = {}
