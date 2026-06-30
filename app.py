@@ -2433,18 +2433,11 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                     
         if st.session_state.get("boleta_emitida", False):
             st.markdown("---")
-            if tiene_delivery:
+            if st.session_state.get("tipo_servicio", "salon") == "delivery":
                 st.markdown("""
                 <div class="countdown-container">
                     <div class="countdown-time">35:00</div>
                     <div class="countdown-label">Tiempo estimado de entrega</div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <div class="countdown-container">
-                    <div class="countdown-time">15:00</div>
-                    <div class="countdown-label">Tiempo estimado para recojo</div>
                 </div>
                 """, unsafe_allow_html=True)
             
