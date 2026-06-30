@@ -372,6 +372,13 @@ if "favoritos" not in st.session_state:
     st.session_state.favoritos = set()
 if "ultima_boleta_time" not in st.session_state:
     st.session_state.ultima_boleta_time = 0
+if "mesa_seleccionada" not in st.session_state:
+    st.session_state.mesa_seleccionada = None
+if "correlativo_sunat" not in st.session_state:
+    st.session_state.correlativo_sunat = ""
+if "mostrar_login_reserva" not in st.session_state:
+    st.session_state.mostrar_login_reserva = False
+
 
 # Permisos configurables por el Dueño — 3 niveles: "oculto" | "ver" | "editar"
 if "permisos_roles_v2" not in st.session_state:
@@ -1821,7 +1828,9 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                         if not nombre_cliente_input.strip():
                             st.error("⚠️ Por favor ingresa tu nombre antes de continuar.")
                         else:
-                            st.session_state.nombre_cliente = nombre_cliente_input.strip()
+                            val_nombre = nombre_cliente_input.strip()
+                            st.session_state.nombre_cliente = val_nombre
+                            st.session_state.cliente_nombre = val_nombre
                             st.session_state.mesa_seleccionada = mesa_elegida
                             # Cambiar estado en GSheets y vaciar caché DESPUÉS para que se propague
                             database.actualizar_estado_mesa(mesa_elegida, "ocupada")
@@ -1854,7 +1863,9 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                     elif not direccion_del.strip():
                         st.error("⚠️ Por favor ingresa la dirección de entrega antes de continuar.")
                     else:
-                        st.session_state.nombre_cliente = nombre_del.strip()
+                        val_nombre_del = nombre_del.strip()
+                        st.session_state.nombre_cliente = val_nombre_del
+                        st.session_state.cliente_nombre = val_nombre_del
                         st.session_state.direccion_cliente = direccion_del.strip()
                         st.session_state.mesa_seleccionada = None
                         st.session_state.pantalla_actual = "catalogo"
