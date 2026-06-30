@@ -691,28 +691,31 @@ usuario_input = ""
 clave_input = ""
 es_admin = False
 
-# Renderizado condicional del bloque de autenticación administrativa
 if st.session_state.mostrar_login_admin:
     with st.sidebar.container():
         usuario_input = st.text_input("Nombre de Usuario:", key="user_login").strip()
         clave_input = st.text_input("Contraseña:", type="password", key="pass_login").strip()
-        rol_seleccionado = st.selectbox("Ingresar como:", ["Dueño", "Cocinero", "Cajero", "Mesero"], key="rol_login_select")
-        st.session_state.rol_actual = rol_seleccionado
 
 # Validación de credenciales blindada: sin secrets configurados no hay acceso admin
 USER_PROD = st.secrets.get("admin_user", "Grupo 5")
 PASS_PROD = st.secrets.get("admin_password", "jhohan-2026")
 credenciales_admin_configuradas = bool(USER_PROD and PASS_PROD)
 
-es_admin = credenciales_admin_configuradas and usuario_input == USER_PROD and clave_input == PASS_PROD
+es_admin_autenticado = credenciales_admin_configuradas and usuario_input == USER_PROD and clave_input == PASS_PROD
 
-# Retroalimentación interactiva del estado del usuario
-if es_admin:
-    st.sidebar.success(f"✔ Modo {st.session_state.get('rol_actual', 'Dueño')} Activo")
+# Retroalimentación interactiva en barra lateral
+if es_admin_autenticado:
+    st.sidebar.success("✔ Autenticación exitosa")
+    # Inicializamos rol en la primera autenticación si no está fijado
+    if "rol_actual" not in st.session_state or st.session_state.rol_actual is None:
+        st.session_state.rol_actual = None
 elif st.session_state.mostrar_login_admin and not credenciales_admin_configuradas:
     st.sidebar.warning("Admin no configurado. Agregue admin_user and admin_password en Streamlit Secrets.")
 elif usuario_input or clave_input:
     st.sidebar.error("❌ Credenciales incorrectas")
+
+# Determinamos si se ha seleccionado un rol para entrar al Panel Administrativo
+es_admin = es_admin_autenticado and st.session_state.get("rol_actual") is not None
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("#### 🕒 HORARIO DE ATENCIÓN")
@@ -773,6 +776,50 @@ if es_admin or (st.session_state.pantalla_actual == "catalogo" and not st.sessio
         ).strip().lower()
         
     st.markdown("</div><br>", unsafe_allow_html=True)
+
+# ============================================================================
+# 7.5 PANTALLA DE SELECCIÓN DE ROL VISUAL (PREMIUM CARD SELECTOR)
+# ============================================================================
+if es_admin_autenticado and st.session_state.rol_actual is None:
+    st.markdown("<h2 style='text-align:center; color:#f39c12; margin-top:20px;'>🔑 ACCESO AUTORIZADO</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#aaa;'>Por favor, seleccione su rol operativo para ingresar al sistema:</p>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    roles_info = [
+        {"rol": "Dueño", "icon": "👑", "desc": "Acceso total y administración de permisos de todo el sistema."},
+        {"rol": "Cocinero", "icon": "🍳", "desc": "Visualiza la bitácora de pedidos pendientes y estado de mesas."},
+        {"rol": "Cajero", "icon": "💰", "desc": "Control financiero, cupones de descuento, caja chica y reservas."},
+        {"rol": "Mesero", "icon": "🚶", "desc": "Registro de comandas, bitácora básica de pedidos y mesas del salón."}
+    ]
+
+    col_r1, col_r2, col_r3, col_r4 = st.columns(4, gap="medium")
+    cols_lista = [col_r1, col_r2, col_r3, col_r4]
+
+    for idx, info in enumerate(roles_info):
+        with cols_lista[idx]:
+            st.markdown(f"""
+            <div style='background-color:#151515; padding:20px; border-radius:12px; border:2px solid #333; text-align:center; height:240px; display:flex; flex-direction:column; justify-content:space-between; transition: 0.3s;'>
+                <div>
+                    <span style='font-size:45px;'>{info['icon']}</span>
+                    <h3 style='margin:10px 0 5px 0; color:#f39c12;'>{info['rol']}</h3>
+                    <p style='font-size:12px; color:#888; margin:0;'>{info['desc']}</p>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("<div style='margin-top:-35px;'></div>", unsafe_allow_html=True)
+            if st.button(f"Entrar como {info['rol']}", key=f"btn_choose_role_{info['rol']}", use_container_width=True):
+                st.session_state.rol_actual = info["rol"]
+                st.rerun()
+
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    col_logout_btn, _ = st.columns([1, 3])
+    with col_logout_btn:
+        if st.button("🚪 Cerrar Sesión Administrativa", use_container_width=True, key="btn_admin_logout_main"):
+            # Limpiar credenciales
+            st.session_state.mostrar_login_admin = False
+            st.session_state.rol_actual = None
+            st.rerun()
 
 # ============================================================================
 # 8. PANEL DE CONTROL DE ADMINISTRACIÓN - GESTOR DE SECCIONES (JSON)
@@ -1431,7 +1478,7 @@ if es_admin:
                 st.info("No hay reservaciones activas.")
 
         st.markdown("<br><hr><br>", unsafe_allow_html=True)
-else:
+elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_actual is not None):
 
     # ============================================================================
     # 15. ENTORNO CLIENTE - PANTALLA 1: BIENVENIDA MULTIMEDIA PREMIUM
