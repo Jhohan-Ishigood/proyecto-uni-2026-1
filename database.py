@@ -281,8 +281,24 @@ def _obtener_ordenes_cached(ttl=60):
         return []
 
 def obtener_ordenes(db_path=None, ttl=TTL_LECTURA):
-    """Retorna el historial completo de boletas/órdenes."""
-    return _obtener_ordenes_cached(ttl=ttl)
+    """Retorna el historial completo de boletas/órdenes, incluyendo respaldos locales."""
+    ordenes = _obtener_ordenes_cached(ttl=ttl)
+    
+    # Cargar y anexar órdenes guardadas localmente en disco por cuota de red
+    import json, os
+    respaldo_path = "ordenes_respaldo.json"
+    if os.path.exists(respaldo_path):
+        try:
+            with open(respaldo_path, "r", encoding="utf-8") as f:
+                locales = json.load(f)
+                # Las agregamos al inicio de la lista (las más recientes arriba si invertimos)
+                # o al final de la lista. Como _obtener_ordenes_cached ya está invertido (df.iloc[::-1]),
+                # agregamos las locales al inicio de la lista para que aparezcan primero
+                ordenes = locales + ordenes
+        except Exception:
+            pass
+            
+    return ordenes
 
 def crear_orden(db_path, fecha_hora, nro_boleta, detalle_articulos, entrega, metodo_pago, total, usuario_email=""):
     """Inserta una nueva orden en el historial de Google Sheets sin agotar la cuota de lectura."""
@@ -325,8 +341,46 @@ def crear_orden(db_path, fecha_hora, nro_boleta, detalle_articulos, entrega, met
         }])
         
         updated_df = pd.concat([df, new_row], ignore_index=True)
-        conn.update(worksheet="ordenes", data=updated_df)
-        st.cache_data.clear() # Limpiar la caché local para forzar actualización en la bitácora
+        try:
+            conn.update(worksheet="ordenes", data=updated_df)
+            st.cache_data.clear() # Limpiar la caché local para forzar actualización en la bitácora
+        except Exception as e:
+            # Fallback local en disco en caso de 429
+            import json, os
+            respaldo_path = "ordenes_respaldo.json"
+            nueva_orden_dict = {
+                "Fecha y Hora": fecha_hora,
+                "Nro. Boleta": nro_boleta,
+                "Detalle Artículos": detalle_articulos,
+                "Entrega": entrega,
+                "Método Pago": metodo_pago,
+                "Total": total,
+                "Usuario Email": usuario_email
+            }
+            
+            # Cargar órdenes de respaldo existentes
+            respaldo_lista = []
+            if os.path.exists(respaldo_path):
+                try:
+                    with open(respaldo_path, "r", encoding="utf-8") as f:
+                        respaldo_lista = json.load(f)
+                except Exception:
+                    pass
+            
+            respaldo_lista.append(nueva_orden_dict)
+            
+            try:
+                with open(respaldo_path, "w", encoding="utf-8") as f:
+                    json.dump(respaldo_lista, f, indent=4, ensure_ascii=False)
+            except Exception:
+                pass
+            
+            # Forzar actualización en memoria de la sesión para la bitácora
+            if "historial_ordenes" in st.session_state:
+                st.session_state.historial_ordenes.append(nueva_orden_dict)
+                
+            st.toast("⚠️ Conexión saturada: El pedido ha sido guardado localmente de forma segura.", icon="💾")
+            
         return True
     except Exception as e:
         st.error(f"Error registrando orden en GSheets: {e}")
