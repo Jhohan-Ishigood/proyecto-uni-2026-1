@@ -101,6 +101,21 @@ def inicializar_db(db_path=None):
             df_usuarios = pd.DataFrame(columns=["email", "nombre", "foto", "compras_realizadas", "fecha_registro"])
             conn.create(worksheet="usuarios", data=df_usuarios)
             
+        # 8. Asegurar hoja 'mesas'
+        try:
+            conn.read(worksheet="mesas", ttl=TTL_LECTURA)
+        except Exception:
+            mesas_defecto = [{"nro_mesa": i, "estado": "disponible"} for i in range(1, 21)]
+            df_mesas = pd.DataFrame(mesas_defecto)
+            conn.create(worksheet="mesas", data=df_mesas)
+            
+        # 9. Asegurar hoja 'reservas'
+        try:
+            conn.read(worksheet="reservas", ttl=TTL_LECTURA)
+        except Exception:
+            df_res = pd.DataFrame(columns=["id", "email", "nombre", "nro_mesa", "fecha", "hora", "datos_contacto"])
+            conn.create(worksheet="reservas", data=df_res)
+            
         st.session_state["_db_inicializada"] = True
     except Exception as e:
         st.error(f"Error al inicializar Google Sheets (Verifica tus secrets y permisos de cuenta de servicio): {e}")
@@ -522,28 +537,145 @@ def registrar_usuario(email, nombre, foto):
 
 def incrementar_compra_usuario(email):
     try:
+         conn = get_connection()
+         df = conn.read(worksheet="usuarios", ttl=1)
+         if not df.empty and "email" in df.columns:
+             mask = df["email"].astype(str).str.strip().str.lower() == email.strip().lower()
+             if mask.any():
+                 # Incrementar compras
+                 compras_actuales = int(df.loc[mask, "compras_realizadas"].iloc[0] or 0)
+                 df.loc[mask, "compras_realizadas"] = compras_actuales + 1
+                 conn.update(worksheet="usuarios", data=df)
+                 
+                 # Sistema de recompensas
+                 if (compras_actuales + 1) % 3 == 0:
+                     codigo_premio = f"PREMIO{compras_actuales + 1}-{email.split('@')[0].upper()}"
+                     crear_cupon(
+                         codigo=codigo_premio,
+                         tipo="monto",
+                         valor=10.0,
+                         descripcion=f"S/10 Dcto. por ser cliente frecuente. Para {email}",
+                         activo=True
+                     )
+                     return codigo_premio
+         return False
+    except Exception as e:
+         st.error(f"Error incrementando compra: {e}")
+         return False
+
+# ============================================================================
+# FUNCIONES DE MESAS
+# ============================================================================
+def obtener_mesas(ttl=TTL_LECTURA):
+    try:
         conn = get_connection()
-        df = conn.read(worksheet="usuarios", ttl=1)
-        if not df.empty and "email" in df.columns:
-            mask = df["email"].astype(str).str.strip().str.lower() == email.strip().lower()
+        df = conn.read(worksheet="mesas", ttl=ttl)
+        if df.empty:
+            return []
+        return df.to_dict(orient="records")
+    except Exception as e:
+        st.error(f"Error obteniendo mesas: {e}")
+        return []
+
+def actualizar_estado_mesa(nro_mesa, estado):
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="mesas", ttl=1)
+        if not df.empty and "nro_mesa" in df.columns:
+            mask = df["nro_mesa"].astype(int) == int(nro_mesa)
             if mask.any():
-                # Incrementar compras
-                compras_actuales = int(df.loc[mask, "compras_realizadas"].iloc[0] or 0)
-                df.loc[mask, "compras_realizadas"] = compras_actuales + 1
-                conn.update(worksheet="usuarios", data=df)
-                
-                # Sistema de recompensas
-                if (compras_actuales + 1) % 3 == 0:
-                    codigo_premio = f"PREMIO{compras_actuales + 1}-{email.split('@')[0].upper()}"
-                    crear_cupon(
-                        codigo=codigo_premio,
-                        tipo="monto",
-                        valor=10.0,
-                        descripcion=f"S/10 Dcto. por ser cliente frecuente. Para {email}",
-                        activo=True
-                    )
-                    return codigo_premio
+                df.loc[mask, "estado"] = estado
+                conn.update(worksheet="mesas", data=df)
+                return True
         return False
     except Exception as e:
-        st.error(f"Error incrementando compra: {e}")
+        st.error(f"Error actualizando mesa {nro_mesa}: {e}")
         return False
+
+def agregar_mesa():
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="mesas", ttl=1)
+        nueva_mesa = 1
+        if not df.empty and "nro_mesa" in df.columns:
+            nueva_mesa = int(df["nro_mesa"].max()) + 1
+        new_row = pd.DataFrame([{"nro_mesa": nueva_mesa, "estado": "disponible"}])
+        updated_df = pd.concat([df, new_row], ignore_index=True)
+        conn.update(worksheet="mesas", data=updated_df)
+        return nueva_mesa
+    except Exception as e:
+        st.error(f"Error agregando mesa: {e}")
+        return False
+
+def eliminar_mesa(nro_mesa):
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="mesas", ttl=1)
+        if not df.empty and "nro_mesa" in df.columns:
+            df = df[df["nro_mesa"].astype(int) != int(nro_mesa)]
+            conn.update(worksheet="mesas", data=df)
+            return True
+        return False
+    except Exception as e:
+        st.error(f"Error eliminando mesa {nro_mesa}: {e}")
+        return False
+
+# ============================================================================
+# FUNCIONES DE RESERVAS
+# ============================================================================
+def obtener_reservas(ttl=1):
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="reservas", ttl=ttl)
+        if df.empty:
+            return []
+        return df.to_dict(orient="records")
+    except Exception as e:
+        st.error(f"Error obteniendo reservas: {e}")
+        return []
+
+def crear_reserva(email, nombre, nro_mesa, fecha, hora, datos_contacto):
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="reservas", ttl=1)
+        if df.empty or "id" not in df.columns:
+            df = pd.DataFrame(columns=["id", "email", "nombre", "nro_mesa", "fecha", "hora", "datos_contacto"])
+        
+        nuevo_id = 1
+        if not df.empty and "id" in df.columns:
+            # Filtrar nans para el ID max
+            valid_ids = df["id"].dropna()
+            if not valid_ids.empty:
+                nuevo_id = int(valid_ids.astype(float).max()) + 1
+
+        new_row = pd.DataFrame([{
+            "id": nuevo_id,
+            "email": email.strip().lower(),
+            "nombre": nombre,
+            "nro_mesa": int(nro_mesa),
+            "fecha": str(fecha),
+            "hora": str(hora),
+            "datos_contacto": str(datos_contacto)
+        }])
+        
+        updated_df = pd.concat([df, new_row], ignore_index=True)
+        conn.update(worksheet="reservas", data=updated_df)
+        return nuevo_id
+    except Exception as e:
+        st.error(f"Error creando reserva: {e}")
+        return False
+
+def eliminar_reserva(id_reserva):
+    try:
+        conn = get_connection()
+        df = conn.read(worksheet="reservas", ttl=1)
+        if not df.empty and "id" in df.columns:
+            # Convertir IDs a float/int para evitar problemas de tipos de pandas
+            df = df[df["id"].astype(float).astype(int) != int(id_reserva)]
+            conn.update(worksheet="reservas", data=df)
+            return True
+        return False
+    except Exception as e:
+        st.error(f"Error eliminando reserva {id_reserva}: {e}")
+        return False
+

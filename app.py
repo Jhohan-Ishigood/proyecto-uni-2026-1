@@ -705,8 +705,8 @@ with st.container():
                 st.rerun()
             
             if st.button("📅  Hacer Reserva", use_container_width=True, key="btn_pop_reserva"):
-                st.session_state.pantalla_actual = "bienvenida"
-                st.toast("🚧 Reservas próximamente disponibles", icon="📅")
+                st.session_state.pantalla_actual = "reservas"
+                st.rerun()
                 
             if st.button("⭐  Programa de Fidelidad", use_container_width=True, key="btn_pop_fidelidad"):
                 st.toast(f"🏆 Llevas {compras} compras. ¡Cada 3 compras obtienes descuento!", icon="⭐")
@@ -1304,6 +1304,78 @@ if es_admin:
         st.altair_chart(pie, use_container_width=True)
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
+    
+    # ============================================================================
+    # 14B. PANEL DE CONTROL DE ADMINISTRACIÓN - GESTIÓN DE MESAS Y RESERVAS
+    # ============================================================================
+    st.markdown("### 🪑 GESTIÓN DE MESAS Y RESERVAS")
+    
+    col_mesas_admin, col_reservas_admin = st.columns(2)
+    
+    with col_mesas_admin:
+        st.markdown("#### 🪑 Mesas del Local")
+        mesas_admin = database.obtener_mesas(ttl=1)
+        
+        if mesas_admin:
+            for mesa in mesas_admin:
+                nro = int(mesa.get("nro_mesa", 0))
+                estado = str(mesa.get("estado", "disponible")).strip().lower()
+                icono_estado = "🟢" if estado == "disponible" else "🔴"
+                
+                col_m1, col_m2, col_m3 = st.columns([2, 2, 1])
+                with col_m1:
+                    st.markdown(f"{icono_estado} **Mesa {nro}** — {estado.upper()}")
+                with col_m2:
+                    nuevo_estado = "ocupada" if estado == "disponible" else "disponible"
+                    label_btn = f"Marcar {'Ocupada' if estado == 'disponible' else 'Libre'}"
+                    if st.button(label_btn, key=f"btn_toggle_mesa_{nro}", use_container_width=True):
+                        database.actualizar_estado_mesa(nro, nuevo_estado)
+                        st.rerun()
+                with col_m3:
+                    if st.button("🗑️", key=f"btn_del_mesa_{nro}"):
+                        database.eliminar_mesa(nro)
+                        st.toast(f"Mesa {nro} eliminada", icon="🗑️")
+                        st.rerun()
+        else:
+            st.info("No hay mesas configuradas.")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("➕ Agregar Nueva Mesa", key="btn_add_mesa", use_container_width=True):
+            nueva = database.agregar_mesa()
+            if nueva:
+                st.toast(f"Mesa {nueva} agregada", icon="✅")
+                st.rerun()
+    
+    with col_reservas_admin:
+        st.markdown("#### 📅 Reservaciones Activas")
+        reservas_admin = database.obtener_reservas(ttl=1)
+        
+        if reservas_admin:
+            for reserva in reservas_admin:
+                r_id = reserva.get("id", "?")
+                r_nombre = reserva.get("nombre", "?")
+                r_mesa = reserva.get("nro_mesa", "?")
+                r_fecha = reserva.get("fecha", "?")
+                r_hora = reserva.get("hora", "?")
+                r_tel = reserva.get("datos_contacto", "")
+                
+                st.markdown(
+                    f"<div class='status-strip' style='border-color: #f39c12; padding: 10px 15px !important; margin-bottom: 8px !important;'>"
+                    f"<div style='line-height:1.4;'>"
+                    f"<strong style='color:#fff;'>#{r_id} — {r_nombre}</strong><br>"
+                    f"<span style='font-size:12px; color:#aaa;'>🪑 Mesa {r_mesa} | 📆 {r_fecha} | 🕐 {r_hora} | 📱 {r_tel}</span>"
+                    f"</div>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+                if st.button(f"❌ Cancelar Reserva #{r_id}", key=f"btn_cancel_reserva_{r_id}", use_container_width=True):
+                    database.eliminar_reserva(r_id)
+                    st.toast(f"Reserva #{r_id} cancelada", icon="❌")
+                    st.rerun()
+        else:
+            st.info("No hay reservaciones activas.")
+
+    st.markdown("<br><hr><br>", unsafe_allow_html=True)
 else:
 
     # ============================================================================
@@ -1327,9 +1399,36 @@ else:
         st.markdown("<br>", unsafe_allow_html=True)
         
         if st.button("🛒 EMPEZAR MI PEDIDO", use_container_width=True, key="btn_empezar_pedido_master", disabled=not servicio_abierto):
-            st.session_state.pantalla_actual = "catalogo"
+            st.session_state.pantalla_actual = "seleccion_mesa"
             st.session_state.boleta_emitida = False
             st.rerun()
+        
+        # Botón de reservación cuando el servicio está cerrado
+        if not servicio_abierto:
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; font-size: 16px; color: #f39c12;'>¿No puedes venir ahora? ¡Reserva tu mesa para cuando abramos!</p>", unsafe_allow_html=True)
+            if st.button("📅 HACER UNA RESERVACIÓN", use_container_width=True, key="btn_reservar_bienvenida"):
+                if st.session_state.user_info:
+                    st.session_state.pantalla_actual = "reservas"
+                    st.rerun()
+                else:
+                    st.session_state.mostrar_login_reserva = True
+                    st.rerun()
+        
+        # Modal de aviso: debe iniciar sesión para reservar
+        if st.session_state.get("mostrar_login_reserva", False):
+            auth_url = get_google_auth_url()
+            st.markdown(f"""
+            <div style='background: rgba(15,15,15,0.95); border: 2px solid #f39c12; border-radius: 16px; padding: 30px; text-align: center; margin: 20px auto; max-width: 450px; box-shadow: 0 10px 40px rgba(0,0,0,0.6);'>
+                <p style='font-size: 40px; margin-bottom: 10px;'>🔒</p>
+                <h3 style='color: #fff; margin-bottom: 10px;'>Inicia Sesión para Reservar</h3>
+                <p style='color: #aaa; font-size: 14px; margin-bottom: 20px;'>Para realizar una reservación necesitas tener una cuenta. Inicia sesión con Google y accede a todos los beneficios.</p>
+                <a href='{auth_url}' target='_blank' style='display: inline-block; background: linear-gradient(135deg, #f39c12, #e67e22); color: #000; font-weight: 800; padding: 12px 30px; border-radius: 50px; text-decoration: none; font-size: 15px;'>🔑 Iniciar Sesión con Google</a>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("✖ Cerrar", key="btn_cerrar_login_reserva"):
+                st.session_state.mostrar_login_reserva = False
+                st.rerun()
             
         # Bloque de Redes Sociales Corporativas de Carnes & Bytes
         st.markdown("<br><br><br>", unsafe_allow_html=True)
@@ -1341,6 +1440,128 @@ else:
                 <a href='https://wa.me/51982174847' target='_blank' class='social-icon'>🟢 WhatsApp</a>
             </div>
         """, unsafe_allow_html=True)
+
+
+    # ============================================================================
+    # 15B. ENTORNO CLIENTE - SELECCIÓN DE MESA
+    # ============================================================================
+    elif st.session_state.pantalla_actual == "seleccion_mesa":
+        st.markdown("<h2 class='titulo-principal'>🪑 Selecciona tu Mesa</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #aaa; font-size: 15px;'>Elige una mesa disponible para iniciar tu pedido</p>", unsafe_allow_html=True)
+        
+        mesas = database.obtener_mesas(ttl=5)
+        if not mesas:
+            st.warning("No hay mesas configuradas. Contacta al administrador.")
+        else:
+            # CSS para la cuadrícula de mesas
+            st.markdown("""
+            <style>
+            .mesa-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; max-width: 600px; margin: 20px auto; }
+            @media (max-width: 768px) { .mesa-grid { grid-template-columns: repeat(4, 1fr); gap: 8px; } }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            # Generar HTML visual de mesas
+            mesa_html = "<div class='mesa-grid'>"
+            for mesa in mesas:
+                nro = int(mesa.get("nro_mesa", 0))
+                estado = str(mesa.get("estado", "disponible")).strip().lower()
+                if estado == "ocupada":
+                    mesa_html += f"<div style='background: rgba(231,76,60,0.3); border: 2px solid #e74c3c; border-radius: 12px; padding: 15px 10px; text-align: center; opacity: 0.6;'><span style='font-size: 22px;'>🪑</span><br><span style='color: #e74c3c; font-size: 13px; font-weight: 700;'>Mesa {nro}</span><br><span style='font-size: 10px; color: #e74c3c;'>OCUPADA</span></div>"
+                else:
+                    mesa_html += f"<div style='background: rgba(46,204,113,0.15); border: 2px solid #2ecc71; border-radius: 12px; padding: 15px 10px; text-align: center;'><span style='font-size: 22px;'>🪑</span><br><span style='color: #2ecc71; font-size: 13px; font-weight: 700;'>Mesa {nro}</span><br><span style='font-size: 10px; color: #2ecc71;'>LIBRE</span></div>"
+            mesa_html += "</div>"
+            st.markdown(mesa_html, unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Selector nativo de Streamlit para elegir mesa
+            mesas_disponibles = [int(m["nro_mesa"]) for m in mesas if str(m.get("estado", "")).strip().lower() != "ocupada"]
+            
+            if not mesas_disponibles:
+                st.error("🚫 Todas las mesas están ocupadas en este momento. Intenta más tarde.")
+            else:
+                mesa_elegida = st.selectbox("Selecciona tu mesa:", mesas_disponibles, format_func=lambda x: f"🪑 Mesa {x}", key="select_mesa")
+                
+                col_mesa1, col_mesa2 = st.columns(2)
+                with col_mesa1:
+                    if st.button("⬅️ Volver", use_container_width=True, key="btn_volver_mesa"):
+                        st.session_state.pantalla_actual = "bienvenida"
+                        st.rerun()
+                with col_mesa2:
+                    if st.button("✅ Confirmar Mesa y Pedir", use_container_width=True, key="btn_confirmar_mesa", type="primary"):
+                        st.session_state.mesa_seleccionada = mesa_elegida
+                        database.actualizar_estado_mesa(mesa_elegida, "ocupada")
+                        st.session_state.pantalla_actual = "catalogo"
+                        st.session_state.boleta_emitida = False
+                        st.rerun()
+
+
+    # ============================================================================
+    # 15C. ENTORNO CLIENTE - PANTALLA DE RESERVACIONES
+    # ============================================================================
+    elif st.session_state.pantalla_actual == "reservas":
+        if not st.session_state.user_info:
+            auth_url = get_google_auth_url()
+            st.markdown(f"""
+            <div style='background: rgba(15,15,15,0.95); border: 2px solid #f39c12; border-radius: 16px; padding: 40px; text-align: center; margin: 40px auto; max-width: 500px; box-shadow: 0 10px 40px rgba(0,0,0,0.6);'>
+                <p style='font-size: 50px; margin-bottom: 15px;'>🔒</p>
+                <h2 style='color: #fff; margin-bottom: 10px;'>Inicia Sesión para Reservar</h2>
+                <p style='color: #aaa; font-size: 15px; margin-bottom: 25px;'>Para realizar una reservación necesitas tener una cuenta registrada. Inicia sesión con Google y disfruta de nuestros beneficios exclusivos.</p>
+                <a href='{auth_url}' target='_blank' style='display: inline-block; background: linear-gradient(135deg, #f39c12, #e67e22); color: #000; font-weight: 800; padding: 14px 35px; border-radius: 50px; text-decoration: none; font-size: 16px;'>🔑 Iniciar Sesión con Google</a>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("⬅️ Volver al Inicio", use_container_width=True, key="btn_volver_reserva_login"):
+                st.session_state.pantalla_actual = "bienvenida"
+                st.rerun()
+        else:
+            u_info = st.session_state.user_info
+            st.markdown("<h2 class='titulo-principal'>📅 Reservar tu Mesa</h2>", unsafe_allow_html=True)
+            st.markdown(f"<p style='text-align: center; color: #aaa;'>Reservando como <strong style='color:#f39c12;'>{u_info.get('name','')}</strong></p>", unsafe_allow_html=True)
+            
+            mesas = database.obtener_mesas(ttl=5)
+            mesas_disponibles = [int(m["nro_mesa"]) for m in mesas if str(m.get("estado", "")).strip().lower() != "ocupada"]
+            
+            if not mesas_disponibles:
+                st.error("🚫 No hay mesas disponibles para reservar en este momento.")
+            else:
+                import datetime as dt_module
+                with st.form("form_reserva", clear_on_submit=True):
+                    st.markdown("#### Datos de tu reservación")
+                    
+                    col_r1, col_r2 = st.columns(2)
+                    with col_r1:
+                        fecha_reserva = st.date_input("📆 Fecha", min_value=dt_module.date.today(), key="input_fecha_reserva")
+                    with col_r2:
+                        hora_reserva = st.time_input("🕐 Hora", value=dt_module.time(19, 0), key="input_hora_reserva")
+                    
+                    mesa_reserva = st.selectbox("🪑 Mesa", mesas_disponibles, format_func=lambda x: f"Mesa {x}", key="select_mesa_reserva")
+                    telefono = st.text_input("📱 Teléfono de contacto", placeholder="Ej: 987654321", key="input_tel_reserva")
+                    
+                    submitted = st.form_submit_button("✅ Confirmar Reservación", use_container_width=True, type="primary")
+                    
+                    if submitted:
+                        if not telefono.strip():
+                            st.error("Por favor ingresa un teléfono de contacto.")
+                        else:
+                            resultado = database.crear_reserva(
+                                email=u_info.get("email", ""),
+                                nombre=u_info.get("name", ""),
+                                nro_mesa=mesa_reserva,
+                                fecha=str(fecha_reserva),
+                                hora=str(hora_reserva),
+                                datos_contacto=telefono.strip()
+                            )
+                            if resultado:
+                                st.success(f"🎉 ¡Reservación #{resultado} confirmada! Mesa {mesa_reserva} el {fecha_reserva} a las {hora_reserva}.")
+                                st.balloons()
+                            else:
+                                st.error("Error al crear la reservación. Intente nuevamente.")
+                
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("⬅️ Volver al Inicio", use_container_width=True, key="btn_volver_reserva"):
+                st.session_state.pantalla_actual = "bienvenida"
+                st.rerun()
 
 
     # ============================================================================
