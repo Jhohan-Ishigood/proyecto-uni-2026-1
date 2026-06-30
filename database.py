@@ -383,7 +383,7 @@ def crear_orden(db_path, fecha_hora, nro_boleta, detalle_articulos, entrega, met
             
         return True
     except Exception as e:
-        st.error(f"Error registrando orden en GSheets: {e}")
+        print(f"Error registrando orden en GSheets: {e}")
         return False
 
 def actualizar_stock_multiple(db_path, actualizaciones_dict):
@@ -423,7 +423,7 @@ def actualizar_stock_multiple(db_path, actualizaciones_dict):
             return True
         return False
     except Exception as e:
-        st.error(f"Error actualizando stock en GSheets (se intentó fallback): {e}")
+        print(f"Error actualizando stock en GSheets (se intentó fallback): {e}")
         return False
 
 def actualizar_stock(db_path, nombre, stock_restante):
