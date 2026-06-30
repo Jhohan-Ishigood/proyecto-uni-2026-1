@@ -559,16 +559,19 @@ def incrementar_compra_usuario(email):
 # ============================================================================
 # FUNCIONES DE MESAS
 # ============================================================================
-def obtener_mesas(ttl=TTL_LECTURA):
+@st.cache_data(ttl=60)
+def _obtener_mesas_cached(ttl=60):
     try:
         conn = get_connection()
         df = conn.read(worksheet="mesas", ttl=ttl)
         if df.empty:
             return []
         return df.to_dict(orient="records")
-    except Exception as e:
-        st.error(f"Error obteniendo mesas: {e}")
+    except Exception:
         return []
+
+def obtener_mesas(ttl=TTL_LECTURA):
+    return _obtener_mesas_cached(ttl=ttl)
 
 def actualizar_estado_mesa(nro_mesa, estado):
     try:
@@ -579,6 +582,7 @@ def actualizar_estado_mesa(nro_mesa, estado):
             if mask.any():
                 df.loc[mask, "estado"] = estado
                 conn.update(worksheet="mesas", data=df)
+                st.cache_data.clear() # Limpiar cache para recargar mesas actualizadas
                 return True
         return False
     except Exception as e:
@@ -595,6 +599,7 @@ def agregar_mesa():
         new_row = pd.DataFrame([{"nro_mesa": nueva_mesa, "estado": "disponible"}])
         updated_df = pd.concat([df, new_row], ignore_index=True)
         conn.update(worksheet="mesas", data=updated_df)
+        st.cache_data.clear() # Limpiar cache
         return nueva_mesa
     except Exception as e:
         st.error(f"Error agregando mesa: {e}")
@@ -607,6 +612,7 @@ def eliminar_mesa(nro_mesa):
         if not df.empty and "nro_mesa" in df.columns:
             df = df[df["nro_mesa"].astype(int) != int(nro_mesa)]
             conn.update(worksheet="mesas", data=df)
+            st.cache_data.clear() # Limpiar cache
             return True
         return False
     except Exception as e:
@@ -616,16 +622,19 @@ def eliminar_mesa(nro_mesa):
 # ============================================================================
 # FUNCIONES DE RESERVAS
 # ============================================================================
-def obtener_reservas(ttl=1):
+@st.cache_data(ttl=60)
+def _obtener_reservas_cached(ttl=60):
     try:
         conn = get_connection()
         df = conn.read(worksheet="reservas", ttl=ttl)
         if df.empty:
             return []
         return df.to_dict(orient="records")
-    except Exception as e:
-        st.error(f"Error obteniendo reservas: {e}")
+    except Exception:
         return []
+
+def obtener_reservas(ttl=1):
+    return _obtener_reservas_cached(ttl=ttl)
 
 def crear_reserva(email, nombre, nro_mesa, fecha, hora, datos_contacto, personas, nombres_invitados):
     try:
@@ -655,6 +664,7 @@ def crear_reserva(email, nombre, nro_mesa, fecha, hora, datos_contacto, personas
         
         updated_df = pd.concat([df, new_row], ignore_index=True)
         conn.update(worksheet="reservas", data=updated_df)
+        st.cache_data.clear() # Limpiar cache para recargar reservas actualizadas
         return nuevo_id
     except Exception as e:
         st.error(f"Error creando reserva: {e}")
@@ -668,9 +678,10 @@ def eliminar_reserva(id_reserva):
             # Convertir IDs a float/int para evitar problemas de tipos de pandas
             df = df[df["id"].astype(float).astype(int) != int(id_reserva)]
             conn.update(worksheet="reservas", data=df)
+            st.cache_data.clear() # Limpiar cache para recargar reservas actualizadas
             return True
         return False
     except Exception as e:
-        st.error(f"Error eliminando reserva {id_reserva}: {e}")
+        st.error(f"Error  reserva {id_reserva}: {e}")
         return False
 
