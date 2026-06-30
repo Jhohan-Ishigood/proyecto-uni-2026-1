@@ -707,6 +707,10 @@ with st.container():
             if st.button("📅  Hacer Reserva", use_container_width=True, key="btn_pop_reserva"):
                 st.session_state.pantalla_actual = "reservas"
                 st.rerun()
+            
+            if st.button("📌  Mis Reservas", use_container_width=True, key="btn_pop_mis_reservas"):
+                st.session_state.pantalla_actual = "mis_reservas"
+                st.rerun()
                 
             if st.button("⭐  Programa de Fidelidad", use_container_width=True, key="btn_pop_fidelidad"):
                 st.toast(f"🏆 Llevas {compras} compras. ¡Cada 3 compras obtienes descuento!", icon="⭐")
@@ -1562,6 +1566,61 @@ else:
             if st.button("⬅️ Volver al Inicio", use_container_width=True, key="btn_volver_reserva"):
                 st.session_state.pantalla_actual = "bienvenida"
                 st.rerun()
+
+
+    # ============================================================================
+    # 15D. ENTORNO CLIENTE - MIS RESERVAS
+    # ============================================================================
+    elif st.session_state.pantalla_actual == "mis_reservas":
+        st.markdown("<h2 class='titulo-principal'>📌 Mis Reservas</h2>", unsafe_allow_html=True)
+        
+        if not st.session_state.user_info:
+            st.warning("Debes iniciar sesión para ver tus reservas.")
+        else:
+            email_usuario = st.session_state.user_info.get("email", "").strip().lower()
+            todas_reservas = database.obtener_reservas(ttl=5)
+            mis_reservas = [r for r in todas_reservas if str(r.get("email", "")).strip().lower() == email_usuario]
+            
+            if not mis_reservas:
+                st.markdown("""
+                <div style='text-align: center; padding: 50px 20px;'>
+                    <p style='font-size: 60px; margin-bottom: 15px;'>📅</p>
+                    <h3 style='color: #fff; margin-bottom: 10px;'>Aún no tienes reservas</h3>
+                    <p style='color: #888; font-size: 14px;'>Cuando hagas una reservación, aparecerá aquí para que puedas verla y gestionarla.</p>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button("📅 Hacer mi primera reserva", use_container_width=True, key="btn_primera_reserva", type="primary"):
+                    st.session_state.pantalla_actual = "reservas"
+                    st.rerun()
+            else:
+                st.markdown(f"<p style='text-align:center; color:#aaa;'>Tienes <strong style='color:#f39c12;'>{len(mis_reservas)}</strong> reserva(s) activa(s)</p>", unsafe_allow_html=True)
+                for reserva in mis_reservas:
+                    r_id = reserva.get("id", "?")
+                    r_mesa = reserva.get("nro_mesa", "?")
+                    r_fecha = reserva.get("fecha", "?")
+                    r_hora = reserva.get("hora", "?")
+                    r_tel = reserva.get("datos_contacto", "")
+                    
+                    st.markdown(
+                        f"<div style='background: rgba(243,156,18,0.08); border: 1.5px solid rgba(243,156,18,0.4); border-radius: 14px; padding: 18px 20px; margin-bottom: 12px;'>"
+                        f"<div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;'>"
+                        f"<div>"
+                        f"<span style='font-size: 14px; font-weight: 800; color: #f39c12;'>Reserva #{r_id}</span><br>"
+                        f"<span style='font-size: 13px; color: #ddd;'>🪑 Mesa {r_mesa}  &nbsp;|&nbsp;  📆 {r_fecha}  &nbsp;|&nbsp;  🕐 {r_hora}</span><br>"
+                        f"<span style='font-size: 12px; color: #888;'>📱 {r_tel}</span>"
+                        f"</div>"
+                        f"</div></div>",
+                        unsafe_allow_html=True
+                    )
+                    if st.button(f"❌ Cancelar Reserva #{r_id}", key=f"btn_cancel_mi_reserva_{r_id}", use_container_width=True):
+                        database.eliminar_reserva(r_id)
+                        st.toast(f"Reserva #{r_id} cancelada exitosamente", icon="✅")
+                        st.rerun()
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("⬅️ Volver al Inicio", use_container_width=True, key="btn_volver_mis_reservas"):
+            st.session_state.pantalla_actual = "bienvenida"
+            st.rerun()
 
 
     # ============================================================================
