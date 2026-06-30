@@ -33,89 +33,73 @@ def _convertir_tipo(valor, tipo, default=None):
     
     return default
 
+def _hoja_existe(conn, nombre):
+    """Retorna True si la hoja ya existe en el spreadsheet."""
+    try:
+        df = conn.read(worksheet=nombre, ttl=1)
+        return True  # lectura exitosa → hoja existe
+    except Exception as e:
+        msg = str(e).lower()
+        # Si el error es por hoja no encontrada, no existe
+        if "not found" in msg or "unable to parse" in msg or "does not exist" in msg:
+            return False
+        # Cualquier otro error (permisos, red, etc.) asumimos que existe para no borrar datos
+        return True
+
+def _asegurar_hoja(conn, nombre, df_inicial):
+    """Crea la hoja solo si no existe; silencia el error si ya existe."""
+    if _hoja_existe(conn, nombre):
+        return
+    try:
+        conn.create(worksheet=nombre, data=df_inicial)
+    except Exception as e:
+        msg = str(e).lower()
+        if "already exists" in msg:
+            pass  # ya existe, todo bien
+        else:
+            raise  # re-lanzar errores reales
+
 def inicializar_db(db_path=None):
     """Crea las hojas necesarias en Google Sheets si no existen. Solo se ejecuta una vez por sesión."""
-    # Quitamos el early return para que siempre verifique (es rápido gracias al caché ttl)
     try:
         conn = get_connection()
         
         FOTO_DEFECTO = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><path d='M8 14s1.5 2 4 2 4-2 4-2'></path><line x1='9' y1='9' x2='9.01' y2='9'></line><line x1='15' y1='9' x2='15.01' y2='9'></line></svg>"
         
-        # 1. Asegurar hoja 'categorias'
-        try:
-            conn.read(worksheet="categorias", ttl=TTL_LECTURA)
-        except Exception:
-            df_cat = pd.DataFrame({"nombre": ["Parrillas", "Hamburguesas", "Bebidas", "Combos"]})
-            conn.create(worksheet="categorias", data=df_cat)
-            
-        # 2. Asegurar hoja 'productos'
-        try:
-            conn.read(worksheet="productos", ttl=TTL_LECTURA)
-        except Exception:
-            productos_defecto = [
-                {"nombre": "Hamburguesa", "precio": 18.0, "icono": "🍔", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 15, "categoria": "Hamburguesas"},
-                {"nombre": "Carne a la parrilla", "precio": 35.0, "icono": "🥩", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 10, "categoria": "Parrillas"},
-                {"nombre": "Jugo", "precio": 6.0, "icono": "🥤", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 20, "categoria": "Bebidas"},
-                {"nombre": "Combo Buffalo", "precio": 25.0, "icono": "🎁", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 8, "categoria": "Combos"}
-            ]
-            df_prod = pd.DataFrame(productos_defecto)
-            conn.create(worksheet="productos", data=df_prod)
+        _asegurar_hoja(conn, "categorias",
+            pd.DataFrame({"nombre": ["Parrillas", "Hamburguesas", "Bebidas", "Combos"]}))
 
-        # 3. Asegurar hoja 'ordenes'
-        try:
-            conn.read(worksheet="ordenes", ttl=TTL_LECTURA)
-        except Exception:
-            df_ord = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "detalle_articulos", "entrega", "metodo_pago", "total"])
-            conn.create(worksheet="ordenes", data=df_ord)
-            
-        # 4. Asegurar hoja 'calificaciones'
-        try:
-            conn.read(worksheet="calificaciones", ttl=TTL_LECTURA)
-        except Exception:
-            df_cal = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "calificacion", "comentario"])
-            conn.create(worksheet="calificaciones", data=df_cal)
+        _asegurar_hoja(conn, "productos", pd.DataFrame([
+            {"nombre": "Hamburguesa", "precio": 18.0, "icono": "🍔", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 15, "categoria": "Hamburguesas"},
+            {"nombre": "Carne a la parrilla", "precio": 35.0, "icono": "🥩", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 10, "categoria": "Parrillas"},
+            {"nombre": "Jugo", "precio": 6.0, "icono": "🥤", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 20, "categoria": "Bebidas"},
+            {"nombre": "Combo Buffalo", "precio": 25.0, "icono": "🎁", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 8, "categoria": "Combos"}
+        ]))
 
-        # 5. Asegurar hoja 'logs'
-        try:
-            conn.read(worksheet="logs", ttl=TTL_LECTURA)
-        except Exception:
-            df_logs = pd.DataFrame(columns=["fecha_hora", "nivel", "mensaje", "detalle"])
-            conn.create(worksheet="logs", data=df_logs)
-        
-        # 6. Asegurar hoja 'cupones'
-        try:
-            conn.read(worksheet="cupones", ttl=TTL_LECTURA)
-        except Exception:
-            cupones_defecto = [
-                {"codigo": "BUFFALO10", "tipo": "porcentaje", "valor": 0.10, "descripcion": "10% de descuento", "activo": 1},
-                {"codigo": "DELIVERYFREE", "tipo": "delivery", "valor": 6.0, "descripcion": "Delivery gratis", "activo": 1},
-                {"codigo": "COMBO5", "tipo": "monto", "valor": 5.0, "descripcion": "S/5.00 de descuento", "activo": 1}
-            ]
-            df_cupones = pd.DataFrame(cupones_defecto)
-            conn.create(worksheet="cupones", data=df_cupones)
-        
-        # 7. Asegurar hoja 'usuarios' (Para Fidelidad / Login)
-        try:
-            conn.read(worksheet="usuarios", ttl=TTL_LECTURA)
-        except Exception:
-            df_usuarios = pd.DataFrame(columns=["email", "nombre", "foto", "compras_realizadas", "fecha_registro"])
-            conn.create(worksheet="usuarios", data=df_usuarios)
-            
-        # 8. Asegurar hoja 'mesas'
-        try:
-            conn.read(worksheet="mesas", ttl=TTL_LECTURA)
-        except Exception:
-            mesas_defecto = [{"nro_mesa": i, "estado": "disponible"} for i in range(1, 21)]
-            df_mesas = pd.DataFrame(mesas_defecto)
-            conn.create(worksheet="mesas", data=df_mesas)
-            
-        # 9. Asegurar hoja 'reservas'
-        try:
-            conn.read(worksheet="reservas", ttl=TTL_LECTURA)
-        except Exception:
-            df_res = pd.DataFrame(columns=["id", "email", "nombre", "nro_mesa", "fecha", "hora", "datos_contacto", "personas", "nombres_invitados"])
-            conn.create(worksheet="reservas", data=df_res)
-            
+        _asegurar_hoja(conn, "ordenes",
+            pd.DataFrame(columns=["fecha_hora", "nro_boleta", "detalle_articulos", "entrega", "metodo_pago", "total", "usuario_email"]))
+
+        _asegurar_hoja(conn, "calificaciones",
+            pd.DataFrame(columns=["fecha_hora", "nro_boleta", "calificacion", "comentario"]))
+
+        _asegurar_hoja(conn, "logs",
+            pd.DataFrame(columns=["fecha_hora", "nivel", "mensaje", "detalle"]))
+
+        _asegurar_hoja(conn, "cupones", pd.DataFrame([
+            {"codigo": "BUFFALO10", "tipo": "porcentaje", "valor": 0.10, "descripcion": "10% de descuento", "activo": 1},
+            {"codigo": "DELIVERYFREE", "tipo": "delivery", "valor": 6.0, "descripcion": "Delivery gratis", "activo": 1},
+            {"codigo": "COMBO5", "tipo": "monto", "valor": 5.0, "descripcion": "S/5.00 de descuento", "activo": 1}
+        ]))
+
+        _asegurar_hoja(conn, "usuarios",
+            pd.DataFrame(columns=["email", "nombre", "foto", "compras_realizadas", "fecha_registro"]))
+
+        _asegurar_hoja(conn, "mesas",
+            pd.DataFrame([{"nro_mesa": i, "estado": "disponible"} for i in range(1, 21)]))
+
+        _asegurar_hoja(conn, "reservas",
+            pd.DataFrame(columns=["id", "email", "nombre", "nro_mesa", "fecha", "hora", "datos_contacto", "personas", "nombres_invitados"]))
+
         st.session_state["_db_inicializada"] = True
     except Exception as e:
         st.error(f"Error al inicializar Google Sheets (Verifica tus secrets y permisos de cuenta de servicio): {e}")
