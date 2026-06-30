@@ -191,6 +191,10 @@ def _obtener_menu_cached(ttl=60):
             }
         return menu
     except Exception:
+        # Fallback de emergencia absoluto: si falla el read, retornar el menú en memoria de la sesión
+        menu_memoria = st.session_state.get("menu_dinamico")
+        if menu_memoria:
+            return menu_memoria
         return {}
 
 def obtener_menu(db_path=None, ttl=TTL_LECTURA):

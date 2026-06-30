@@ -335,9 +335,25 @@ def puede_editar(rol, seccion):
 if "menu_dinamico" not in st.session_state or st.session_state.get("_forzar_recarga", False):
     if st.session_state.get("_forzar_recarga", False):
         st.cache_data.clear() # Limpiar caché local de Streamlit para traer datos frescos de GSheets
-    st.session_state.menu_dinamico = database.obtener_menu()
-    st.session_state.historial_ordenes = database.obtener_ordenes()
-    st.session_state.lista_categorias = ["Todos"] + database.obtener_categorias()
+    
+    nuevo_menu = database.obtener_menu()
+    if nuevo_menu: # Solo actualizar si la lectura fue exitosa (no vacía)
+        st.session_state.menu_dinamico = nuevo_menu
+    elif "menu_dinamico" not in st.session_state:
+        st.session_state.menu_dinamico = {} # Default vacío inicial solo si no existía antes
+
+    nuevas_ordenes = database.obtener_ordenes()
+    if nuevas_ordenes:
+        st.session_state.historial_ordenes = nuevas_ordenes
+    elif "historial_ordenes" not in st.session_state:
+        st.session_state.historial_ordenes = []
+
+    nuevas_categorias = database.obtener_categorias()
+    if nuevas_categorias:
+        st.session_state.lista_categorias = ["Todos"] + nuevas_categorias
+    elif "lista_categorias" not in st.session_state:
+        st.session_state.lista_categorias = ["Todos"]
+        
     st.session_state["_forzar_recarga"] = False
 
 if "carrito" not in st.session_state:
