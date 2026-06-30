@@ -1213,7 +1213,7 @@ if es_admin:
     # ============================================================================
     # 14B. PANEL DE CONTROL DE ADMINISTRACIÓN - GESTIÓN DE MESAS Y RESERVAS
     # ============================================================================
-    if rol_actual in ["Dueño", "Mesero"]:
+    if rol_actual in ["Dueño", "Mesero", "Cajero", "Cocinero"]:
         st.markdown("### 🪑 GESTIÓN DE MESAS Y RESERVAS")
         
         col_mesas_admin, col_reservas_admin = st.columns(2)
