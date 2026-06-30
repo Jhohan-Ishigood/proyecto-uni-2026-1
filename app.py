@@ -309,6 +309,8 @@ def puede_editar(rol, seccion):
 # ============================================================================
 # Carga inicial de datos (solo una vez por sesión, o cuando se fuerza recarga)
 if "menu_dinamico" not in st.session_state or st.session_state.get("_forzar_recarga", False):
+    if st.session_state.get("_forzar_recarga", False):
+        st.cache_data.clear() # Limpiar caché local de Streamlit para traer datos frescos de GSheets
     st.session_state.menu_dinamico = database.obtener_menu()
     st.session_state.historial_ordenes = database.obtener_ordenes()
     st.session_state.lista_categorias = ["Todos"] + database.obtener_categorias()

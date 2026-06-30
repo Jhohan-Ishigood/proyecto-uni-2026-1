@@ -105,17 +105,20 @@ def inicializar_db(db_path=None):
         st.error(f"Error al inicializar Google Sheets (Verifica tus secrets y permisos de cuenta de servicio): {e}")
 
 
-def obtener_categorias(db_path=None):
-    """Obtiene la lista de todas las categorías reales desde Google Sheets."""
+@st.cache_data(ttl=60)
+def _obtener_categorias_cached():
     try:
         conn = get_connection()
-        df = conn.read(worksheet="categorias", ttl=TTL_LECTURA)
+        df = conn.read(worksheet="categorias", ttl=60)
         if df.empty or "nombre" not in df.columns:
             return []
         return df["nombre"].dropna().astype(str).tolist()
-    except Exception as e:
-        st.error(f"Error obteniendo categorías de GSheets: {e}")
+    except Exception:
         return ["Parrillas", "Hamburguesas", "Bebidas", "Combos"]
+
+def obtener_categorias(db_path=None):
+    """Obtiene la lista de todas las categorías reales desde Google Sheets."""
+    return _obtener_categorias_cached()
 
 def crear_categoria(db_path, nombre):
     """Crea una nueva categoría."""
@@ -154,8 +157,8 @@ def eliminar_categoria(db_path, nombre):
     except Exception as e:
         st.error(f"Error eliminando categoría en GSheets: {e}")
 
-def obtener_menu(db_path=None, ttl=TTL_LECTURA):
-    """Retorna los productos en un diccionario con la estructura original del menú dinámico."""
+@st.cache_data(ttl=60)
+def _obtener_menu_cached(ttl=60):
     try:
         conn = get_connection()
         df = conn.read(worksheet="productos", ttl=ttl)
@@ -184,9 +187,12 @@ def obtener_menu(db_path=None, ttl=TTL_LECTURA):
                 "categoria": categoria
             }
         return menu
-    except Exception as e:
-        st.error(f"Error obteniendo menú de GSheets: {e}")
+    except Exception:
         return {}
+
+def obtener_menu(db_path=None, ttl=TTL_LECTURA):
+    """Retorna los productos en un diccionario con la estructura original del menú dinámico."""
+    return _obtener_menu_cached(ttl=ttl)
 
 def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stock, categoria_nombre):
     """Crea o actualiza un producto en Google Sheets."""
@@ -243,8 +249,8 @@ def eliminar_producto(db_path, nombre):
         st.error(f"Error eliminando producto de GSheets: {e}")
         return False
 
-def obtener_ordenes(db_path=None, ttl=TTL_LECTURA):
-    """Retorna el historial completo de boletas/órdenes."""
+@st.cache_data(ttl=60)
+def _obtener_ordenes_cached(ttl=60):
     try:
         conn = get_connection()
         df = conn.read(worksheet="ordenes", ttl=ttl)
@@ -268,9 +274,12 @@ def obtener_ordenes(db_path=None, ttl=TTL_LECTURA):
                 "Usuario Email": _convertir_tipo(row.get("usuario_email"), "str", default="")
             })
         return ordenes
-    except Exception as e:
-        st.error(f"Error obtener_ordenes de GSheets: {e}")
+    except Exception:
         return []
+
+def obtener_ordenes(db_path=None, ttl=TTL_LECTURA):
+    """Retorna el historial completo de boletas/órdenes."""
+    return _obtener_ordenes_cached(ttl=ttl)
 
 def crear_orden(db_path, fecha_hora, nro_boleta, detalle_articulos, entrega, metodo_pago, total, usuario_email=""):
     """Inserta una nueva orden en el historial de Google Sheets."""
