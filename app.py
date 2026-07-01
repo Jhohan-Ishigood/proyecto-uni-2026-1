@@ -361,8 +361,6 @@ if "menu_dinamico" not in st.session_state or st.session_state.get("_forzar_reca
     
     st.session_state["_forzar_recarga"] = False
 
-    st.cache_data.clear()
-    
     st.session_state.carrito = []
 if "total_acumulado" not in st.session_state:
     st.session_state.total_acumulado = 0.0

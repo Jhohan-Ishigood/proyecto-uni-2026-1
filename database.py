@@ -2,13 +2,28 @@ import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 import datetime
+import time
 
 # Caché de lectura en segundos (evita sobrepasar la cuota de Google Sheets API)
-TTL_LECTURA = 600
+TTL_LECTURA = 300  # 5 minutos entre lecturas reales
 
 def get_connection():
     """Retorna la conexión a Google Sheets."""
     return st.connection("gsheets", type=GSheetsConnection)
+
+def _leer_con_reintento(conn, worksheet, ttl=TTL_LECTURA, reintentos=3):
+    """Lee una hoja con reintentos en caso de error 429 (cuota excedida)."""
+    for intento in range(reintentos):
+        try:
+            return conn.read(worksheet=worksheet, ttl=ttl)
+        except Exception as e:
+            error_str = str(e)
+            if "'code': 429" in error_str or "quota" in error_str.lower():
+                if intento < reintentos - 1:
+                    time.sleep(2)
+                    continue
+            raise
+    return pd.DataFrame()
 
 def _convertir_tipo(valor, tipo, default=None):
     """Función auxiliar para convertir tipos de datos de forma robusta."""
@@ -36,13 +51,11 @@ def _convertir_tipo(valor, tipo, default=None):
 def inicializar_db(db_path=None):
     """Verifica que las hojas necesarias existan en Google Sheets y las crea si no.
 
-    Si falla la conexión (permisos, red, etc.), lo muestra claramente en la interfaz
-    para que puedas diagnosticar.
+    NO lee ninguna hoja (para no consumir cuota de lectura): solo intenta crear
+    cada hoja con `create()` y silencia el error 'already exists'.
     """
     try:
         conn = get_connection()
-        hojas_necesarias = ["categorias", "productos", "ordenes", "calificaciones",
-                            "logs", "cupones", "usuarios", "mesas", "reservas", "alertas_salon"]
 
         FOTO_DEFECTO = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><path d='M8 14s1.5 2 4 2 4-2 4-2'></path><line x1='9' y1='9' x2='9.01' y2='9'></line><line x1='15' y1='9' x2='15.01' y2='9'></line></svg>"
 
@@ -70,35 +83,29 @@ def inicializar_db(db_path=None):
 
         for nombre_hoja, df_inicial in dfs_iniciales.items():
             try:
-                conn.read(worksheet=nombre_hoja, ttl=1)
+                conn.create(worksheet=nombre_hoja, data=df_inicial)
             except Exception as e:
-                msg = str(e).lower()
-                if "not found" in msg or "unable to parse" in msg or "does not exist" in msg:
-                    try:
-                        conn.create(worksheet=nombre_hoja, data=df_inicial)
-                        st.info(f"Hoja '{nombre_hoja}' creada automáticamente.")
-                    except Exception as e2:
-                        if "already exists" not in str(e2).lower():
-                            raise e2
+                if "already exists" in str(e).lower():
+                    pass
 
         st.session_state["_db_inicializada"] = True
     except Exception as e:
         st.error(f"ERROR DE CONEXIÓN con Google Sheets: {e}")
-        st.error("Posibles causas: (1) La cuenta de servicio no tiene acceso al spreadsheet. "
-                 "Abre el sheet y compártelo con: streamlit-gsheets@el-gran-bufalo-499616.iam.gserviceaccount.com "
-                 "(2) Revisa que el spreadsheet ID en secrets.toml sea correcto.")
+        st.error("Abre el sheet y compártelo con: streamlit-gsheets@el-gran-bufalo-499616.iam.gserviceaccount.com")
 
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=TTL_LECTURA)
 def _obtener_categorias_cached():
     try:
         conn = get_connection()
-        df = conn.read(worksheet="categorias", ttl=60)
+        df = _leer_con_reintento(conn, "categorias", ttl=TTL_LECTURA)
         if df.empty or "nombre" not in df.columns:
             return []
-        return df["nombre"].dropna().astype(str).tolist()
+        cats = df["nombre"].dropna().astype(str).tolist()
+        st.session_state["_cats_cache"] = cats
+        return cats
     except Exception:
-        return []
+        return st.session_state.get("_cats_cache", [])
 
 def obtener_categorias(db_path=None):
     """Obtiene la lista de todas las categorías reales desde Google Sheets."""
@@ -141,17 +148,15 @@ def eliminar_categoria(db_path, nombre):
     except Exception as e:
         st.error(f"Error eliminando categoría en GSheets: {e}")
 
-@st.cache_data(ttl=60)
-def _obtener_menu_cached(ttl=60):
+@st.cache_data(ttl=TTL_LECTURA)
+def _obtener_menu_cached(ttl=TTL_LECTURA):
     try:
         conn = get_connection()
-        df = conn.read(worksheet="productos", ttl=ttl)
+        df = _leer_con_reintento(conn, "productos", ttl=ttl)
         
-        # Normalizar nombres de columnas a minúsculas
         df.columns = [c.strip().lower() for c in df.columns]
         
         if df.empty or "nombre" not in df.columns:
-            st.warning(f"La hoja 'productos' está vacía o no tiene columna 'nombre'. Columnas encontradas: {list(df.columns)}")
             return {}
         
         menu = {}
@@ -160,25 +165,22 @@ def _obtener_menu_cached(ttl=60):
             if not nombre:
                 continue
             
-            precio = _convertir_tipo(row.get("precio"), "float", default=10.0)
-            icono = _convertir_tipo(row.get("icono"), "str", default="🍔")
-            disponible = _convertir_tipo(row.get("disponible"), "bool", default=True)
-            foto = _convertir_tipo(row.get("foto"), "str", default="")
-            stock = _convertir_tipo(row.get("stock"), "int", default=0)
-            categoria = _convertir_tipo(row.get("categoria"), "str", default="")
-            
             menu[nombre] = {
-                "precio": precio,
-                "icono": icono,
-                "disponible": disponible,
-                "foto": foto,
-                "stock": stock,
-                "categoria": categoria
+                "precio": _convertir_tipo(row.get("precio"), "float", default=10.0),
+                "icono": _convertir_tipo(row.get("icono"), "str", default="🍔"),
+                "disponible": _convertir_tipo(row.get("disponible"), "bool", default=True),
+                "foto": _convertir_tipo(row.get("foto"), "str", default=""),
+                "stock": _convertir_tipo(row.get("stock"), "int", default=0),
+                "categoria": _convertir_tipo(row.get("categoria"), "str", default="")
             }
-                
+        
+        st.session_state["_menu_cache"] = menu
         return menu
     except Exception as e:
-        st.error(f"Error leyendo hoja 'productos' de Google Sheets: {e}")
+        menu_previo = st.session_state.get("_menu_cache")
+        if menu_previo:
+            return menu_previo
+        st.error(f"Google Sheets no disponible (cuota excedida o error de red): {e}")
         return {}
 
 def obtener_menu(db_path=None, ttl=TTL_LECTURA):
@@ -186,13 +188,13 @@ def obtener_menu(db_path=None, ttl=TTL_LECTURA):
     return _obtener_menu_cached(ttl=ttl)
 
 def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stock, categoria_nombre):
-    """Crea o actualiza un producto DIRECTAMENTE en Google Sheets (sin respaldo local)."""
+    """Crea o actualiza un producto DIRECTAMENTE en Google Sheets."""
     nombre = nombre.strip()
     FOTO_DEFECTO = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><path d='M8 14s1.5 2 4 2 4-2 4-2'></path><line x1='9' y1='9' x2='9.01' y2='9'></line><line x1='15' y1='9' x2='15.01' y2='9'></line></svg>"
     
     try:
         conn = get_connection()
-        df = conn.read(worksheet="productos", ttl=1)
+        df = _leer_con_reintento(conn, "productos", ttl=1)
         df.columns = [c.strip().lower() for c in df.columns]
         
         if df.empty or "nombre" not in df.columns:
@@ -200,7 +202,6 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
             
         disponibilidad_val = 1 if disponible else 0
         
-        # Comparación case-insensitive
         df["nombre_norm"] = df["nombre"].astype(str).str.strip().str.lower()
         nombre_norm = nombre.lower()
         
@@ -231,11 +232,10 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
         df = df.drop(columns=["nombre_norm"], errors="ignore")
             
         conn.update(worksheet="productos", data=df)
-        conn.read(worksheet="productos", ttl=0)
         st.cache_data.clear()
         return True
     except Exception as e:
-        st.error(f"Error al guardar en Google Sheets: {e}. Verifica la conexión.")
+        st.error(f"Google Sheets no disponible: {e}")
         return False
 
 def eliminar_producto(db_path, nombre):
