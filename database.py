@@ -59,6 +59,23 @@ def _df_a_ordenes(df):
         })
     return ordenes
 
+def _df_a_cupones(df):
+    """Convierte un DataFrame de cupones a dict."""
+    if df.empty or "codigo" not in df.columns:
+        return {}
+    cupones = {}
+    for _, row in df.iterrows():
+        codigo = _convertir_tipo(row.get("codigo"), "str", default=None)
+        if not codigo:
+            continue
+        cupones[codigo] = {
+            "tipo": _convertir_tipo(row.get("tipo"), "str", default="monto"),
+            "valor": _convertir_tipo(row.get("valor"), "float", default=0.0),
+            "descripcion": _convertir_tipo(row.get("descripcion"), "str", default=""),
+            "activo": _convertir_tipo(row.get("activo"), "bool", default=True)
+        }
+    return cupones
+
 def cargar_datos_iniciales():
     """Lee TODOS los datos de Google Sheets UNA SOLA VEZ y los guarda en session state.
     Esta es la ÚNICA función que lee del sheet. Todo lo demás usa session state."""
@@ -73,6 +90,9 @@ def cargar_datos_iniciales():
 
         ordenes = _df_a_ordenes(conn.read(worksheet="ordenes"))
         st.session_state["_ordenes_store"] = ordenes
+
+        cupones = _df_a_cupones(conn.read(worksheet="cupones"))
+        st.session_state["_cupones_store"] = cupones
 
         st.session_state["_datos_cargados"] = True
     except Exception as e:
@@ -116,6 +136,10 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
         df.columns = [c.strip().lower() for c in df.columns]
         if df.empty or "nombre" not in df.columns:
             df = pd.DataFrame(columns=["nombre", "precio", "icono", "disponible", "foto", "stock", "categoria"])
+
+        for col in ["nombre", "icono", "foto", "categoria"]:
+            if col in df.columns:
+                df[col] = df[col].astype(object)
 
         disponibilidad_val = 1 if disponible else 0
         df["nombre_norm"] = df["nombre"].astype(str).str.strip().str.lower()
@@ -309,37 +333,26 @@ def registrar_log(db_path, fecha_hora, nivel, mensaje, detalle=""):
 
 # ─── CUPONES ────────────────────────────────────────────────────────
 
-def obtener_cupones(ttl=1):
-    try:
-        conn = get_connection()
-        df = conn.read(worksheet="cupones", ttl=ttl)
-        if df.empty or "codigo" not in df.columns:
-            return {}
-        cupones = {}
-        for _, row in df.iterrows():
-            codigo = _convertir_tipo(row.get("codigo"), "str", default=None)
-            if not codigo:
-                continue
-            cupones[codigo] = {
-                "tipo": _convertir_tipo(row.get("tipo"), "str", default="monto"),
-                "valor": _convertir_tipo(row.get("valor"), "float", default=0.0),
-                "descripcion": _convertir_tipo(row.get("descripcion"), "str", default=""),
-                "activo": _convertir_tipo(row.get("activo"), "bool", default=True)
-            }
-        return cupones
-    except Exception as e:
-        st.error(f"Google Sheets no disponible: {e}")
-        return {}
+def obtener_cupones(ttl=None):
+    return st.session_state.get("_cupones_store", {})
 
 def crear_cupon(codigo, tipo, valor, descripcion, activo=True):
+    codigo = codigo.strip().upper()
+    cupones = st.session_state.get("_cupones_store", {})
+    cupones[codigo] = {
+        "tipo": tipo, "valor": float(valor),
+        "descripcion": descripcion, "activo": bool(activo)
+    }
+    st.session_state["_cupones_store"] = cupones
+
     try:
         conn = get_connection()
         df = conn.read(worksheet="cupones", ttl=1)
         if df.empty or "codigo" not in df.columns:
             df = pd.DataFrame(columns=["codigo", "tipo", "valor", "descripcion", "activo"])
-        df = df[df["codigo"].astype(str).str.strip().str.upper() != codigo.strip().upper()]
+        df = df[df["codigo"].astype(str).str.strip().str.upper() != codigo]
         conn.update(worksheet="cupones", data=pd.concat([df, pd.DataFrame([{
-            "codigo": codigo.strip().upper(), "tipo": tipo, "valor": float(valor),
+            "codigo": codigo, "tipo": tipo, "valor": float(valor),
             "descripcion": descripcion, "activo": int(activo)
         }])], ignore_index=True))
         return True
@@ -348,22 +361,33 @@ def crear_cupon(codigo, tipo, valor, descripcion, activo=True):
         return False
 
 def eliminar_cupon(codigo):
+    codigo = codigo.strip().upper()
+    cupones = st.session_state.get("_cupones_store", {})
+    cupones.pop(codigo, None)
+    st.session_state["_cupones_store"] = cupones
+
     try:
         conn = get_connection()
         df = conn.read(worksheet="cupones", ttl=1)
         if not df.empty and "codigo" in df.columns:
-            conn.update(worksheet="cupones", data=df[df["codigo"].astype(str).str.strip().str.upper() != codigo.strip().upper()])
+            conn.update(worksheet="cupones", data=df[df["codigo"].astype(str).str.strip().str.upper() != codigo])
         return True
     except Exception as e:
         st.error(f"Google Sheets no disponible: {e}")
         return False
 
 def actualizar_estado_cupon(codigo, activo):
+    codigo = codigo.strip().upper()
+    cupones = st.session_state.get("_cupones_store", {})
+    if codigo in cupones:
+        cupones[codigo]["activo"] = bool(activo)
+        st.session_state["_cupones_store"] = cupones
+
     try:
         conn = get_connection()
         df = conn.read(worksheet="cupones", ttl=1)
         if not df.empty and "codigo" in df.columns:
-            mask = df["codigo"].astype(str).str.strip().str.upper() == codigo.strip().upper()
+            mask = df["codigo"].astype(str).str.strip().str.upper() == codigo
             if mask.any():
                 df.loc[mask, "activo"] = int(activo)
                 conn.update(worksheet="cupones", data=df)

@@ -192,7 +192,7 @@ def calcular_descuento(codigo, subtotal, costo_delivery, total_items):
     if not codigo_normalizado:
         return 0.0, ""
 
-    cupones_db = database.obtener_cupones(ttl=database.TTL_LECTURA)
+    cupones_db = database.obtener_cupones()
     cupon = cupones_db.get(codigo_normalizado)
     if not cupon:
         return 0.0, "Código de cupón no válido."
@@ -1396,7 +1396,7 @@ if es_admin:
                     st.error("Ingrese código y valor mayor a 0.")
                     
             st.markdown("#### Cupones Actuales")
-            cupones_db = database.obtener_cupones(ttl=database.TTL_LECTURA)
+            cupones_db = database.obtener_cupones()
             if cupones_db:
                 for cod, datos in cupones_db.items():
                     col_c1, col_c2, col_c3, col_c4 = st.columns([2, 3, 1, 1])
@@ -2372,7 +2372,7 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
             if db_user and int(db_user.get("compras_realizadas", 0)) == 0:
                 nombre_pila = db_user.get("nombre", "").split(" ")[0].upper()
                 cupon_bienvenida = f"BIENVENIDO-{nombre_pila}"
-                cupones_bd = database.obtener_cupones(ttl=database.TTL_LECTURA)
+                cupones_bd = database.obtener_cupones()
                 if cupon_bienvenida in cupones_bd and cupones_bd[cupon_bienvenida]["activo"]:
                     valor_cupon_defecto = cupon_bienvenida
                     st.session_state.cupon_aplicado = cupon_bienvenida
