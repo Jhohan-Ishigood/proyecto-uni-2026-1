@@ -284,7 +284,7 @@ def convertir_imagen_a_base64(archivo_foto, max_dimension=400, calidad=70):
 
 @st.cache_data(show_spinner=False)
 def obtener_src_foto(ruta_foto):
-    """Convierte una ruta de imagen local a Base64 o la retorna tal cual si es una URL/data URL. Almacenada en caché para extrema velocidad."""
+    """Convierte cualquier fuente de imagen (URL, archivo local, data URL) a Base64 data URL para renderizado confiable."""
     PLACEHOLDER_SVG = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='8.5' cy='8.5' r='1.5'/><polyline points='21 15 16 10 5 21'/></svg>"
     
     if not ruta_foto:
@@ -294,9 +294,26 @@ def obtener_src_foto(ruta_foto):
     if ruta_foto.startswith("data:image/"):
         return ruta_foto
     
-    # Es una URL de Internet (Unsplash, etc.) — el navegador la carga directo
+    # Es una URL de Internet — descargar en el servidor y convertir a Base64
+    # (retornar la URL directa NO funciona en Streamlit Cloud por CSP)
     if ruta_foto.startswith("http://") or ruta_foto.startswith("https://"):
-        return ruta_foto
+        try:
+            import urllib.request
+            req = urllib.request.Request(ruta_foto, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as response:
+                img_data = response.read()
+            img = Image.open(BytesIO(img_data))
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            img.thumbnail((500, 500), Image.Resampling.LANCZOS)
+            buffer = BytesIO()
+            img.save(buffer, format="JPEG", quality=75, optimize=True)
+            buffer.seek(0)
+            encoded = base64.b64encode(buffer.read()).decode("utf-8")
+            return f"data:image/jpeg;base64,{encoded}"
+        except Exception as e:
+            print(f"Error descargando imagen URL {ruta_foto}: {e}")
+            return PLACEHOLDER_SVG
         
     # Es una ruta de archivo local — convertir a Base64
     if os.path.exists(ruta_foto):
