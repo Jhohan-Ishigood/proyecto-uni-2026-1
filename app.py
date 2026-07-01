@@ -2057,22 +2057,7 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
             </div>
             """, unsafe_allow_html=True)
             
-            # Panel de solicitudes para llamar al Mesero / Cuenta
-            col_llamar_m, col_llamar_c = st.columns(2)
-            with col_llamar_m:
-                if st.button("🙋‍♂️ LLAMAR AL MESERO", use_container_width=True, key="btn_llamar_mesero_salon"):
-                    exito_alert = database.crear_alerta_salon(cli_mesa, cli_nom, "Llamado a Mesero")
-                    if exito_alert:
-                        st.success("🔔 Llamando al mesero. En breve se acercarán a tu mesa.")
-                    else:
-                        st.error("Error al enviar llamada. Intente de nuevo.")
-            with col_llamar_c:
-                if st.button("💳 SOLICITAR LA CUENTA", use_container_width=True, key="btn_pedir_cuenta_salon"):
-                    exito_alert = database.crear_alerta_salon(cli_mesa, cli_nom, "Pedir la Cuenta")
-                    if exito_alert:
-                        st.warning("💵 Cuenta solicitada. El cajero/mesero traerá el comprobante.")
-                    else:
-                        st.error("Error al enviar llamada. Intente de nuevo.")
+
             
         st.markdown("\n<h2 class='titulo-principal'>🔥 CARNES & BYTES — Tu gusto, nuestra meta</h2>", unsafe_allow_html=True)
         st.text(f"Fecha y hora oficial de Perú (GMT-5): {fecha_actual}\n")
