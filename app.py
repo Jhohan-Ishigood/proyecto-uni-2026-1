@@ -461,47 +461,51 @@ fecha_actual = ahora_peru.strftime("%d/%m/%Y %H:%M:%S")
 servicio_abierto = True
 
 # ============================================================================
-# 4. MOTOR DE ANALÍTICA COMERCIAL Y PROCESAMIENTO DE KPI'S
+# 4. MOTOR DE ANALÍTICA COMERCIAL Y PROCESAMIENTO DE KPI'S (cacheado)
 # ============================================================================
-total_caja = 0.0
-total_pedidos = len(st.session_state.historial_ordenes)
+if "kpi_ordenes_count" not in st.session_state or \
+   st.session_state.kpi_ordenes_count != len(st.session_state.historial_ordenes) or \
+   st.session_state.kpi_menu_hash != hash(tuple(st.session_state.menu_dinamico.keys())):
+    total_caja = 0.0
+    conteos_productos = {prod: 0 for prod in st.session_state.menu_dinamico.keys()}
+    metodos_pagos = {"Efectivo": 0.0, "Yape": 0.0, "Tarjeta": 0.0}
+    for orden in st.session_state.historial_ordenes:
+        try:
+            total_str = str(orden.get("Total", "0")).replace("S/", "").strip()
+            monto_num = float(total_str) if total_str and total_str != "nan" else 0.0
+            total_caja += monto_num
+            if orden["Método Pago"] in metodos_pagos:
+                metodos_pagos[orden["Método Pago"]] += monto_num
+            detalle = orden["Detalle Artículos"]
+            for parte in detalle.split(", "):
+                for prod in conteos_productos.keys():
+                    if f"x {prod}" in parte or parte.endswith(prod):
+                        try:
+                            conteos_productos[prod] += int(parte.split("x")[0].strip())
+                        except (ValueError, IndexError):
+                            pass
+        except Exception:
+            pass
+    st.session_state.kpi_total_caja = total_caja
+    st.session_state.kpi_conteos = conteos_productos
+    st.session_state.kpi_metodos = metodos_pagos
+    st.session_state.kpi_ordenes_count = len(st.session_state.historial_ordenes)
+    st.session_state.kpi_menu_hash = hash(tuple(st.session_state.menu_dinamico.keys()))
+total_caja = st.session_state.kpi_total_caja
+conteos_productos = st.session_state.kpi_conteos
+metodos_pagos = st.session_state.kpi_metodos
+total_pedidos = st.session_state.kpi_ordenes_count
 
-# Estructuras limpias para contabilidad y conteo de inventario vendido
-conteos_productos = {prod: 0 for prod in st.session_state.menu_dinamico.keys()}
-metodos_pagos = {"Efectivo": 0.0, "Yape": 0.0, "Tarjeta": 0.0}
-
-# Procesamiento del historial de transacciones en la base de datos JSON
-for orden in st.session_state.historial_ordenes:
-    try:
-        total_str = str(orden.get("Total", "0")).replace("S/", "").strip()
-        monto_num = float(total_str) if total_str and total_str != "nan" else 0.0
-        total_caja += monto_num
-        
-        if orden["Método Pago"] in metodos_pagos:
-            metodos_pagos[orden["Método Pago"]] += monto_num
-            
-        detalle = orden["Detalle Artículos"]
-        partes = detalle.split(", ")
-        for parte in partes:
-            for prod in conteos_productos.keys():
-                if f"x {prod}" in parte or parte.endswith(prod):
-                    try:
-                        cant_txt = parte.split("x")[0].strip()
-                        conteos_productos[prod] += int(cant_txt)
-                    except (ValueError, IndexError):
-                        pass
-    except Exception:
-        pass  # Evita que una orden corrupta detenga el software
-
-# Generación del número correlativo automático para la siguiente boleta
 st.session_state.numero_boleta = generar_numero_boleta(st.session_state.historial_ordenes)
 # ============================================================================
-def load_css():
-    with open(RUTA_CSS, "r", encoding="utf-8") as f:
-        return f.read()
-
-if os.path.exists(RUTA_CSS):
-    st.markdown(f"<style>{load_css()}</style>", unsafe_allow_html=True)
+if "_css" not in st.session_state:
+    if os.path.exists(RUTA_CSS):
+        with open(RUTA_CSS, "r", encoding="utf-8") as f:
+            st.session_state["_css"] = f.read()
+    else:
+        st.session_state["_css"] = ""
+if st.session_state["_css"]:
+    st.markdown(f"<style>{st.session_state['_css']}</style>", unsafe_allow_html=True)
 
 # Inyección limpia del sello de creador adaptado al flujo estructural
 st.markdown("<div class='sello-creador'>Pagina elaborada por el grupo 5 😎</div>", unsafe_allow_html=True)
@@ -898,7 +902,7 @@ if es_admin:
         st.toast("🔥 ¡NUEVO PEDIDO RECIBIDO EN COCINA! 🔥", icon="🔔")
 
     # 2. Alerta por llamados activos de clientes en mesa
-    alertas_activas = database.obtener_alertas(ttl=2)
+    alertas_activas = database.obtener_alertas()
     if "conteo_alertas_previo" not in st.session_state:
         st.session_state.conteo_alertas_previo = len(alertas_activas)
         

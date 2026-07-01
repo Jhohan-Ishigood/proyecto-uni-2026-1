@@ -168,13 +168,12 @@ def obtener_categorias(db_path=None):
 
 def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stock, categoria_nombre):
     nombre = nombre.strip()
-    FOTO_DEFECTO = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><path d='M8 14s1.5 2 4 2 4-2 4-2'></path><line x1='9' y1='9' x2='9.01' y2='9'></line><line x1='15' y1='9' x2='15.01' y2='9'></line></svg>"
     menu = st.session_state.get("_menu_store", {})
     menu[nombre] = {
         "precio": _convertir_tipo(precio, "float", default=10.0),
         "icono": _convertir_tipo(icono, "str", default="🍔"),
         "disponible": bool(disponible),
-        "foto": foto_ruta or FOTO_DEFECTO,
+        "foto": foto_ruta or "",
         "stock": _convertir_tipo(stock, "int", default=0),
         "categoria": _convertir_tipo(categoria_nombre, "str", default="")
     }
@@ -455,12 +454,19 @@ def eliminar_reserva(id_reserva):
 
 # ─── ALERTAS SALÓN ──────────────────────────────────────────────────
 
-def obtener_alertas(ttl=5):
+def obtener_alertas(ttl=None):
+    ahora = time.time()
+    ultima = st.session_state.get("_alertas_ts", 0)
+    if ahora - ultima < 5:
+        return st.session_state.get("_alertas_cache", [])
     try:
-        df = _leer_sheet("alertas_salon", ttl=ttl)
-        return [] if df.empty or "nro_mesa" not in df.columns else df.to_dict(orient="records")
+        df = _leer_sheet("alertas_salon", ttl=0)
+        alertas = [] if df.empty or "nro_mesa" not in df.columns else df.to_dict(orient="records")
+        st.session_state["_alertas_cache"] = alertas
+        st.session_state["_alertas_ts"] = ahora
+        return alertas
     except Exception:
-        return []
+        return st.session_state.get("_alertas_cache", [])
 
 def crear_alerta_salon(nro_mesa, cliente_nombre, tipo_alerta):
     try:
