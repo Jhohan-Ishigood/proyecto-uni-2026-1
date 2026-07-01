@@ -1301,7 +1301,7 @@ if es_admin:
                             pass
                             
                     if foto_preview_izq:
-                        st.markdown(f"""<img src="{foto_preview_izq}" style="width:100%; height:120px; object-fit:cover; border-radius:6px; margin-bottom:10px; border: 1px solid #444;">""", unsafe_allow_html=True)
+                        st.image(foto_preview_izq, use_container_width=True)
                     
                     # Selector dinámico de secciones para reasignar categorías en caliente
                     cats_izq = [c for c in st.session_state.lista_categorias if c != "Todos"]
@@ -1354,7 +1354,7 @@ if es_admin:
                                 pass
                                 
                         if foto_preview_der:
-                            st.markdown(f"""<img src="{foto_preview_der}" style="width:100%; height:120px; object-fit:cover; border-radius:6px; margin-bottom:10px; border: 1px solid #444;">""", unsafe_allow_html=True)
+                            st.image(foto_preview_der, use_container_width=True)
                         
                         # Selector dinámico de secciones para la columna derecha
                         cats_der = [c for c in st.session_state.lista_categorias if c != "Todos"]
@@ -2195,11 +2195,7 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                     url_imagen_plato = info.get("foto", "")
                     src_imagen_plato = obtener_src_foto(url_imagen_plato)
                     is_fav = prod in st.session_state.favoritos
-                    st.markdown(f"""
-                        <div style="position:relative;">
-                            <img src="{src_imagen_plato}" style="width:100%; height:200px; object-fit:cover; border-radius:12px 12px 0px 0px; box-shadow: 0px 4px 12px rgba(0,0,0,0.6); display:block; margin:0; padding:0;">
-                        </div>
-                    """, unsafe_allow_html=True)
+                    st.image(src_imagen_plato, use_container_width=True)
                     
                     nuevo_fav = st.checkbox("❤️ Favorito", value=is_fav, key=f"fav_{prod}")
                     if nuevo_fav != is_fav:
