@@ -1391,26 +1391,48 @@ if es_admin:
                 st.rerun()
     
         if st.button("💾 CONFIRMAR Y SINCRONIZAR CAMBIOS DE LA CARTA", use_container_width=True, disabled=not _editar_carta3):
-            # Sincronizamos los cambios al almacenamiento de Google Sheets
-            todos_guardados = True
-            for prod_key, info_actualizada in cambios_detectados.items():
-                archivo_subido = st.session_state.get(f"f_up_{prod_key}")
-                ruta_foto = convertir_imagen_a_base64(archivo_subido)
+            # Leer el DataFrame de productos UNA SOLA VEZ antes del loop
+            try:
+                conn = database.get_connection()
+                df_productos = conn.read(worksheet="productos", ttl=1)
+                if df_productos.empty or "nombre" not in df_productos.columns:
+                    df_productos = pd.DataFrame(columns=["nombre", "precio", "icono", "disponible", "foto", "stock", "categoria"])
+                
+                for prod_key, info_actualizada in cambios_detectados.items():
+                    archivo_subido = st.session_state.get(f"f_up_{prod_key}")
+                    ruta_foto = convertir_imagen_a_base64(archivo_subido)
                     
-                todos_guardados = database.guardar_producto(
-                    db_path=None,
-                    nombre=prod_key,
-                    precio=info_actualizada["precio"],
-                    icono=info_actualizada["icono"],
-                    disponible=info_actualizada["disponible"],
-                    foto_ruta=ruta_foto,
-                    stock=info_actualizada["stock"],
-                    categoria_nombre=info_actualizada["categoria"]
-                ) and todos_guardados
-            if todos_guardados:
+                    disponibilidad_val = 1 if info_actualizada["disponible"] else 0
+                    
+                    if prod_key in df_productos["nombre"].astype(str).values:
+                        idx = df_productos[df_productos["nombre"].astype(str) == prod_key].index[0]
+                        df_productos.at[idx, "precio"] = float(info_actualizada["precio"])
+                        df_productos.at[idx, "icono"] = info_actualizada["icono"]
+                        df_productos.at[idx, "disponible"] = disponibilidad_val
+                        df_productos.at[idx, "stock"] = int(info_actualizada["stock"])
+                        df_productos.at[idx, "categoria"] = info_actualizada["categoria"]
+                        if ruta_foto:
+                            df_productos.at[idx, "foto"] = ruta_foto
+                    else:
+                        new_row = pd.DataFrame([{
+                            "nombre": prod_key,
+                            "precio": float(info_actualizada["precio"]),
+                            "icono": info_actualizada["icono"],
+                            "disponible": disponibilidad_val,
+                            "foto": ruta_foto or "",
+                            "stock": int(info_actualizada["stock"]),
+                            "categoria": info_actualizada["categoria"]
+                        }])
+                        df_productos = pd.concat([df_productos, new_row], ignore_index=True)
+                
+                # Escribir al Excel UNA SOLA VEZ con TODOS los cambios aplicados
+                conn.update(worksheet="productos", data=df_productos)
+                st.cache_data.clear()
                 st.success("✔ ¡Cambios guardados físicamente con éxito!")
                 st.session_state["_forzar_recarga"] = True
                 st.rerun()
+            except Exception as e:
+                st.error(f"⚠️ Error al guardar cambios: {e}")
 
     # ============================================================================
     # 12.5 PANEL DE CONTROL DE ADMINISTRACIÓN - GESTIÓN DE CUPONES
