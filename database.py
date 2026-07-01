@@ -337,80 +337,11 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
             }])
             df = pd.concat([df, new_row], ignore_index=True)
             
-        try:
-            conn.update(worksheet="productos", data=df)
-            st.cache_data.clear()
-        except Exception as e_sheets:
-            # Fallback en archivo local en disco en caso de error 429
-            import json, os
-            prod_resp_path = "productos_respaldo.json"
-            
-            # Cargar respaldos locales existentes
-            locales_dict = {}
-            if os.path.exists(prod_resp_path):
-                try:
-                    with open(prod_resp_path, "r", encoding="utf-8") as f:
-                        locales_dict = json.load(f)
-                except Exception:
-                    pass
-            
-            # Registrar o actualizar el producto local
-            final_foto = foto_ruta if foto_ruta else ("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><path d='M8 14s1.5 2 4 2 4-2 4-2'></path><line x1='9' y1='9' x2='9.01' y2='9'></line><line x1='15' y1='9' x2='15.01' y2='9'></line></svg>")
-            
-            locales_dict[nombre] = {
-                "precio": float(precio),
-                "icono": str(icono or "🍔"),
-                "disponible": bool(disponible),
-                "foto": final_foto,
-                "stock": int(stock),
-                "categoria": str(categoria_nombre or "")
-            }
-            
-            try:
-                with open(prod_resp_path, "w", encoding="utf-8") as f:
-                    json.dump(locales_dict, f, indent=4, ensure_ascii=False)
-            except Exception:
-                pass
-                
-            # Actualizar también de inmediato en la sesión del administrador
-            if "menu_dinamico" in st.session_state:
-                st.session_state.menu_dinamico[nombre] = locales_dict[nombre]
-                
-            st.cache_data.clear()
-            
-        return True
-    except Exception as e:
-        # Fallback de emergencia si ni siquiera pudimos armar el dataframe
-        import json, os
-        prod_resp_path = "productos_respaldo.json"
-        locales_dict = {}
-        if os.path.exists(prod_resp_path):
-            try:
-                with open(prod_resp_path, "r", encoding="utf-8") as f_err:
-                    locales_dict = json.load(f_err)
-            except Exception:
-                pass
-        
-        final_foto = foto_ruta if foto_ruta else "🍔"
-        locales_dict[nombre] = {
-            "precio": float(precio),
-            "icono": str(icono or "🍔"),
-            "disponible": bool(disponible),
-            "foto": final_foto,
-            "stock": int(stock),
-            "categoria": str(categoria_nombre or "")
-        }
-        try:
-            with open(prod_resp_path, "w", encoding="utf-8") as f_err:
-                json.dump(locales_dict, f_err, indent=4, ensure_ascii=False)
-        except Exception:
-            pass
-            
-        if "menu_dinamico" in st.session_state:
-            st.session_state.menu_dinamico[nombre] = locales_dict[nombre]
-            
+        conn.update(worksheet="productos", data=df)
         st.cache_data.clear()
         return True
+    except Exception as e:
+        raise e
 
 def eliminar_producto(db_path, nombre):
     """Elimina un producto por su nombre."""
