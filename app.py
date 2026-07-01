@@ -284,19 +284,23 @@ def convertir_imagen_a_base64(archivo_foto, max_dimension=400, calidad=70):
 
 @st.cache_data(show_spinner=False)
 def obtener_src_foto(ruta_foto):
-    """Convierte cualquier fuente de imagen (URL, archivo local, data URL) a Base64 data URL para renderizado confiable."""
-    PLACEHOLDER_SVG = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='8.5' cy='8.5' r='1.5'/><polyline points='21 15 16 10 5 21'/></svg>"
+    """Convierte cualquier fuente de imagen (URL, archivo local, data URL) a bytes binarios para que st.image la renderice perfectamente."""
+    # Imagen de respaldo de 1x1 px transparente por defecto
+    PLACEHOLDER_BYTES = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82'
     
     if not ruta_foto:
-        return PLACEHOLDER_SVG
+        return PLACEHOLDER_BYTES
     
-    # Ya es una data URL en Base64 — retornar directo
-    if ruta_foto.startswith("data:image/"):
-        return ruta_foto
+    # Si ya es una data URL en Base64 — decodificar a bytes
+    if str(ruta_foto).startswith("data:image/"):
+        try:
+            header, data = ruta_foto.split(",", 1)
+            return base64.b64decode(data)
+        except Exception:
+            return PLACEHOLDER_BYTES
     
-    # Es una URL de Internet — descargar en el servidor y convertir a Base64
-    # (retornar la URL directa NO funciona en Streamlit Cloud por CSP)
-    if ruta_foto.startswith("http://") or ruta_foto.startswith("https://"):
+    # Es una URL de Internet — descargar en el servidor y retornar bytes
+    if str(ruta_foto).startswith("http://") or str(ruta_foto).startswith("https://"):
         try:
             import urllib.request
             req = urllib.request.Request(ruta_foto, headers={"User-Agent": "Mozilla/5.0"})
@@ -308,14 +312,12 @@ def obtener_src_foto(ruta_foto):
             img.thumbnail((500, 500), Image.Resampling.LANCZOS)
             buffer = BytesIO()
             img.save(buffer, format="JPEG", quality=75, optimize=True)
-            buffer.seek(0)
-            encoded = base64.b64encode(buffer.read()).decode("utf-8")
-            return f"data:image/jpeg;base64,{encoded}"
+            return buffer.getvalue()
         except Exception as e:
             print(f"Error descargando imagen URL {ruta_foto}: {e}")
-            return PLACEHOLDER_SVG
+            return PLACEHOLDER_BYTES
         
-    # Es una ruta de archivo local — convertir a Base64
+    # Es una ruta de archivo local — leer y retornar bytes
     if os.path.exists(ruta_foto):
         ruta_completa = ruta_foto
     else:
@@ -323,17 +325,12 @@ def obtener_src_foto(ruta_foto):
     
     if os.path.exists(ruta_completa):
         try:
-            _, ext = os.path.splitext(ruta_completa)
-            ext = ext.lower().replace(".", "")
-            if ext == "jpg":
-                ext = "jpeg"
             with open(ruta_completa, "rb") as f:
-                encoded = base64.b64encode(f.read()).decode()
-            return f"data:image/{ext};base64,{encoded}"
+                return f.read()
         except Exception as e:
-            print(f"Error codificando imagen {ruta_completa}: {e}")
+            print(f"Error leyendo imagen local {ruta_completa}: {e}")
             
-    return PLACEHOLDER_SVG
+    return PLACEHOLDER_BYTES
 
 def _get_perm(rol, seccion):
     """Devuelve el nivel de permiso: 'oculto', 'ver', o 'editar'."""
