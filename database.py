@@ -311,11 +311,32 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
         st.cache_data.clear()
         return True
     except Exception as e:
-        raise e
-            
+        # Fallback local si Google Sheets falla (cuota 429, etc.)
+        import json, os
+        prod_resp_path = "productos_respaldo.json"
+        respaldo = {}
+        if os.path.exists(prod_resp_path):
+            try:
+                with open(prod_resp_path, "r", encoding="utf-8") as f:
+                    respaldo = json.load(f)
+            except Exception:
+                pass
+        respaldo[nombre] = {
+            "precio": _convertir_tipo(precio, "float", default=10.0),
+            "icono": _convertir_tipo(icono, "str", default="🍔"),
+            "disponible": bool(disponible),
+            "foto": foto_ruta or "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><path d='M8 14s1.5 2 4 2 4-2 4-2'></path><line x1='9' y1='9' x2='9.01' y2='9'></line><line x1='15' y1='9' x2='15.01' y2='9'></line></svg>",
+            "stock": _convertir_tipo(stock, "int", default=0),
+            "categoria": _convertir_tipo(categoria_nombre, "str", default="")
+        }
+        try:
+            with open(prod_resp_path, "w", encoding="utf-8") as f:
+                json.dump(respaldo, f, indent=4, ensure_ascii=False)
+        except Exception:
+            pass
+        
         if "menu_dinamico" in st.session_state:
-            st.session_state.menu_dinamico[nombre] = locales_dict[nombre]
-            
+            st.session_state.menu_dinamico[nombre] = respaldo[nombre]
         st.cache_data.clear()
         st.toast("⚠️ Conexión saturada: El producto se ha guardado localmente.", icon="💾")
         return True

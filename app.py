@@ -14,11 +14,11 @@ import streamlit.components.v1 as components
 import re
 import unicodedata
 from urllib.parse import quote
+import urllib.parse
 import importlib
 import database
 importlib.reload(database)
 import requests
-import urllib.parse
 
 # Configuración inicial del lienzo responsivo de la aplicación
 st.set_page_config(
@@ -357,7 +357,6 @@ if "menu_dinamico" not in st.session_state or st.session_state.get("_forzar_reca
     st.session_state["_forzar_recarga"] = False
 
     # Limpieza de respaldos locales obsoletos e invalidar caché para forzar carga fresca del Excel
-    import os
     if os.path.exists("productos_respaldo.json"):
         try:
             os.remove("productos_respaldo.json")
@@ -1454,7 +1453,7 @@ if es_admin:
             st.markdown(f"<div style='background-color:#151515;padding:20px;border-radius:8px;border-left:5px solid #d35400;box-shadow:0px 4px 10px rgba(0,0,0,0.3);'><p style='margin:0;font-size:14px;color:#aaa;font-weight:bold;'>🎯 TICKET PROMEDIO</p><h2 style='margin:5px 0 0 0;color:#fff;font-size:32px;'>S/{ticket_promedio:.2f}</h2></div>", unsafe_allow_html=True)
         
         # Hora pico
-        horas_pedidos: "dict[str, int]" = {}
+        horas_pedidos: dict = {}
         for orden in st.session_state.historial_ordenes:
             try:
                 hora = orden.get('Fecha y Hora', '').split(' ')[1].split(':')[0]
@@ -1661,7 +1660,6 @@ if es_admin:
                     
                     # Formatear el teléfono limpio quitando decimales (.0)
                     clean_tel = str(r_tel).split(".")[0].strip()
-                    import urllib.parse
                     mensaje_wa = f"Hola {r_nombre}, te escribimos de Carnes & Bytes sobre tu reserva #{r_id} de la Mesa {r_mesa} para el día {r_fecha} a las {r_hora}."
                     mensaje_encoded = urllib.parse.quote(mensaje_wa)
                     wa_url = f"https://wa.me/51{clean_tel}?text={mensaje_encoded}"
