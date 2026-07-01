@@ -33,79 +33,60 @@ def _convertir_tipo(valor, tipo, default=None):
     
     return default
 
-def _hoja_existe(conn, nombre):
-    """Retorna True si la hoja ya existe en el spreadsheet."""
-    try:
-        df = conn.read(worksheet=nombre, ttl=1)
-        return True  # lectura exitosa → hoja existe
-    except Exception as e:
-        msg = str(e).lower()
-        # Si el error es por hoja no encontrada, no existe
-        if "not found" in msg or "unable to parse" in msg or "does not exist" in msg:
-            return False
-        # Cualquier otro error (permisos, red, etc.) asumimos que existe para no borrar datos
-        return True
-
-def _asegurar_hoja(conn, nombre, df_inicial):
-    """Crea la hoja solo si no existe; silencia el error si ya existe."""
-    if _hoja_existe(conn, nombre):
-        return
-    try:
-        conn.create(worksheet=nombre, data=df_inicial)
-    except Exception as e:
-        msg = str(e).lower()
-        if "already exists" in msg:
-            pass  # ya existe, todo bien
-        else:
-            raise  # re-lanzar errores reales
-
 def inicializar_db(db_path=None):
-    """Crea las hojas necesarias en Google Sheets si no existen. Solo se ejecuta una vez por sesión."""
+    """Verifica que las hojas necesarias existan en Google Sheets y las crea si no.
+
+    Si falla la conexión (permisos, red, etc.), lo muestra claramente en la interfaz
+    para que puedas diagnosticar.
+    """
     try:
         conn = get_connection()
-        
+        hojas_necesarias = ["categorias", "productos", "ordenes", "calificaciones",
+                            "logs", "cupones", "usuarios", "mesas", "reservas", "alertas_salon"]
+
         FOTO_DEFECTO = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><path d='M8 14s1.5 2 4 2 4-2 4-2'></path><line x1='9' y1='9' x2='9.01' y2='9'></line><line x1='15' y1='9' x2='15.01' y2='9'></line></svg>"
-        
-        _asegurar_hoja(conn, "categorias",
-            pd.DataFrame({"nombre": ["Parrillas", "Hamburguesas", "Bebidas", "Combos"]}))
 
-        _asegurar_hoja(conn, "productos", pd.DataFrame([
-            {"nombre": "Hamburguesa", "precio": 18.0, "icono": "🍔", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 15, "categoria": "Hamburguesas"},
-            {"nombre": "Carne a la parrilla", "precio": 35.0, "icono": "🥩", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 10, "categoria": "Parrillas"},
-            {"nombre": "Jugo", "precio": 6.0, "icono": "🥤", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 20, "categoria": "Bebidas"},
-            {"nombre": "Combo Buffalo", "precio": 25.0, "icono": "🎁", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 8, "categoria": "Combos"}
-        ]))
+        dfs_iniciales = {
+            "categorias": pd.DataFrame({"nombre": ["Parrillas", "Hamburguesas", "Bebidas", "Combos"]}),
+            "productos": pd.DataFrame([
+                {"nombre": "Hamburguesa", "precio": 18.0, "icono": "🍔", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 15, "categoria": "Hamburguesas"},
+                {"nombre": "Carne a la parrilla", "precio": 35.0, "icono": "🥩", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 10, "categoria": "Parrillas"},
+                {"nombre": "Jugo", "precio": 6.0, "icono": "🥤", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 20, "categoria": "Bebidas"},
+                {"nombre": "Combo Buffalo", "precio": 25.0, "icono": "🎁", "disponible": 1, "foto": FOTO_DEFECTO, "stock": 8, "categoria": "Combos"}
+            ]),
+            "ordenes": pd.DataFrame(columns=["fecha_hora", "nro_boleta", "detalle_articulos", "entrega", "metodo_pago", "total", "usuario_email"]),
+            "calificaciones": pd.DataFrame(columns=["fecha_hora", "nro_boleta", "calificacion", "comentario"]),
+            "logs": pd.DataFrame(columns=["fecha_hora", "nivel", "mensaje", "detalle"]),
+            "cupones": pd.DataFrame([
+                {"codigo": "BUFFALO10", "tipo": "porcentaje", "valor": 0.10, "descripcion": "10% de descuento", "activo": 1},
+                {"codigo": "DELIVERYFREE", "tipo": "delivery", "valor": 6.0, "descripcion": "Delivery gratis", "activo": 1},
+                {"codigo": "COMBO5", "tipo": "monto", "valor": 5.0, "descripcion": "S/5.00 de descuento", "activo": 1}
+            ]),
+            "usuarios": pd.DataFrame(columns=["email", "nombre", "foto", "compras_realizadas", "fecha_registro"]),
+            "mesas": pd.DataFrame([{"nro_mesa": i, "estado": "disponible"} for i in range(1, 21)]),
+            "reservas": pd.DataFrame(columns=["id", "email", "nombre", "nro_mesa", "fecha", "hora", "datos_contacto", "personas", "nombres_invitados"]),
+            "alertas_salon": pd.DataFrame(columns=["fecha_hora", "nro_mesa", "cliente_nombre", "tipo_alerta", "atendido"])
+        }
 
-        _asegurar_hoja(conn, "ordenes",
-            pd.DataFrame(columns=["fecha_hora", "nro_boleta", "detalle_articulos", "entrega", "metodo_pago", "total", "usuario_email"]))
-
-        _asegurar_hoja(conn, "calificaciones",
-            pd.DataFrame(columns=["fecha_hora", "nro_boleta", "calificacion", "comentario"]))
-
-        _asegurar_hoja(conn, "logs",
-            pd.DataFrame(columns=["fecha_hora", "nivel", "mensaje", "detalle"]))
-
-        _asegurar_hoja(conn, "cupones", pd.DataFrame([
-            {"codigo": "BUFFALO10", "tipo": "porcentaje", "valor": 0.10, "descripcion": "10% de descuento", "activo": 1},
-            {"codigo": "DELIVERYFREE", "tipo": "delivery", "valor": 6.0, "descripcion": "Delivery gratis", "activo": 1},
-            {"codigo": "COMBO5", "tipo": "monto", "valor": 5.0, "descripcion": "S/5.00 de descuento", "activo": 1}
-        ]))
-
-        _asegurar_hoja(conn, "usuarios",
-            pd.DataFrame(columns=["email", "nombre", "foto", "compras_realizadas", "fecha_registro"]))
-
-        _asegurar_hoja(conn, "mesas",
-            pd.DataFrame([{"nro_mesa": i, "estado": "disponible"} for i in range(1, 21)]))
-
-        _asegurar_hoja(conn, "reservas",
-            pd.DataFrame(columns=["id", "email", "nombre", "nro_mesa", "fecha", "hora", "datos_contacto", "personas", "nombres_invitados"]))
-
-        _asegurar_hoja(conn, "alertas_salon",
-            pd.DataFrame(columns=["fecha_hora", "nro_mesa", "cliente_nombre", "tipo_alerta", "atendido"]))
+        for nombre_hoja, df_inicial in dfs_iniciales.items():
+            try:
+                conn.read(worksheet=nombre_hoja, ttl=1)
+            except Exception as e:
+                msg = str(e).lower()
+                if "not found" in msg or "unable to parse" in msg or "does not exist" in msg:
+                    try:
+                        conn.create(worksheet=nombre_hoja, data=df_inicial)
+                        st.info(f"Hoja '{nombre_hoja}' creada automáticamente.")
+                    except Exception as e2:
+                        if "already exists" not in str(e2).lower():
+                            raise e2
 
         st.session_state["_db_inicializada"] = True
     except Exception as e:
-        st.error(f"Error al inicializar Google Sheets (Verifica tus secrets y permisos de cuenta de servicio): {e}")
+        st.error(f"ERROR DE CONEXIÓN con Google Sheets: {e}")
+        st.error("Posibles causas: (1) La cuenta de servicio no tiene acceso al spreadsheet. "
+                 "Abre el sheet y compártelo con: streamlit-gsheets@el-gran-bufalo-499616.iam.gserviceaccount.com "
+                 "(2) Revisa que el spreadsheet ID en secrets.toml sea correcto.")
 
 
 @st.cache_data(ttl=60)
@@ -170,6 +151,7 @@ def _obtener_menu_cached(ttl=60):
         df.columns = [c.strip().lower() for c in df.columns]
         
         if df.empty or "nombre" not in df.columns:
+            st.warning(f"La hoja 'productos' está vacía o no tiene columna 'nombre'. Columnas encontradas: {list(df.columns)}")
             return {}
         
         menu = {}
@@ -195,7 +177,8 @@ def _obtener_menu_cached(ttl=60):
             }
                 
         return menu
-    except Exception:
+    except Exception as e:
+        st.error(f"Error leyendo hoja 'productos' de Google Sheets: {e}")
         return {}
 
 def obtener_menu(db_path=None, ttl=TTL_LECTURA):

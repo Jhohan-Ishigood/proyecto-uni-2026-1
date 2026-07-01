@@ -337,10 +337,15 @@ if "menu_dinamico" not in st.session_state or st.session_state.get("_forzar_reca
         st.cache_data.clear() # Limpiar caché local de Streamlit para traer datos frescos de GSheets
     
     nuevo_menu = database.obtener_menu()
-    if nuevo_menu: # Solo actualizar si la lectura fue exitosa (no vacía)
+    cant_productos = len(nuevo_menu)
+    if nuevo_menu:
         st.session_state.menu_dinamico = nuevo_menu
+        if cant_productos < 5 and st.session_state.get("mostrar_diagnostico", True):
+            st.info(f"📊 Diagnóstico: {cant_productos} productos cargados desde Google Sheets. "
+                    f"Si esperas más, verifica que la hoja 'productos' tenga todos los datos "
+                    f"y que la columna 'nombre' contenga los nombres de cada producto.")
     elif "menu_dinamico" not in st.session_state:
-        st.session_state.menu_dinamico = {} # Default vacío inicial solo si no existía antes
+        st.session_state.menu_dinamico = {}
 
     nuevas_ordenes = database.obtener_ordenes()
     if nuevas_ordenes:
