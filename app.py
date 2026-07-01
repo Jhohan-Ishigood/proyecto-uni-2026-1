@@ -295,9 +295,14 @@ def obtener_src_foto(ruta_foto):
     if str(ruta_foto).startswith("data:image/"):
         try:
             header, data = ruta_foto.split(",", 1)
-            img_bytes = base64.b64decode(data)
+            # Limpieza exhaustiva de caracteres invisibles y saltos de línea
+            data_clean = "".join(data.split())
+            # Corregir padding si es necesario
+            data_clean += "=" * (-len(data_clean) % 4)
+            img_bytes = base64.b64decode(data_clean)
             return Image.open(BytesIO(img_bytes))
-        except Exception:
+        except Exception as e:
+            print(f"Error decodificando Base64 de {ruta_foto[:30]}: {e}")
             return FALLBACK_IMAGE
     
     # Es una URL de Internet — descargar en el servidor y procesar
