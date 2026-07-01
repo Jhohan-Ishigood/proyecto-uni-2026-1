@@ -117,7 +117,7 @@ def _obtener_categorias_cached():
             return []
         return df["nombre"].dropna().astype(str).tolist()
     except Exception:
-        return ["Parrillas", "Hamburguesas", "Bebidas", "Combos"]
+        return []
 
 def obtener_categorias(db_path=None):
     """Obtiene la lista de todas las categorías reales desde Google Sheets."""
@@ -166,158 +166,58 @@ def _obtener_menu_cached(ttl=60):
         conn = get_connection()
         df = conn.read(worksheet="productos", ttl=ttl)
         
-        # Normalizar nombres de columnas a minúsculas (tolera cambios de caso en el sheet)
+        # Normalizar nombres de columnas a minúsculas
         df.columns = [c.strip().lower() for c in df.columns]
         
         if df.empty or "nombre" not in df.columns:
-            menu = _obtener_menu_defecto()
-        else:
-            menu = {}
-            for _, row in df.iterrows():
-                nombre = _convertir_tipo(row.get("nombre"), "str", default=None)
-                if not nombre:
-                    continue
-                
-                precio = _convertir_tipo(row.get("precio"), "float", default=10.0)
-                icono = _convertir_tipo(row.get("icono"), "str", default="🍔")
-                disponible = _convertir_tipo(row.get("disponible"), "bool", default=True)
-                foto = _convertir_tipo(row.get("foto"), "str", default="")
-                stock = _convertir_tipo(row.get("stock"), "int", default=0)
-                categoria = _convertir_tipo(row.get("categoria"), "str", default="")
-                
-                menu[nombre] = {
-                    "precio": precio,
-                    "icono": icono,
-                    "disponible": disponible,
-                    "foto": foto,
-                    "stock": stock,
-                    "categoria": categoria
-                }
-                
-        # Fusionar con respaldo local (productos que no se pudieron subir a la nube)
-        import json, os
-        prod_resp_path = "productos_respaldo.json"
-        if os.path.exists(prod_resp_path):
-            try:
-                with open(prod_resp_path, "r", encoding="utf-8") as f:
-                    locales = json.load(f)
-                    for nombre_l, info_l in locales.items():
-                        menu[nombre_l] = info_l
-            except Exception:
-                pass
+            return {}
+        
+        menu = {}
+        for _, row in df.iterrows():
+            nombre = _convertir_tipo(row.get("nombre"), "str", default=None)
+            if not nombre:
+                continue
+            
+            precio = _convertir_tipo(row.get("precio"), "float", default=10.0)
+            icono = _convertir_tipo(row.get("icono"), "str", default="🍔")
+            disponible = _convertir_tipo(row.get("disponible"), "bool", default=True)
+            foto = _convertir_tipo(row.get("foto"), "str", default="")
+            stock = _convertir_tipo(row.get("stock"), "int", default=0)
+            categoria = _convertir_tipo(row.get("categoria"), "str", default="")
+            
+            menu[nombre] = {
+                "precio": precio,
+                "icono": icono,
+                "disponible": disponible,
+                "foto": foto,
+                "stock": stock,
+                "categoria": categoria
+            }
                 
         return menu
     except Exception:
-        # Fallback: usar el menú en memoria de la sesión + respaldo local
-        menu_memoria = st.session_state.get("menu_dinamico")
-        if menu_memoria:
-            import json, os
-            prod_resp_path = "productos_respaldo.json"
-            if os.path.exists(prod_resp_path):
-                try:
-                    with open(prod_resp_path, "r", encoding="utf-8") as f:
-                        locales = json.load(f)
-                        for nombre_l, info_l in locales.items():
-                            menu_memoria[nombre_l] = info_l
-                except Exception:
-                    pass
-            return menu_memoria
-            
-        return _obtener_menu_defecto()
-
-def _obtener_menu_defecto():
-    """Retorna un menú de respaldo local precargado con los platos del restaurante."""
-    return {
-        "PARILLA DE RES": {
-            "precio": 30.00,
-            "icono": "🥩",
-            "disponible": True,
-            "foto": "https://images.unsplash.com/photo-1544025162-d76694265947?w=500&auto=format&fit=crop&q=60",
-            "stock": 10,
-            "categoria": "Parrillas"
-        },
-        "ALITAS BBQ": {
-            "precio": 20.00,
-            "icono": "🍗",
-            "disponible": True,
-            "foto": "https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=500&auto=format&fit=crop&q=60",
-            "stock": 15,
-            "categoria": "Parrillas"
-        },
-        "HAMBURGUESA CLÁSICA": {
-            "precio": 15.00,
-            "icono": "🍔",
-            "disponible": True,
-            "foto": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60",
-            "stock": 12,
-            "categoria": "Hamburguesas"
-        },
-        "CHICHA MORADA JARRAS": {
-            "precio": 12.00,
-            "icono": "🥤",
-            "disponible": True,
-            "foto": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=500&auto=format&fit=crop&q=60",
-            "stock": 20,
-            "categoria": "Bebidas"
-        },
-        "COMBO PARRILLERO": {
-            "precio": 60.00,
-            "icono": "👪",
-            "disponible": True,
-            "foto": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&auto=format&fit=crop&q=60",
-            "stock": 5,
-            "categoria": "Combos"
-        }
-    }
+        return {}
 
 def obtener_menu(db_path=None, ttl=TTL_LECTURA):
     """Retorna los productos en un diccionario con la estructura original del menú dinámico."""
     return _obtener_menu_cached(ttl=ttl)
 
 def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stock, categoria_nombre):
-    """Crea o actualiza un producto en Google Sheets con respaldo local permanente."""
+    """Crea o actualiza un producto DIRECTAMENTE en Google Sheets (sin respaldo local)."""
     nombre = nombre.strip()
-    
-    # Siempre guardar respaldo local (incluso si la nube funciona, como safety net)
-    import json, os
-    prod_resp_path = "productos_respaldo.json"
-    respaldo = {}
-    if os.path.exists(prod_resp_path):
-        try:
-            with open(prod_resp_path, "r", encoding="utf-8") as f:
-                respaldo = json.load(f)
-        except Exception:
-            pass
-    
     FOTO_DEFECTO = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><path d='M8 14s1.5 2 4 2 4-2 4-2'></path><line x1='9' y1='9' x2='9.01' y2='9'></line><line x1='15' y1='9' x2='15.01' y2='9'></line></svg>"
-    
-    respaldo[nombre] = {
-        "precio": _convertir_tipo(precio, "float", default=10.0),
-        "icono": _convertir_tipo(icono, "str", default="🍔"),
-        "disponible": bool(disponible),
-        "foto": foto_ruta or FOTO_DEFECTO,
-        "stock": _convertir_tipo(stock, "int", default=0),
-        "categoria": _convertir_tipo(categoria_nombre, "str", default="")
-    }
-    try:
-        with open(prod_resp_path, "w", encoding="utf-8") as f:
-            json.dump(respaldo, f, indent=4, ensure_ascii=False)
-    except Exception:
-        pass
-    
-    # Actualizar en memoria de sesión inmediatamente
-    if "menu_dinamico" in st.session_state:
-        st.session_state.menu_dinamico[nombre] = respaldo[nombre]
     
     try:
         conn = get_connection()
         df = conn.read(worksheet="productos", ttl=1)
+        df.columns = [c.strip().lower() for c in df.columns]
+        
         if df.empty or "nombre" not in df.columns:
             df = pd.DataFrame(columns=["nombre", "precio", "icono", "disponible", "foto", "stock", "categoria"])
             
         disponibilidad_val = 1 if disponible else 0
         
-        # Comparación case-insensitive para evitar duplicados
+        # Comparación case-insensitive
         df["nombre_norm"] = df["nombre"].astype(str).str.strip().str.lower()
         nombre_norm = nombre.lower()
         
@@ -348,78 +248,12 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
         df = df.drop(columns=["nombre_norm"], errors="ignore")
             
         conn.update(worksheet="productos", data=df)
-        # Forzar lectura fresca para renovar la caché de conexión
         conn.read(worksheet="productos", ttl=0)
         st.cache_data.clear()
         return True
-    except Exception:
-        # Ya se guardó en respaldo local, no hace falta mostrar error
-        st.toast("⚠️ Producto guardado localmente (falló la conexión con Google Sheets). Se sincronizará automáticamente.", icon="💾")
-        st.cache_data.clear()
-        return True
-
-def sincronizar_respaldo_local():
-    """Intenta subir a Google Sheets los productos guardados en el respaldo local."""
-    import json, os
-    prod_resp_path = "productos_respaldo.json"
-    if not os.path.exists(prod_resp_path):
-        return
-    try:
-        with open(prod_resp_path, "r", encoding="utf-8") as f:
-            respaldo = json.load(f)
-    except Exception:
-        return
-    if not respaldo:
-        return
-    
-    try:
-        conn = get_connection()
-        df = conn.read(worksheet="productos", ttl=1)
-        if df.empty or "nombre" not in df.columns:
-            df = pd.DataFrame(columns=["nombre", "precio", "icono", "disponible", "foto", "stock", "categoria"])
-        
-        df.columns = [c.strip().lower() for c in df.columns]
-        cambios = False
-        
-        for nombre_local, info_local in respaldo.items():
-            disponibilidad_val = 1 if info_local.get("disponible", True) else 0
-            df["nombre_norm"] = df["nombre"].astype(str).str.strip().str.lower()
-            if nombre_local.lower() in df["nombre_norm"].values:
-                idx = df[df["nombre_norm"] == nombre_local.lower()].index[0]
-                df.at[idx, "precio"] = _convertir_tipo(info_local.get("precio", 10.0), "float", default=10.0)
-                df.at[idx, "icono"] = _convertir_tipo(info_local.get("icono", "🍔"), "str", default="🍔")
-                df.at[idx, "disponible"] = disponibilidad_val
-                df.at[idx, "stock"] = _convertir_tipo(info_local.get("stock", 0), "int", default=0)
-                df.at[idx, "categoria"] = _convertir_tipo(info_local.get("categoria", ""), "str", default="")
-                if info_local.get("foto"):
-                    df.at[idx, "foto"] = info_local["foto"]
-                cambios = True
-            else:
-                new_row = pd.DataFrame([{
-                    "nombre": nombre_local,
-                    "precio": _convertir_tipo(info_local.get("precio", 10.0), "float", default=10.0),
-                    "icono": _convertir_tipo(info_local.get("icono", "🍔"), "str", default="🍔"),
-                    "disponible": disponibilidad_val,
-                    "foto": info_local.get("foto", ""),
-                    "stock": _convertir_tipo(info_local.get("stock", 0), "int", default=0),
-                    "categoria": _convertir_tipo(info_local.get("categoria", ""), "str", default="")
-                }])
-                df = pd.concat([df, new_row], ignore_index=True)
-                cambios = True
-        
-        df = df.drop(columns=["nombre_norm"], errors="ignore")
-        
-        if cambios:
-            conn.update(worksheet="productos", data=df)
-            conn.read(worksheet="productos", ttl=0)  # refrescar caché
-            # Limpiar respaldo ya que se sincronizó correctamente
-            try:
-                with open(prod_resp_path, "w", encoding="utf-8") as f:
-                    json.dump({}, f)
-            except Exception:
-                pass
-    except Exception:
-        pass  # Si falla la sincronización, no pasa nada, se reintenta en la próxima carga
+    except Exception as e:
+        st.error(f"Error al guardar en Google Sheets: {e}. Verifica la conexión.")
+        return False
 
 def eliminar_producto(db_path, nombre):
     """Elimina un producto por su nombre."""
@@ -569,31 +403,10 @@ def crear_orden(db_path, fecha_hora, nro_boleta, detalle_articulos, entrega, met
         return False
 
 def actualizar_stock_multiple(db_path, actualizaciones_dict):
-    """Actualiza el stock de múltiples productos en una sola lectura/escritura con fallback a caché."""
+    """Actualiza el stock de múltiples productos en Google Sheets."""
     try:
         conn = get_connection()
-        df = None
-        try:
-            # Intentar lectura directa sin caché
-            df = conn.read(worksheet="productos", ttl=1)
-        except Exception as e:
-            # Fallback en caso de 429: Usar st.session_state.menu_dinamico en memoria libre de red
-            menu_cache = st.session_state.get("menu_dinamico")
-            if menu_cache:
-                rows = []
-                for nombre_p, info in menu_cache.items():
-                    rows.append({
-                        "nombre": nombre_p,
-                        "precio": info.get("precio", 10.0),
-                        "icono": info.get("icono", "🍔"),
-                        "disponible": 1 if info.get("disponible", True) else 0,
-                        "foto": info.get("foto", ""),
-                        "stock": info.get("stock", 0),
-                        "categoria": info.get("categoria", "")
-                    })
-                df = pd.DataFrame(rows)
-            else:
-                raise e
+        df = conn.read(worksheet="productos", ttl=1)
 
         if df is not None and not df.empty and "nombre" in df.columns:
             for nombre, stock_restante in actualizaciones_dict.items():

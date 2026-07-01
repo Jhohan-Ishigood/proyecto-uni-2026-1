@@ -354,9 +354,6 @@ if "menu_dinamico" not in st.session_state or st.session_state.get("_forzar_reca
     elif "lista_categorias" not in st.session_state:
         st.session_state.lista_categorias = ["Todos"]
     
-    # Sincronizar respaldos locales pendientes con Google Sheets
-    database.sincronizar_respaldo_local()
-    
     st.session_state["_forzar_recarga"] = False
 
     st.cache_data.clear()
@@ -943,12 +940,7 @@ if es_admin:
             st.session_state.mostrar_login_admin = False
             st.session_state.rol_actual = None
             st.rerun()
-    with col_admin_b3:
-        if st.button("☁️ Sincronizar todo", use_container_width=True, key="btn_sync_all"):
-            database.sincronizar_respaldo_local()
-            st.session_state["_forzar_recarga"] = True
-            st.toast("Sincronización completada", icon="☁️")
-            st.rerun()
+
             
     st.info(f"📋 **Reporte Gerencial del Grupo 5** — Sincronizado en tiempo real: {fecha_actual}")
 
