@@ -284,22 +284,23 @@ def convertir_imagen_a_base64(archivo_foto, max_dimension=400, calidad=70):
 
 @st.cache_data(show_spinner=False)
 def obtener_src_foto(ruta_foto):
-    """Convierte cualquier fuente de imagen (URL, archivo local, data URL) a bytes binarios para que st.image la renderice perfectamente."""
-    # Imagen de respaldo de 1x1 px transparente por defecto
-    PLACEHOLDER_BYTES = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82'
+    """Convierte cualquier fuente de imagen a un objeto PIL Image para que st.image la dibuje de manera infalible sin arrojar UnidentifiedImageError."""
+    # Imagen de respaldo de Pillow: Gris oscuro de 100x100 píxeles
+    FALLBACK_IMAGE = Image.new("RGB", (100, 100), (30, 30, 30))
     
     if not ruta_foto:
-        return PLACEHOLDER_BYTES
+        return FALLBACK_IMAGE
     
-    # Si ya es una data URL en Base64 — decodificar a bytes
+    # Si ya es una data URL en Base64 — decodificar y convertir a objeto PIL Image
     if str(ruta_foto).startswith("data:image/"):
         try:
             header, data = ruta_foto.split(",", 1)
-            return base64.b64decode(data)
+            img_bytes = base64.b64decode(data)
+            return Image.open(BytesIO(img_bytes))
         except Exception:
-            return PLACEHOLDER_BYTES
+            return FALLBACK_IMAGE
     
-    # Es una URL de Internet — descargar en el servidor y retornar bytes
+    # Es una URL de Internet — descargar en el servidor y procesar
     if str(ruta_foto).startswith("http://") or str(ruta_foto).startswith("https://"):
         try:
             import urllib.request
@@ -310,14 +311,12 @@ def obtener_src_foto(ruta_foto):
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
             img.thumbnail((500, 500), Image.Resampling.LANCZOS)
-            buffer = BytesIO()
-            img.save(buffer, format="JPEG", quality=75, optimize=True)
-            return buffer.getvalue()
+            return img
         except Exception as e:
             print(f"Error descargando imagen URL {ruta_foto}: {e}")
-            return PLACEHOLDER_BYTES
+            return FALLBACK_IMAGE
         
-    # Es una ruta de archivo local — leer y retornar bytes
+    # Es una ruta de archivo local — leer y convertir a Image
     if os.path.exists(ruta_foto):
         ruta_completa = ruta_foto
     else:
@@ -325,12 +324,11 @@ def obtener_src_foto(ruta_foto):
     
     if os.path.exists(ruta_completa):
         try:
-            with open(ruta_completa, "rb") as f:
-                return f.read()
+            return Image.open(ruta_completa)
         except Exception as e:
             print(f"Error leyendo imagen local {ruta_completa}: {e}")
             
-    return PLACEHOLDER_BYTES
+    return FALLBACK_IMAGE
 
 def _get_perm(rol, seccion):
     """Devuelve el nivel de permiso: 'oculto', 'ver', o 'editar'."""
@@ -2192,7 +2190,10 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                     url_imagen_plato = info.get("foto", "")
                     src_imagen_plato = obtener_src_foto(url_imagen_plato)
                     is_fav = prod in st.session_state.favoritos
-                    st.image(src_imagen_plato, use_container_width=True)
+                    try:
+                        st.image(src_imagen_plato, use_container_width=True)
+                    except Exception:
+                        st.warning("📷 Error cargando esta foto.")
                     
                     nuevo_fav = st.checkbox("❤️ Favorito", value=is_fav, key=f"fav_{prod}")
                     if nuevo_fav != is_fav:
