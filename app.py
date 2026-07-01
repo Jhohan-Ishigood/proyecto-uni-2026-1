@@ -340,15 +340,32 @@ def puede_editar(rol, seccion):
 # 3. INICIALIZACIÓN DE VARIABLES REACTIVAS DE SESIÓN (ESTADOS DEL SISTEMA)
 # ============================================================================
 # Carga inicial de datos (solo una vez por sesión, o cuando se fuerza recarga)
-if "menu_dinamico" not in st.session_state or st.session_state.get("_forzar_recarga", False):
+# Identificar si el menú actual en sesión es el fallback offline por defecto
+es_menu_defecto = False
+if "menu_dinamico" in st.session_state:
+    platos_actuales = set(st.session_state.menu_dinamico.keys())
+    platos_defecto = {"PARILLA DE RES", "ALITAS BBQ", "HAMBURGUESA CLÁSICA", "CHICHA MORADA JARRAS", "COMBO PARRILLERO"}
+    if platos_actuales == platos_defecto or not platos_actuales:
+        es_menu_defecto = True
+
+if "menu_dinamico" not in st.session_state or st.session_state.get("_forzar_recarga", False) or es_menu_defecto:
     if st.session_state.get("_forzar_recarga", False):
         st.cache_data.clear() # Limpiar caché local de Streamlit para traer datos frescos de GSheets
     
     nuevo_menu = database.obtener_menu()
-    if nuevo_menu: # Solo actualizar si la lectura fue exitosa (no vacía)
-        st.session_state.menu_dinamico = nuevo_menu
-    elif "menu_dinamico" not in st.session_state:
-        st.session_state.menu_dinamico = {} # Default vacío inicial solo si no existía antes
+    # Solo reemplazamos el menú si logramos conectar con GSheets y obtuvimos los productos reales
+    # (sabemos que son reales porque no corresponden exactamente al set de fallback offline)
+    if nuevo_menu:
+        nuevos_platos = set(nuevo_menu.keys())
+        platos_defecto = {"PARILLA DE RES", "ALITAS BBQ", "HAMBURGUESA CLÁSICA", "CHICHA MORADA JARRAS", "COMBO PARRILLERO"}
+        if nuevos_platos != platos_defecto:
+            st.session_state.menu_dinamico = nuevo_menu
+            # También recargar categorías correspondientes al menú real
+            nuevas_categorias = database.obtener_categorias()
+            if nuevas_categorias:
+                st.session_state.lista_categorias = ["Todos"] + nuevas_categorias
+        elif "menu_dinamico" not in st.session_state:
+            st.session_state.menu_dinamico = nuevo_menu
 
     nuevas_ordenes = database.obtener_ordenes()
     if nuevas_ordenes:
@@ -356,11 +373,12 @@ if "menu_dinamico" not in st.session_state or st.session_state.get("_forzar_reca
     elif "historial_ordenes" not in st.session_state:
         st.session_state.historial_ordenes = []
 
-    nuevas_categorias = database.obtener_categorias()
-    if nuevas_categorias:
-        st.session_state.lista_categorias = ["Todos"] + nuevas_categorias
-    elif "lista_categorias" not in st.session_state:
-        st.session_state.lista_categorias = ["Todos"]
+    if "lista_categorias" not in st.session_state or st.session_state.lista_categorias == ["Todos"]:
+        nuevas_categorias = database.obtener_categorias()
+        if nuevas_categorias:
+            st.session_state.lista_categorias = ["Todos"] + nuevas_categorias
+        else:
+            st.session_state.lista_categorias = ["Todos", "Parrillas", "Hamburguesas", "Bebidas", "Combos"]
         
     st.session_state["_forzar_recarga"] = False
 
@@ -748,8 +766,16 @@ if "mostrar_login_admin" not in st.session_state:
     st.session_state.mostrar_login_admin = False
 
 st.sidebar.markdown("#### ⚙️ GESTIÓN INTERNA")
-if st.sidebar.button("INGRESAR COMO ADMINISTRADOR🤵‍♂️", use_container_width=True, key="btn_toggle_admin_login"):
-    st.session_state.mostrar_login_admin = not st.session_state.mostrar_login_admin
+col_sidebar_btn1, col_sidebar_btn2 = st.sidebar.columns(2)
+with col_sidebar_btn1:
+    if st.button("INGRESAR ADMIN🤵‍♂️", use_container_width=True, key="btn_toggle_admin_login"):
+        st.session_state.mostrar_login_admin = not st.session_state.mostrar_login_admin
+with col_sidebar_btn2:
+    if st.button("🔄 SINCRONIZAR EXCEL", use_container_width=True, key="btn_manual_sync_excel"):
+        st.cache_data.clear()
+        st.session_state["_forzar_recarga"] = True
+        st.toast("⚡ Solicitando datos frescos de Google Sheets...", icon="🔄")
+        st.rerun()
 
 # Inicialización limpia de variables de control de acceso
 usuario_input = ""
