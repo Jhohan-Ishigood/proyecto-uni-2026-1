@@ -3,17 +3,14 @@ import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 import datetime
 import time
-import json
 
 def get_connection():
     return st.connection("gsheets", type=GSheetsConnection)
 
 def _raw_update(conn, worksheet, data):
-    """Ejecuta la actualización real en Google Sheets."""
     conn.update(worksheet=worksheet, data=data)
 
 def _escribir_con_reintento(worksheet, data, max_reintentos=3):
-    """Escribe a Google Sheets con reintento automático en caso de error 429 (cuota)."""
     for intento in range(max_reintentos):
         try:
             conn = get_connection()
@@ -23,12 +20,15 @@ def _escribir_con_reintento(worksheet, data, max_reintentos=3):
             error_str = str(e)
             if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
                 if intento < max_reintentos - 1:
-                    espera = 2 ** intento
-                    time.sleep(espera)
+                    time.sleep(2 ** intento)
                     continue
             st.error(f"Google Sheets no disponible: {e}")
             return False
     return False
+
+def _leer_sheet(worksheet, ttl=1):
+    conn = get_connection()
+    return conn.read(worksheet=worksheet, ttl=ttl)
 
 def _convertir_tipo(valor, tipo, default=None):
     if valor is None or (isinstance(valor, float) and pd.isna(valor)):
@@ -46,7 +46,6 @@ def _convertir_tipo(valor, tipo, default=None):
     return default
 
 def _df_a_menu(df):
-    """Convierte un DataFrame de productos a dict menú."""
     df.columns = [c.strip().lower() for c in df.columns]
     menu = {}
     for _, row in df.iterrows():
@@ -63,8 +62,21 @@ def _df_a_menu(df):
         }
     return menu
 
+def _menu_a_df(menu):
+    rows = []
+    for nombre, info in menu.items():
+        rows.append({
+            "nombre": nombre,
+            "precio": info.get("precio", 0),
+            "icono": info.get("icono", ""),
+            "disponible": 1 if info.get("disponible", True) else 0,
+            "foto": info.get("foto", ""),
+            "stock": info.get("stock", 0),
+            "categoria": info.get("categoria", "")
+        })
+    return pd.DataFrame(rows)
+
 def _df_a_ordenes(df):
-    """Convierte un DataFrame de ordenes a lista de dicts."""
     if df.empty or "nro_boleta" not in df.columns:
         return []
     ordenes = []
@@ -83,8 +95,21 @@ def _df_a_ordenes(df):
         })
     return ordenes
 
+def _ordenes_a_df(ordenes):
+    rows = []
+    for o in ordenes:
+        rows.append({
+            "fecha_hora": o.get("Fecha y Hora", ""),
+            "nro_boleta": o.get("Nro. Boleta", ""),
+            "detalle_articulos": o.get("Detalle Artículos", ""),
+            "entrega": o.get("Entrega", ""),
+            "metodo_pago": o.get("Método Pago", ""),
+            "total": o.get("Total", ""),
+            "usuario_email": o.get("Usuario Email", "")
+        })
+    return pd.DataFrame(rows)
+
 def _df_a_cupones(df):
-    """Convierte un DataFrame de cupones a dict."""
     if df.empty or "codigo" not in df.columns:
         return {}
     cupones = {}
@@ -100,24 +125,26 @@ def _df_a_cupones(df):
         }
     return cupones
 
+def _cupones_a_df(cupones):
+    rows = []
+    for codigo, info in cupones.items():
+        rows.append({
+            "codigo": codigo,
+            "tipo": info.get("tipo", ""),
+            "valor": info.get("valor", 0),
+            "descripcion": info.get("descripcion", ""),
+            "activo": 1 if info.get("activo", True) else 0
+        })
+    return pd.DataFrame(rows)
+
 def cargar_datos_iniciales():
-    """Lee TODOS los datos de Google Sheets UNA SOLA VEZ y los guarda en session state.
-    Esta es la ÚNICA función que lee del sheet. Todo lo demás usa session state."""
     if st.session_state.get("_datos_cargados"):
         return
-
     try:
         conn = get_connection()
-
-        menu = _df_a_menu(conn.read(worksheet="productos"))
-        st.session_state["_menu_store"] = menu
-
-        ordenes = _df_a_ordenes(conn.read(worksheet="ordenes"))
-        st.session_state["_ordenes_store"] = ordenes
-
-        cupones = _df_a_cupones(conn.read(worksheet="cupones"))
-        st.session_state["_cupones_store"] = cupones
-
+        st.session_state["_menu_store"] = _df_a_menu(conn.read(worksheet="productos"))
+        st.session_state["_ordenes_store"] = _df_a_ordenes(conn.read(worksheet="ordenes"))
+        st.session_state["_cupones_store"] = _df_a_cupones(conn.read(worksheet="cupones"))
         st.session_state["_datos_cargados"] = True
     except Exception as e:
         st.error(f"Error cargando datos de Google Sheets: {e}")
@@ -142,7 +169,6 @@ def obtener_categorias(db_path=None):
 def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stock, categoria_nombre):
     nombre = nombre.strip()
     FOTO_DEFECTO = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><path d='M8 14s1.5 2 4 2 4-2 4-2'></path><line x1='9' y1='9' x2='9.01' y2='9'></line><line x1='15' y1='9' x2='15.01' y2='9'></line></svg>"
-
     menu = st.session_state.get("_menu_store", {})
     menu[nombre] = {
         "precio": _convertir_tipo(precio, "float", default=10.0),
@@ -153,64 +179,15 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
         "categoria": _convertir_tipo(categoria_nombre, "str", default="")
     }
     st.session_state["_menu_store"] = menu
-
-    try:
-        conn = get_connection()
-        df = conn.read(worksheet="productos", ttl=1)
-        df.columns = [c.strip().lower() for c in df.columns]
-        if df.empty or "nombre" not in df.columns:
-            df = pd.DataFrame(columns=["nombre", "precio", "icono", "disponible", "foto", "stock", "categoria"])
-
-        for col in ["nombre", "icono", "foto", "categoria"]:
-            if col in df.columns:
-                df[col] = df[col].astype(object)
-
-        disponibilidad_val = 1 if disponible else 0
-        df["nombre_norm"] = df["nombre"].astype(str).str.strip().str.lower()
-
-        if nombre.lower() in df["nombre_norm"].values:
-            idx = df[df["nombre_norm"] == nombre.lower()].index[0]
-            df.at[idx, "precio"] = _convertir_tipo(precio, "float", default=10.0)
-            df.at[idx, "icono"] = _convertir_tipo(icono, "str", default="🍔")
-            df.at[idx, "disponible"] = disponibilidad_val
-            df.at[idx, "stock"] = _convertir_tipo(stock, "int", default=0)
-            df.at[idx, "categoria"] = _convertir_tipo(categoria_nombre, "str", default="")
-            if foto_ruta:
-                df.at[idx, "foto"] = foto_ruta
-        else:
-            new_row = pd.DataFrame([{
-                "nombre": nombre,
-                "precio": _convertir_tipo(precio, "float", default=10.0),
-                "icono": _convertir_tipo(icono, "str", default="🍔"),
-                "disponible": disponibilidad_val,
-                "foto": foto_ruta or FOTO_DEFECTO,
-                "stock": _convertir_tipo(stock, "int", default=0),
-                "categoria": _convertir_tipo(categoria_nombre, "str", default="")
-            }])
-            df = pd.concat([df, new_row], ignore_index=True)
-
-        df = df.drop(columns=["nombre_norm"], errors="ignore")
-        _escribir_con_reintento(worksheet="productos", data=df)
-        return True
-    except Exception as e:
-        st.error(f"Google Sheets no disponible: {e}")
-        return False
+    df = _menu_a_df(menu)
+    return _escribir_con_reintento(worksheet="productos", data=df)
 
 def eliminar_producto(db_path, nombre):
     menu = st.session_state.get("_menu_store", {})
     menu.pop(nombre, None)
     st.session_state["_menu_store"] = menu
-
-    try:
-        conn = get_connection()
-        df = conn.read(worksheet="productos", ttl=1)
-        if not df.empty and "nombre" in df.columns:
-            df = df[df["nombre"].astype(str) != nombre]
-            _escribir_con_reintento(worksheet="productos", data=df)
-        return True
-    except Exception as e:
-        st.error(f"Google Sheets no disponible: {e}")
-        return False
+    df = _menu_a_df(menu)
+    return _escribir_con_reintento(worksheet="productos", data=df)
 
 # ─── ÓRDENES ────────────────────────────────────────────────────────
 
@@ -219,39 +196,15 @@ def obtener_ordenes(db_path=None, ttl=None):
 
 def crear_orden(db_path, fecha_hora, nro_boleta, detalle_articulos, entrega, metodo_pago, total, usuario_email=""):
     nueva_orden = {
-        "Fecha y Hora": fecha_hora,
-        "Nro. Boleta": nro_boleta,
-        "Detalle Artículos": detalle_articulos,
-        "Entrega": entrega,
-        "Método Pago": metodo_pago,
-        "Total": total,
-        "Usuario Email": usuario_email
+        "Fecha y Hora": fecha_hora, "Nro. Boleta": nro_boleta,
+        "Detalle Artículos": detalle_articulos, "Entrega": entrega,
+        "Método Pago": metodo_pago, "Total": total, "Usuario Email": usuario_email
     }
-
     ordenes = st.session_state.get("_ordenes_store", [])
     ordenes.insert(0, nueva_orden)
     st.session_state["_ordenes_store"] = ordenes
-
-    try:
-        conn = get_connection()
-        df = conn.read(worksheet="ordenes", ttl=1)
-        if df.empty or "nro_boleta" not in df.columns:
-            df = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "detalle_articulos", "entrega", "metodo_pago", "total", "usuario_email"])
-
-        new_row = pd.DataFrame([{
-            "fecha_hora": fecha_hora,
-            "nro_boleta": nro_boleta,
-            "detalle_articulos": detalle_articulos,
-            "entrega": entrega,
-            "metodo_pago": metodo_pago,
-            "total": total,
-            "usuario_email": usuario_email
-        }])
-        _escribir_con_reintento(worksheet="ordenes", data=pd.concat([df, new_row], ignore_index=True))
-        return True
-    except Exception as e:
-        st.error(f"Google Sheets no disponible: {e}")
-        return False
+    df = _ordenes_a_df(ordenes)
+    return _escribir_con_reintento(worksheet="ordenes", data=df)
 
 # ─── STOCK ──────────────────────────────────────────────────────────
 
@@ -261,21 +214,8 @@ def actualizar_stock_multiple(db_path, actualizaciones_dict):
         if nombre in menu:
             menu[nombre]["stock"] = _convertir_tipo(stock_restante, "int", default=0)
     st.session_state["_menu_store"] = menu
-
-    try:
-        conn = get_connection()
-        df = conn.read(worksheet="productos", ttl=1)
-        if df is not None and not df.empty and "nombre" in df.columns:
-            for nombre, stock_restante in actualizaciones_dict.items():
-                if nombre in df["nombre"].astype(str).values:
-                    idx = df[df["nombre"].astype(str) == nombre].index[0]
-                    df.at[idx, "stock"] = _convertir_tipo(stock_restante, "int", default=0)
-            _escribir_con_reintento(worksheet="productos", data=df)
-            return True
-        return False
-    except Exception as e:
-        st.error(f"Google Sheets no disponible: {e}")
-        return False
+    df = _menu_a_df(menu)
+    return _escribir_con_reintento(worksheet="productos", data=df)
 
 def actualizar_stock(db_path, nombre, stock_restante):
     return actualizar_stock_multiple(db_path, {nombre: stock_restante})
@@ -284,26 +224,23 @@ def actualizar_stock(db_path, nombre, stock_restante):
 
 def crear_categoria(db_path, nombre):
     try:
-        conn = get_connection()
-        df = conn.read(worksheet="categorias", ttl=1)
+        df = _leer_sheet("categorias")
         if df.empty or "nombre" not in df.columns:
             df = pd.DataFrame(columns=["nombre"])
         if nombre.strip() in df["nombre"].dropna().astype(str).str.strip().values:
             return False
-        _escribir_con_reintento(worksheet="categorias", data=pd.concat([df, pd.DataFrame([{"nombre": nombre}])], ignore_index=True))
-        return True
+        return _escribir_con_reintento(worksheet="categorias", data=pd.concat([df, pd.DataFrame([{"nombre": nombre}])], ignore_index=True))
     except Exception as e:
         st.error(f"Google Sheets no disponible: {e}")
         return False
 
 def eliminar_categoria(db_path, nombre):
     try:
-        conn = get_connection()
-        df_cat = conn.read(worksheet="categorias", ttl=1)
+        df_cat = _leer_sheet("categorias")
         if not df_cat.empty and "nombre" in df_cat.columns:
             df_cat = df_cat[df_cat["nombre"].astype(str).str.strip() != nombre.strip()]
             _escribir_con_reintento(worksheet="categorias", data=df_cat)
-        df_prod = conn.read(worksheet="productos", ttl=1)
+        df_prod = _leer_sheet("productos")
         if not df_prod.empty and "categoria" in df_prod.columns:
             df_prod.loc[df_prod["categoria"].astype(str).str.strip() == nombre.strip(), "categoria"] = ""
             _escribir_con_reintento(worksheet="productos", data=df_prod)
@@ -314,23 +251,20 @@ def eliminar_categoria(db_path, nombre):
 
 def crear_calificacion(db_path, fecha_hora, nro_boleta, calificacion, comentario):
     try:
-        conn = get_connection()
-        df = conn.read(worksheet="calificaciones", ttl=1)
+        df = _leer_sheet("calificaciones")
         if df.empty or "nro_boleta" not in df.columns:
             df = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "calificacion", "comentario"])
-        _escribir_con_reintento(worksheet="calificaciones", data=pd.concat([df, pd.DataFrame([{
+        return _escribir_con_reintento(worksheet="calificaciones", data=pd.concat([df, pd.DataFrame([{
             "fecha_hora": fecha_hora, "nro_boleta": nro_boleta,
             "calificacion": int(calificacion), "comentario": str(comentario or ""),
         }])], ignore_index=True))
-        return True
     except Exception as e:
         st.error(f"Google Sheets no disponible: {e}")
         return False
 
 def obtener_calificaciones(db_path=None, ttl=None):
     try:
-        conn = get_connection()
-        df = conn.read(worksheet="calificaciones", ttl=1)
+        df = _leer_sheet("calificaciones")
         if df.empty or "calificacion" not in df.columns:
             return []
         return [{"fecha_hora": str(r.get("fecha_hora", "")), "nro_boleta": str(r.get("nro_boleta", "")),
@@ -343,15 +277,13 @@ def obtener_calificaciones(db_path=None, ttl=None):
 
 def registrar_log(db_path, fecha_hora, nivel, mensaje, detalle=""):
     try:
-        conn = get_connection()
-        df = conn.read(worksheet="logs", ttl=1)
+        df = _leer_sheet("logs")
         if df.empty or "mensaje" not in df.columns:
             df = pd.DataFrame(columns=["fecha_hora", "nivel", "mensaje", "detalle"])
-        _escribir_con_reintento(worksheet="logs", data=pd.concat([df, pd.DataFrame([{
+        return _escribir_con_reintento(worksheet="logs", data=pd.concat([df, pd.DataFrame([{
             "fecha_hora": fecha_hora, "nivel": str(nivel),
             "mensaje": str(mensaje), "detalle": str(detalle or ""),
         }])], ignore_index=True))
-        return True
     except Exception:
         return False
 
@@ -363,69 +295,32 @@ def obtener_cupones(ttl=None):
 def crear_cupon(codigo, tipo, valor, descripcion, activo=True):
     codigo = codigo.strip().upper()
     cupones = st.session_state.get("_cupones_store", {})
-    cupones[codigo] = {
-        "tipo": tipo, "valor": float(valor),
-        "descripcion": descripcion, "activo": bool(activo)
-    }
+    cupones[codigo] = {"tipo": tipo, "valor": float(valor), "descripcion": descripcion, "activo": bool(activo)}
     st.session_state["_cupones_store"] = cupones
-
-    try:
-        conn = get_connection()
-        df = conn.read(worksheet="cupones", ttl=1)
-        if df.empty or "codigo" not in df.columns:
-            df = pd.DataFrame(columns=["codigo", "tipo", "valor", "descripcion", "activo"])
-        df = df[df["codigo"].astype(str).str.strip().str.upper() != codigo]
-        _escribir_con_reintento(worksheet="cupones", data=pd.concat([df, pd.DataFrame([{
-            "codigo": codigo, "tipo": tipo, "valor": float(valor),
-            "descripcion": descripcion, "activo": int(activo)
-        }])], ignore_index=True))
-        return True
-    except Exception as e:
-        st.error(f"Google Sheets no disponible: {e}")
-        return False
+    df = _cupones_a_df(cupones)
+    return _escribir_con_reintento(worksheet="cupones", data=df)
 
 def eliminar_cupon(codigo):
     codigo = codigo.strip().upper()
     cupones = st.session_state.get("_cupones_store", {})
     cupones.pop(codigo, None)
     st.session_state["_cupones_store"] = cupones
-
-    try:
-        conn = get_connection()
-        df = conn.read(worksheet="cupones", ttl=1)
-        if not df.empty and "codigo" in df.columns:
-            _escribir_con_reintento(worksheet="cupones", data=df[df["codigo"].astype(str).str.strip().str.upper() != codigo])
-        return True
-    except Exception as e:
-        st.error(f"Google Sheets no disponible: {e}")
-        return False
+    df = _cupones_a_df(cupones)
+    return _escribir_con_reintento(worksheet="cupones", data=df)
 
 def actualizar_estado_cupon(codigo, activo):
     codigo = codigo.strip().upper()
     cupones = st.session_state.get("_cupones_store", {})
-    if codigo in cupones:
-        cupones[codigo]["activo"] = bool(activo)
-        st.session_state["_cupones_store"] = cupones
-
-    try:
-        conn = get_connection()
-        df = conn.read(worksheet="cupones", ttl=1)
-        if not df.empty and "codigo" in df.columns:
-            mask = df["codigo"].astype(str).str.strip().str.upper() == codigo
-            if mask.any():
-                df.loc[mask, "activo"] = int(activo)
-                _escribir_con_reintento(worksheet="cupones", data=df)
-        return True
-    except Exception as e:
-        st.error(f"Google Sheets no disponible: {e}")
-        return False
+    cupones[codigo] = {**cupones.get(codigo, {}), "activo": bool(activo)}
+    st.session_state["_cupones_store"] = cupones
+    df = _cupones_a_df(cupones)
+    return _escribir_con_reintento(worksheet="cupones", data=df)
 
 # ─── USUARIOS ───────────────────────────────────────────────────────
 
 def obtener_usuario(email):
     try:
-        conn = get_connection()
-        df = conn.read(worksheet="usuarios", ttl=1)
+        df = _leer_sheet("usuarios")
         if df.empty or "email" not in df.columns:
             return None
         mask = df["email"].astype(str).str.strip().str.lower() == email.strip().lower()
@@ -438,8 +333,7 @@ def registrar_usuario(email, nombre, foto):
     try:
         if obtener_usuario(email):
             return False
-        conn = get_connection()
-        df = conn.read(worksheet="usuarios", ttl=1)
+        df = _leer_sheet("usuarios")
         if df.empty or "email" not in df.columns:
             df = pd.DataFrame(columns=["email", "nombre", "foto", "compras_realizadas", "fecha_registro"])
         _escribir_con_reintento(worksheet="usuarios", data=pd.concat([df, pd.DataFrame([{
@@ -456,8 +350,7 @@ def registrar_usuario(email, nombre, foto):
 
 def incrementar_compra_usuario(email):
     try:
-        conn = get_connection()
-        df = conn.read(worksheet="usuarios", ttl=1)
+        df = _leer_sheet("usuarios")
         if not df.empty and "email" in df.columns:
             mask = df["email"].astype(str).str.strip().str.lower() == email.strip().lower()
             if mask.any():
@@ -465,7 +358,7 @@ def incrementar_compra_usuario(email):
                 df.loc[mask, "compras_realizadas"] = compras_actuales + 1
                 _escribir_con_reintento(worksheet="usuarios", data=df)
                 if (compras_actuales + 1) % 3 == 0:
-                    codigo_premio = f"PREMIO{compras_actuales + 1}-{email.split('@')[0].upper()}"
+                    codigo_premio = f"PREMIO{compras_actuales+1}-{email.split('@')[0].upper()}"
                     crear_cupon(codigo=codigo_premio, tipo="monto", valor=10.0,
                                 descripcion=f"S/10 Dcto. por ser cliente frecuente. Para {email}", activo=True)
                     return codigo_premio
@@ -478,8 +371,7 @@ def incrementar_compra_usuario(email):
 
 def obtener_mesas(ttl=1):
     try:
-        conn = get_connection()
-        df = conn.read(worksheet="mesas", ttl=ttl)
+        df = _leer_sheet("mesas", ttl=ttl)
         if df.empty or "nro_mesa" not in df.columns:
             return [{"nro_mesa": i, "estado": "disponible"} for i in range(1, 21)]
         return df.to_dict(orient="records")
@@ -488,8 +380,7 @@ def obtener_mesas(ttl=1):
 
 def actualizar_estado_mesa(nro_mesa, estado):
     try:
-        conn = get_connection()
-        df = conn.read(worksheet="mesas", ttl=1)
+        df = _leer_sheet("mesas")
         if not df.empty and "nro_mesa" in df.columns:
             mask = df["nro_mesa"].astype(int) == int(nro_mesa)
             if mask.any():
@@ -502,8 +393,7 @@ def actualizar_estado_mesa(nro_mesa, estado):
 
 def agregar_mesa():
     try:
-        conn = get_connection()
-        df = conn.read(worksheet="mesas", ttl=1)
+        df = _leer_sheet("mesas")
         nueva_mesa = 1
         if not df.empty and "nro_mesa" in df.columns:
             nueva_mesa = int(df["nro_mesa"].max()) + 1
@@ -515,8 +405,7 @@ def agregar_mesa():
 
 def eliminar_mesa(nro_mesa):
     try:
-        conn = get_connection()
-        df = conn.read(worksheet="mesas", ttl=1)
+        df = _leer_sheet("mesas")
         if not df.empty and "nro_mesa" in df.columns:
             _escribir_con_reintento(worksheet="mesas", data=df[df["nro_mesa"].astype(int) != int(nro_mesa)])
             return True
@@ -529,16 +418,14 @@ def eliminar_mesa(nro_mesa):
 
 def obtener_reservas(ttl=1):
     try:
-        conn = get_connection()
-        df = conn.read(worksheet="reservas", ttl=ttl)
+        df = _leer_sheet("reservas", ttl=ttl)
         return [] if df.empty else df.to_dict(orient="records")
     except Exception:
         return []
 
 def crear_reserva(email, nombre, nro_mesa, fecha, hora, datos_contacto, personas, nombres_invitados):
     try:
-        conn = get_connection()
-        df = conn.read(worksheet="reservas", ttl=1)
+        df = _leer_sheet("reservas")
         if df.empty or "id" not in df.columns:
             df = pd.DataFrame(columns=["id", "email", "nombre", "nro_mesa", "fecha", "hora", "datos_contacto", "personas", "nombres_invitados"])
         nuevo_id = 1
@@ -546,24 +433,21 @@ def crear_reserva(email, nombre, nro_mesa, fecha, hora, datos_contacto, personas
             valid_ids = df["id"].dropna()
             if not valid_ids.empty:
                 nuevo_id = int(valid_ids.astype(float).max()) + 1
-        _escribir_con_reintento(worksheet="reservas", data=pd.concat([df, pd.DataFrame([{
+        return _escribir_con_reintento(worksheet="reservas", data=pd.concat([df, pd.DataFrame([{
             "id": nuevo_id, "email": email.strip().lower(), "nombre": nombre,
             "nro_mesa": int(nro_mesa), "fecha": str(fecha), "hora": str(hora),
             "datos_contacto": str(datos_contacto), "personas": int(personas),
             "nombres_invitados": str(nombres_invitados)
         }])], ignore_index=True))
-        return nuevo_id
     except Exception as e:
         st.error(f"Google Sheets no disponible: {e}")
         return False
 
 def eliminar_reserva(id_reserva):
     try:
-        conn = get_connection()
-        df = conn.read(worksheet="reservas", ttl=1)
+        df = _leer_sheet("reservas")
         if not df.empty and "id" in df.columns:
-            _escribir_con_reintento(worksheet="reservas", data=df[df["id"].astype(float).astype(int) != int(id_reserva)])
-            return True
+            return _escribir_con_reintento(worksheet="reservas", data=df[df["id"].astype(float).astype(int) != int(id_reserva)])
         return False
     except Exception as e:
         st.error(f"Google Sheets no disponible: {e}")
@@ -573,35 +457,30 @@ def eliminar_reserva(id_reserva):
 
 def obtener_alertas(ttl=5):
     try:
-        conn = get_connection()
-        df = conn.read(worksheet="alertas_salon", ttl=ttl)
+        df = _leer_sheet("alertas_salon", ttl=ttl)
         return [] if df.empty or "nro_mesa" not in df.columns else df.to_dict(orient="records")
     except Exception:
         return []
 
 def crear_alerta_salon(nro_mesa, cliente_nombre, tipo_alerta):
     try:
-        conn = get_connection()
-        df = conn.read(worksheet="alertas_salon", ttl=1)
+        df = _leer_sheet("alertas_salon")
         if df.empty or "nro_mesa" not in df.columns:
             df = pd.DataFrame(columns=["fecha_hora", "nro_mesa", "cliente_nombre", "tipo_alerta", "atendido"])
-        _escribir_con_reintento(worksheet="alertas_salon", data=pd.concat([df, pd.DataFrame([{
+        return _escribir_con_reintento(worksheet="alertas_salon", data=pd.concat([df, pd.DataFrame([{
             "fecha_hora": str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
             "nro_mesa": int(nro_mesa), "cliente_nombre": str(cliente_nombre),
             "tipo_alerta": str(tipo_alerta), "atendido": 0
         }])], ignore_index=True))
-        return True
     except Exception as e:
         st.error(f"Google Sheets no disponible: {e}")
         return False
 
 def atender_alerta_salon(nro_mesa, tipo_alerta):
     try:
-        conn = get_connection()
-        df = conn.read(worksheet="alertas_salon", ttl=1)
+        df = _leer_sheet("alertas_salon")
         if not df.empty and "nro_mesa" in df.columns:
-            _escribir_con_reintento(worksheet="alertas_salon", data=df[~((df["nro_mesa"].astype(int) == int(nro_mesa)) & (df["tipo_alerta"].astype(str) == str(tipo_alerta)))])
-            return True
+            return _escribir_con_reintento(worksheet="alertas_salon", data=df[~((df["nro_mesa"].astype(int) == int(nro_mesa)) & (df["tipo_alerta"].astype(str) == str(tipo_alerta)))])
         return False
     except Exception as e:
         st.error(f"Google Sheets no disponible: {e}")
