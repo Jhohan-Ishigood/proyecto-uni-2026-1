@@ -2,28 +2,13 @@ import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 import datetime
-import time
 
-# Caché de lectura en segundos (evita sobrepasar la cuota de Google Sheets API)
-TTL_LECTURA = 300  # 5 minutos entre lecturas reales
+# Caché de lectura larga (1 hora) para evitar exceder cuota de 60 lecturas/minuto
+TTL_LECTURA = 3600
 
 def get_connection():
     """Retorna la conexión a Google Sheets."""
     return st.connection("gsheets", type=GSheetsConnection)
-
-def _leer_con_reintento(conn, worksheet, ttl=TTL_LECTURA, reintentos=3):
-    """Lee una hoja con reintentos en caso de error 429 (cuota excedida)."""
-    for intento in range(reintentos):
-        try:
-            return conn.read(worksheet=worksheet, ttl=ttl)
-        except Exception as e:
-            error_str = str(e)
-            if "'code': 429" in error_str or "quota" in error_str.lower():
-                if intento < reintentos - 1:
-                    time.sleep(2)
-                    continue
-            raise
-    return pd.DataFrame()
 
 def _convertir_tipo(valor, tipo, default=None):
     """Función auxiliar para convertir tipos de datos de forma robusta."""
@@ -96,16 +81,17 @@ def inicializar_db(db_path=None):
 
 @st.cache_data(ttl=TTL_LECTURA)
 def _obtener_categorias_cached():
+    cats_previas = st.session_state.get("_cats_cache")
     try:
         conn = get_connection()
-        df = _leer_con_reintento(conn, "categorias", ttl=TTL_LECTURA)
+        df = conn.read(worksheet="categorias", ttl=TTL_LECTURA)
         if df.empty or "nombre" not in df.columns:
-            return []
+            return cats_previas if cats_previas else []
         cats = df["nombre"].dropna().astype(str).tolist()
         st.session_state["_cats_cache"] = cats
         return cats
     except Exception:
-        return st.session_state.get("_cats_cache", [])
+        return cats_previas if cats_previas else []
 
 def obtener_categorias(db_path=None):
     """Obtiene la lista de todas las categorías reales desde Google Sheets."""
@@ -150,14 +136,15 @@ def eliminar_categoria(db_path, nombre):
 
 @st.cache_data(ttl=TTL_LECTURA)
 def _obtener_menu_cached(ttl=TTL_LECTURA):
+    menu_previo = st.session_state.get("_menu_cache")
     try:
         conn = get_connection()
-        df = _leer_con_reintento(conn, "productos", ttl=ttl)
+        df = conn.read(worksheet="productos", ttl=ttl)
         
         df.columns = [c.strip().lower() for c in df.columns]
         
         if df.empty or "nombre" not in df.columns:
-            return {}
+            return menu_previo if menu_previo else {}
         
         menu = {}
         for _, row in df.iterrows():
@@ -176,11 +163,9 @@ def _obtener_menu_cached(ttl=TTL_LECTURA):
         
         st.session_state["_menu_cache"] = menu
         return menu
-    except Exception as e:
-        menu_previo = st.session_state.get("_menu_cache")
+    except Exception:
         if menu_previo:
             return menu_previo
-        st.error(f"Google Sheets no disponible (cuota excedida o error de red): {e}")
         return {}
 
 def obtener_menu(db_path=None, ttl=TTL_LECTURA):
@@ -194,17 +179,18 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
     
     try:
         conn = get_connection()
-        df = _leer_con_reintento(conn, "productos", ttl=1)
+        df = conn.read(worksheet="productos", ttl=1)
+
         df.columns = [c.strip().lower() for c in df.columns]
-        
+
         if df.empty or "nombre" not in df.columns:
             df = pd.DataFrame(columns=["nombre", "precio", "icono", "disponible", "foto", "stock", "categoria"])
-            
+
         disponibilidad_val = 1 if disponible else 0
-        
+
         df["nombre_norm"] = df["nombre"].astype(str).str.strip().str.lower()
         nombre_norm = nombre.lower()
-        
+
         if nombre_norm in df["nombre_norm"].values:
             idx = df[df["nombre_norm"] == nombre_norm].index[0]
             df.at[idx, "precio"] = _convertir_tipo(precio, "float", default=10.0)
@@ -217,7 +203,7 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
         else:
             if not foto_ruta:
                 foto_ruta = FOTO_DEFECTO
-                
+
             new_row = pd.DataFrame([{
                 "nombre": nombre,
                 "precio": _convertir_tipo(precio, "float", default=10.0),
@@ -228,9 +214,9 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
                 "categoria": _convertir_tipo(categoria_nombre, "str", default="")
             }])
             df = pd.concat([df, new_row], ignore_index=True)
-        
+
         df = df.drop(columns=["nombre_norm"], errors="ignore")
-            
+
         conn.update(worksheet="productos", data=df)
         st.cache_data.clear()
         return True
@@ -692,8 +678,6 @@ def actualizar_estado_mesa(nro_mesa, estado):
     except Exception:
         pass
         
-    st.cache_data.clear() # Limpiar cache para forzar recarga visual instantánea en Streamlit
-    
     # 2. Intentar actualizar Google Sheets en segundo plano. Si falla (429), no bloqueamos nada
     try:
         conn = get_connection()
@@ -719,7 +703,6 @@ def agregar_mesa():
         new_row = pd.DataFrame([{"nro_mesa": nueva_mesa, "estado": "disponible"}])
         updated_df = pd.concat([df, new_row], ignore_index=True)
         conn.update(worksheet="mesas", data=updated_df)
-        st.cache_data.clear() # Limpiar cache
         return nueva_mesa
     except Exception as e:
         st.error(f"Error agregando mesa: {e}")
@@ -732,7 +715,6 @@ def eliminar_mesa(nro_mesa):
         if not df.empty and "nro_mesa" in df.columns:
             df = df[df["nro_mesa"].astype(int) != int(nro_mesa)]
             conn.update(worksheet="mesas", data=df)
-            st.cache_data.clear() # Limpiar cache
             return True
         return False
     except Exception as e:
@@ -784,7 +766,6 @@ def crear_reserva(email, nombre, nro_mesa, fecha, hora, datos_contacto, personas
         
         updated_df = pd.concat([df, new_row], ignore_index=True)
         conn.update(worksheet="reservas", data=updated_df)
-        st.cache_data.clear() # Limpiar cache para recargar reservas actualizadas
         return nuevo_id
     except Exception as e:
         st.error(f"Error creando reserva: {e}")
@@ -798,7 +779,6 @@ def eliminar_reserva(id_reserva):
             # Convertir IDs a float/int para evitar problemas de tipos de pandas
             df = df[df["id"].astype(float).astype(int) != int(id_reserva)]
             conn.update(worksheet="reservas", data=df)
-            st.cache_data.clear() # Limpiar cache para recargar reservas actualizadas
             return True
         return False
     except Exception as e:
@@ -841,7 +821,6 @@ def crear_alerta_salon(nro_mesa, cliente_nombre, tipo_alerta):
         
         updated_df = pd.concat([df, new_row], ignore_index=True)
         conn.update(worksheet="alertas_salon", data=updated_df)
-        st.cache_data.clear()
         return True
     except Exception as e:
         st.error(f"Error creando alerta de salón: {e}")
@@ -855,7 +834,6 @@ def atender_alerta_salon(nro_mesa, tipo_alerta):
         if not df.empty and "nro_mesa" in df.columns:
             df = df[~((df["nro_mesa"].astype(int) == int(nro_mesa)) & (df["tipo_alerta"].astype(str) == str(tipo_alerta)))]
             conn.update(worksheet="alertas_salon", data=df)
-            st.cache_data.clear()
             return True
         return False
     except Exception as e:

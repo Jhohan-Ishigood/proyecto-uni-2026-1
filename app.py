@@ -134,7 +134,7 @@ def generar_numero_boleta(historial_ordenes):
 def validar_carrito_con_stock(carrito):
     """Relee el menú sin caché y confirma que el carrito todavía tenga stock suficiente.
     Si la lectura fresca falla (API quota), usa el menú cacheado como fallback."""
-    menu_actualizado = database.obtener_menu(ttl=1)
+    menu_actualizado = database.obtener_menu()
 
     # Fallback: si la lectura fresca retornó vacío pero hay un menú cacheado,
     # usar el caché en lugar de marcar todo como "no existe".
@@ -1602,7 +1602,7 @@ if es_admin:
         
         with col_mesas_admin:
             st.markdown("#### 🪑 Mesas del Local")
-            mesas_admin = database.obtener_mesas(ttl=1)
+            mesas_admin = database.obtener_mesas()
             
             if mesas_admin:
                 for mesa in mesas_admin:
@@ -1636,7 +1636,7 @@ if es_admin:
         
         with col_reservas_admin:
             st.markdown("#### 📅 Reservaciones Activas")
-            reservas_admin = database.obtener_reservas(ttl=1)
+            reservas_admin = database.obtener_reservas()
             
             if reservas_admin:
                 for reserva in reservas_admin:
@@ -1812,7 +1812,7 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
         st.markdown("<h2 class='titulo-principal'>🪑 Selecciona tu Mesa</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: #aaa; font-size: 15px;'>Elige una mesa disponible para iniciar tu pedido</p>", unsafe_allow_html=True)
         
-        mesas = database.obtener_mesas(ttl=1)
+        mesas = database.obtener_mesas()
         if not mesas:
             st.warning("No hay mesas configuradas. Contacta al administrador.")
         else:
@@ -2513,7 +2513,7 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                         st.info("🔄 Tu carrito fue ajustado. Presiona de nuevo **Emitir Boleta** para continuar.")
                     st.stop()
 
-                historial_actualizado = database.obtener_ordenes(ttl=1)
+                historial_actualizado = database.obtener_ordenes()
                 numero_boleta_actual = generar_numero_boleta(historial_actualizado)
                 correlativo_sunat = f"B001-{numero_boleta_actual:06d}"
                 detalle_productos_txt = ""
@@ -2597,8 +2597,8 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                 st.session_state.boleta_emitida = True
                 st.session_state.numero_boleta = numero_boleta_actual
                 st.session_state.correlativo_sunat = correlativo_sunat
-                st.session_state.menu_dinamico = database.obtener_menu(ttl=1)
-                st.session_state.historial_ordenes = database.obtener_ordenes(ttl=1)
+                st.session_state.menu_dinamico = database.obtener_menu()
+                st.session_state.historial_ordenes = database.obtener_ordenes()
                 st.success("PAGO REALIZADO CORRECTAMENTE - Pedido registrado exitosamente")
                 st.balloons()
                 render_stepper(3)
