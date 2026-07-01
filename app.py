@@ -481,9 +481,11 @@ if "code" in st.query_params:
             else:
                 st.toast(f"¡Hola de nuevo, {nombre}!", icon="👋")
         else:
-            st.error("Error al obtener el perfil de usuario de Google.")
+            st.toast("⚠️ No se pudo obtener el perfil de Google. Inténtelo nuevamente.", icon="🔒")
     else:
-        st.error(f"Error al intercambiar el token con Google. Verifica que el Client Secret en Streamlit Cloud sea correcto. Respuesta: {token_data}")
+        # Registrar error en consola y alertar con un toast no invasivo al cliente
+        print(f"Error en intercambio de token OAuth: {token_data}")
+        st.toast("⚠️ La sesión de Google expiró. Por favor, vuelva a presionar 'Iniciar Sesión'.", icon="🔑")
 
 # Anclaje y sincronización de reloj oficial para Perú (GMT-5)
 zona_peru = timezone(timedelta(hours=-5))
