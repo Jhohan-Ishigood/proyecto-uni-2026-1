@@ -469,7 +469,7 @@ if "code" in st.query_params:
 zona_peru = timezone(timedelta(hours=-5))
 ahora_peru = datetime.now(zona_peru)
 fecha_actual = ahora_peru.strftime("%d/%m/%Y %H:%M:%S")
-servicio_abierto = pedidos_abiertos(ahora_peru)
+servicio_abierto = True
 
 # ============================================================================
 # 4. MOTOR DE ANALÍTICA COMERCIAL Y PROCESAMIENTO DE KPI'S
