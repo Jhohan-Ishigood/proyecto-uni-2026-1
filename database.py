@@ -15,6 +15,9 @@ def _escribir_con_reintento(worksheet, data, max_reintentos=3):
         try:
             conn = get_connection()
             _raw_update(conn, worksheet, data)
+            if isinstance(data, pd.DataFrame):
+                st.session_state[f"_sheet_cache_{worksheet}"] = data.copy()
+                st.session_state[f"_sheet_cache_ts_{worksheet}"] = time.time()
             return True
         except Exception as e:
             error_str = str(e)
@@ -26,9 +29,20 @@ def _escribir_con_reintento(worksheet, data, max_reintentos=3):
             return False
     return False
 
-def _leer_sheet(worksheet, ttl=1):
+def _leer_sheet(worksheet, ttl=60):
+    cache_key = f"_sheet_cache_{worksheet}"
+    ts_key = f"_sheet_cache_ts_{worksheet}"
+    ahora = time.time()
+    ttl_segundos = 60 if ttl is None else max(int(ttl), 30)
+
+    if cache_key in st.session_state and ahora - st.session_state.get(ts_key, 0) < ttl_segundos:
+        return st.session_state[cache_key].copy()
+
     conn = get_connection()
-    return conn.read(worksheet=worksheet, ttl=ttl)
+    df = conn.read(worksheet=worksheet, ttl=ttl_segundos)
+    st.session_state[cache_key] = df.copy()
+    st.session_state[ts_key] = ahora
+    return df
 
 def _convertir_tipo(valor, tipo, default=None):
     if valor is None or (isinstance(valor, float) and pd.isna(valor)):
@@ -173,7 +187,7 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
         "precio": _convertir_tipo(precio, "float", default=10.0),
         "icono": _convertir_tipo(icono, "str", default="🍔"),
         "disponible": bool(disponible),
-        "foto": foto_ruta or "",
+        "foto": menu.get(nombre, {}).get("foto", "") if foto_ruta is None else foto_ruta,
         "stock": _convertir_tipo(stock, "int", default=0),
         "categoria": _convertir_tipo(categoria_nombre, "str", default="")
     }

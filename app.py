@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 import os
 import base64
 import html as html_lib
-from PIL import Image
+from PIL import Image, ImageOps
 from io import BytesIO
 import pandas as pd
 import altair as alt
@@ -261,23 +261,31 @@ def render_stepper(paso_actual):
     html += "</div>"
     st.markdown(html, unsafe_allow_html=True)
 
-def convertir_imagen_a_base64(archivo_foto, max_dimension=400, calidad=70):
-    """Convierte y comprime una imagen subida a un Data URL Base64 optimizado para Google Sheets (máx 50,000 chars por celda)."""
+MAX_IMAGE_DATA_URL_CHARS = 45000
+
+def convertir_imagen_a_base64(archivo_foto, max_dimension=420, calidad=72):
+    """Convierte y comprime una imagen subida a un Data URL seguro para Google Sheets."""
     if archivo_foto is None:
         return None
     try:
         img = Image.open(archivo_foto)
-        # Convertir a RGB si tiene canal alfa (PNG con transparencia)
+        img = ImageOps.exif_transpose(img)
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
-        # Redimensionar manteniendo proporción
-        img.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
-        # Comprimir como JPEG
-        buffer = BytesIO()
-        img.save(buffer, format="JPEG", quality=calidad, optimize=True)
-        buffer.seek(0)
-        encoded = base64.b64encode(buffer.read()).decode("utf-8")
-        return f"data:image/jpeg;base64,{encoded}"
+
+        for dimension in (max_dimension, 360, 300, 240, 180):
+            copia = img.copy()
+            copia.thumbnail((dimension, dimension), Image.Resampling.LANCZOS)
+            for calidad_actual in (calidad, 60, 48, 36):
+                buffer = BytesIO()
+                copia.save(buffer, format="JPEG", quality=calidad_actual, optimize=True)
+                encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
+                data_url = f"data:image/jpeg;base64,{encoded}"
+                if len(data_url) <= MAX_IMAGE_DATA_URL_CHARS:
+                    return data_url
+
+        st.error("La imagen es demasiado pesada para guardarse en Google Sheets. Intenta subir una foto mas pequena.")
+        return None
     except Exception as e:
         st.error(f"Error al codificar la imagen a Base64: {e}")
         return None
@@ -1351,7 +1359,11 @@ if es_admin:
                 todos_guardados = True
                 for prod_key, info_actualizada in cambios_detectados.items():
                     archivo_subido = st.session_state.get(f"f_up_{prod_key}")
-                    ruta_foto = convertir_imagen_a_base64(archivo_subido)
+                    ruta_foto = (
+                        convertir_imagen_a_base64(archivo_subido)
+                        if archivo_subido is not None
+                        else st.session_state.menu_dinamico.get(prod_key, {}).get("foto", "")
+                    )
                         
                     todos_guardados = database.guardar_producto(
                         db_path=None,
