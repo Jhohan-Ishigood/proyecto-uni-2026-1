@@ -182,27 +182,24 @@ def _obtener_menu_cached(ttl=300):
                 categoria = _convertir_tipo(row.get("categoria"), "str", default="")
                 
                 # REPARACIÓN AUTOMÁTICA DE IMÁGENES ROTAS:
-                # Si es una ruta local de fotos_productos y el archivo no existe físicamente,
-                # reemplazamos con una hermosa imagen de Unsplash según el nombre.
+                # Si es una ruta local de fotos_productos (antigua), la reemplazamos 
+                # directamente con una hermosa imagen de Unsplash según el nombre.
                 if foto and not (foto.startswith("http://") or foto.startswith("https://") or foto.startswith("data:image/")):
-                    # Es ruta local. Validar si existe físicamente
-                    import os
-                    if not os.path.exists(foto):
-                        nom_lower = nombre.lower()
-                        if "alita" in nom_lower:
-                            foto = "https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=500&auto=format&fit=crop&q=60"
-                        elif "chorizo" in nom_lower:
-                            # Foto de deliciosas salchichas/chorizos a la parrilla
-                            foto = "https://images.unsplash.com/photo-1532246420286-127bcd803104?w=500&auto=format&fit=crop&q=60"
-                        elif "anticucho" in nom_lower:
-                            foto = "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&auto=format&fit=crop&q=60"
-                        elif "hamburguesa" in nom_lower:
-                            foto = "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60"
-                        elif "chicha" in nom_lower or "pepsi" in nom_lower or "coca" in nom_lower or "fanta" in nom_lower or "bebida" in nom_lower:
-                            foto = "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=500&auto=format&fit=crop&q=60"
-                        else:
-                            # Foto de parrilla mixta premium
-                            foto = "https://images.unsplash.com/photo-1544025162-d76694265947?w=500&auto=format&fit=crop&q=60"
+                    nom_lower = nombre.lower()
+                    if "alita" in nom_lower:
+                        foto = "https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=500&auto=format&fit=crop&q=60"
+                    elif "chorizo" in nom_lower:
+                        # Foto de deliciosas salchichas/chorizos a la parrilla
+                        foto = "https://images.unsplash.com/photo-1532246420286-127bcd803104?w=500&auto=format&fit=crop&q=60"
+                    elif "anticucho" in nom_lower:
+                        foto = "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&auto=format&fit=crop&q=60"
+                    elif "hamburguesa" in nom_lower:
+                        foto = "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60"
+                    elif "chicha" in nom_lower or "pepsi" in nom_lower or "coca" in nom_lower or "fanta" in nom_lower or "bebida" in nom_lower:
+                        foto = "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=500&auto=format&fit=crop&q=60"
+                    else:
+                        # Foto de parrilla mixta premium
+                        foto = "https://images.unsplash.com/photo-1544025162-d76694265947?w=500&auto=format&fit=crop&q=60"
                 elif not foto:
                     # Foto por defecto si la celda está vacía
                     foto = "https://images.unsplash.com/photo-1544025162-d76694265947?w=500&auto=format&fit=crop&q=60"
