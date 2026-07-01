@@ -36,7 +36,7 @@ def _convertir_tipo(valor, tipo, default=None):
 def _hoja_existe(conn, nombre):
     """Retorna True si la hoja ya existe en el spreadsheet."""
     try:
-        df = conn.read(worksheet=nombre, ttl=1)
+        df = conn.read(worksheet=nombre, ttl=30)
         return True  # lectura exitosa → hoja existe
     except Exception as e:
         msg = str(e).lower()
@@ -127,7 +127,7 @@ def crear_categoria(db_path, nombre):
     """Crea una nueva categoría."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="categorias", ttl=1)
+        df = conn.read(worksheet="categorias", ttl=30)
         if df.empty or "nombre" not in df.columns:
             df = pd.DataFrame(columns=["nombre"])
         
@@ -147,13 +147,13 @@ def eliminar_categoria(db_path, nombre):
     try:
         conn = get_connection()
         # 1. Eliminar categoría de la hoja de categorías
-        df_cat = conn.read(worksheet="categorias", ttl=1)
+        df_cat = conn.read(worksheet="categorias", ttl=30)
         if not df_cat.empty and "nombre" in df_cat.columns:
             df_cat = df_cat[df_cat["nombre"].astype(str).str.strip() != nombre.strip()]
             conn.update(worksheet="categorias", data=df_cat)
             
         # 2. Actualizar productos asociados para limpiar su categoría
-        df_prod = conn.read(worksheet="productos", ttl=1)
+        df_prod = conn.read(worksheet="productos", ttl=30)
         if not df_prod.empty and "categoria" in df_prod.columns:
             df_prod.loc[df_prod["categoria"].astype(str).str.strip() == nombre.strip(), "categoria"] = ""
             conn.update(worksheet="productos", data=df_prod)
@@ -305,7 +305,7 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
     """Crea o actualiza un producto en Google Sheets."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="productos", ttl=1)
+        df = conn.read(worksheet="productos", ttl=30)
         if df.empty or "nombre" not in df.columns:
             df = pd.DataFrame(columns=["nombre", "precio", "icono", "disponible", "foto", "stock", "categoria"])
             
@@ -418,7 +418,7 @@ def eliminar_producto(db_path, nombre):
     """Elimina un producto por su nombre."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="productos", ttl=1)
+        df = conn.read(worksheet="productos", ttl=30)
         if not df.empty and "nombre" in df.columns:
             df = df[df["nombre"].astype(str) != nombre]
             conn.update(worksheet="productos", data=df)
@@ -568,7 +568,7 @@ def actualizar_stock_multiple(db_path, actualizaciones_dict):
         df = None
         try:
             # Intentar lectura directa sin caché
-            df = conn.read(worksheet="productos", ttl=1)
+            df = conn.read(worksheet="productos", ttl=30)
         except Exception as e:
             # Fallback en caso de 429: Usar st.session_state.menu_dinamico en memoria libre de red
             menu_cache = st.session_state.get("menu_dinamico")
@@ -608,7 +608,7 @@ def crear_calificacion(db_path, fecha_hora, nro_boleta, calificacion, comentario
     """Registra una calificación del cliente (1-5 estrellas) con comentario opcional."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="calificaciones", ttl=1)
+        df = conn.read(worksheet="calificaciones", ttl=30)
         if df.empty or "nro_boleta" not in df.columns:
             df = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "calificacion", "comentario"])
         
@@ -650,7 +650,7 @@ def registrar_log(db_path, fecha_hora, nivel, mensaje, detalle=""):
     """Registra un evento en la hoja de logs para auditoría."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="logs", ttl=1)
+        df = conn.read(worksheet="logs", ttl=30)
         if df.empty or "mensaje" not in df.columns:
             df = pd.DataFrame(columns=["fecha_hora", "nivel", "mensaje", "detalle"])
         
@@ -703,7 +703,7 @@ def obtener_cupones(ttl=TTL_LECTURA):
 def crear_cupon(codigo, tipo, valor, descripcion, activo=True):
     try:
         conn = get_connection()
-        df = conn.read(worksheet="cupones", ttl=1)
+        df = conn.read(worksheet="cupones", ttl=30)
         if df.empty or "codigo" not in df.columns:
             df = pd.DataFrame(columns=["codigo", "tipo", "valor", "descripcion", "activo"])
         
@@ -728,7 +728,7 @@ def crear_cupon(codigo, tipo, valor, descripcion, activo=True):
 def eliminar_cupon(codigo):
     try:
         conn = get_connection()
-        df = conn.read(worksheet="cupones", ttl=1)
+        df = conn.read(worksheet="cupones", ttl=30)
         if not df.empty and "codigo" in df.columns:
             df_filtered = df[df["codigo"].astype(str).str.strip().str.upper() != codigo.strip().upper()]
             conn.update(worksheet="cupones", data=df_filtered)
@@ -740,7 +740,7 @@ def eliminar_cupon(codigo):
 def actualizar_estado_cupon(codigo, activo):
     try:
         conn = get_connection()
-        df = conn.read(worksheet="cupones", ttl=1)
+        df = conn.read(worksheet="cupones", ttl=30)
         if not df.empty and "codigo" in df.columns:
             mask = df["codigo"].astype(str).str.strip().str.upper() == codigo.strip().upper()
             if mask.any():
@@ -778,7 +778,7 @@ def registrar_usuario(email, nombre, foto):
             return False # Ya existe
 
         conn = get_connection()
-        df = conn.read(worksheet="usuarios", ttl=1)
+        df = conn.read(worksheet="usuarios", ttl=30)
         if df.empty or "email" not in df.columns:
             df = pd.DataFrame(columns=["email", "nombre", "foto", "compras_realizadas", "fecha_registro"])
             
@@ -810,7 +810,7 @@ def registrar_usuario(email, nombre, foto):
 def incrementar_compra_usuario(email):
     try:
          conn = get_connection()
-         df = conn.read(worksheet="usuarios", ttl=1)
+         df = conn.read(worksheet="usuarios", ttl=30)
          if not df.empty and "email" in df.columns:
              mask = df["email"].astype(str).str.strip().str.lower() == email.strip().lower()
              if mask.any():
@@ -894,7 +894,7 @@ def actualizar_estado_mesa(nro_mesa, estado):
     # 2. Intentar actualizar Google Sheets en segundo plano. Si falla (429), no bloqueamos nada
     try:
         conn = get_connection()
-        df = conn.read(worksheet="mesas", ttl=1)
+        df = conn.read(worksheet="mesas", ttl=30)
         if not df.empty and "nro_mesa" in df.columns:
             mask = df["nro_mesa"].astype(int) == int(nro_mesa)
             if mask.any():
@@ -909,7 +909,7 @@ def actualizar_estado_mesa(nro_mesa, estado):
 def agregar_mesa():
     try:
         conn = get_connection()
-        df = conn.read(worksheet="mesas", ttl=1)
+        df = conn.read(worksheet="mesas", ttl=30)
         nueva_mesa = 1
         if not df.empty and "nro_mesa" in df.columns:
             nueva_mesa = int(df["nro_mesa"].max()) + 1
@@ -925,7 +925,7 @@ def agregar_mesa():
 def eliminar_mesa(nro_mesa):
     try:
         conn = get_connection()
-        df = conn.read(worksheet="mesas", ttl=1)
+        df = conn.read(worksheet="mesas", ttl=30)
         if not df.empty and "nro_mesa" in df.columns:
             df = df[df["nro_mesa"].astype(int) != int(nro_mesa)]
             conn.update(worksheet="mesas", data=df)
@@ -950,13 +950,13 @@ def _obtener_reservas_cached(ttl=60):
     except Exception:
         return []
 
-def obtener_reservas(ttl=1):
+def obtener_reservas(ttl=30):
     return _obtener_reservas_cached(ttl=ttl)
 
 def crear_reserva(email, nombre, nro_mesa, fecha, hora, datos_contacto, personas, nombres_invitados):
     try:
         conn = get_connection()
-        df = conn.read(worksheet="reservas", ttl=1)
+        df = conn.read(worksheet="reservas", ttl=30)
         if df.empty or "id" not in df.columns:
             df = pd.DataFrame(columns=["id", "email", "nombre", "nro_mesa", "fecha", "hora", "datos_contacto", "personas", "nombres_invitados"])
         
@@ -990,7 +990,7 @@ def crear_reserva(email, nombre, nro_mesa, fecha, hora, datos_contacto, personas
 def eliminar_reserva(id_reserva):
     try:
         conn = get_connection()
-        df = conn.read(worksheet="reservas", ttl=1)
+        df = conn.read(worksheet="reservas", ttl=30)
         if not df.empty and "id" in df.columns:
             # Convertir IDs a float/int para evitar problemas de tipos de pandas
             df = df[df["id"].astype(float).astype(int) != int(id_reserva)]
@@ -1024,7 +1024,7 @@ def crear_alerta_salon(nro_mesa, cliente_nombre, tipo_alerta):
     """Crea una alerta de llamado a mesero o cuenta."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="alertas_salon", ttl=1)
+        df = conn.read(worksheet="alertas_salon", ttl=30)
         if df.empty or "nro_mesa" not in df.columns:
             df = pd.DataFrame(columns=["fecha_hora", "nro_mesa", "cliente_nombre", "tipo_alerta", "atendido"])
 
@@ -1048,7 +1048,7 @@ def atender_alerta_salon(nro_mesa, tipo_alerta):
     """Elimina la alerta de llamado una vez que el mesero la atiende."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="alertas_salon", ttl=1)
+        df = conn.read(worksheet="alertas_salon", ttl=30)
         if not df.empty and "nro_mesa" in df.columns:
             df = df[~((df["nro_mesa"].astype(int) == int(nro_mesa)) & (df["tipo_alerta"].astype(str) == str(tipo_alerta)))]
             conn.update(worksheet="alertas_salon", data=df)

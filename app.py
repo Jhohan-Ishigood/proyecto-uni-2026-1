@@ -1391,48 +1391,48 @@ if es_admin:
                 st.rerun()
     
         if st.button("💾 CONFIRMAR Y SINCRONIZAR CAMBIOS DE LA CARTA", use_container_width=True, disabled=not _editar_carta3):
-            # Leer el DataFrame de productos UNA SOLA VEZ antes del loop
             try:
-                conn = database.get_connection()
-                df_productos = conn.read(worksheet="productos", ttl=1)
-                if df_productos.empty or "nombre" not in df_productos.columns:
-                    df_productos = pd.DataFrame(columns=["nombre", "precio", "icono", "disponible", "foto", "stock", "categoria"])
+                # Construir DataFrame desde la memoria (sin leer la API de nuevo)
+                rows = []
+                menu_actual = st.session_state.menu_dinamico
                 
+                # Primero, aplicar los cambios del formulario sobre la memoria
                 for prod_key, info_actualizada in cambios_detectados.items():
                     archivo_subido = st.session_state.get(f"f_up_{prod_key}")
                     ruta_foto = convertir_imagen_a_base64(archivo_subido)
                     
-                    disponibilidad_val = 1 if info_actualizada["disponible"] else 0
-                    
-                    if prod_key in df_productos["nombre"].astype(str).values:
-                        idx = df_productos[df_productos["nombre"].astype(str) == prod_key].index[0]
-                        df_productos.at[idx, "precio"] = float(info_actualizada["precio"])
-                        df_productos.at[idx, "icono"] = info_actualizada["icono"]
-                        df_productos.at[idx, "disponible"] = disponibilidad_val
-                        df_productos.at[idx, "stock"] = int(info_actualizada["stock"])
-                        df_productos.at[idx, "categoria"] = info_actualizada["categoria"]
+                    if prod_key in menu_actual:
+                        menu_actual[prod_key]["precio"] = float(info_actualizada["precio"])
+                        menu_actual[prod_key]["icono"] = info_actualizada["icono"]
+                        menu_actual[prod_key]["disponible"] = info_actualizada["disponible"]
+                        menu_actual[prod_key]["stock"] = int(info_actualizada["stock"])
+                        menu_actual[prod_key]["categoria"] = info_actualizada["categoria"]
                         if ruta_foto:
-                            df_productos.at[idx, "foto"] = ruta_foto
-                    else:
-                        new_row = pd.DataFrame([{
-                            "nombre": prod_key,
-                            "precio": float(info_actualizada["precio"]),
-                            "icono": info_actualizada["icono"],
-                            "disponible": disponibilidad_val,
-                            "foto": ruta_foto or "",
-                            "stock": int(info_actualizada["stock"]),
-                            "categoria": info_actualizada["categoria"]
-                        }])
-                        df_productos = pd.concat([df_productos, new_row], ignore_index=True)
+                            menu_actual[prod_key]["foto"] = ruta_foto
                 
-                # Escribir al Excel UNA SOLA VEZ con TODOS los cambios aplicados
+                # Construir DataFrame con TODOS los productos actualizados
+                for nombre, info in menu_actual.items():
+                    rows.append({
+                        "nombre": nombre,
+                        "precio": float(info.get("precio", 10.0)),
+                        "icono": str(info.get("icono", "🍔")),
+                        "disponible": 1 if info.get("disponible", True) else 0,
+                        "foto": str(info.get("foto", "")),
+                        "stock": int(info.get("stock", 0)),
+                        "categoria": str(info.get("categoria", ""))
+                    })
+                
+                df_productos = pd.DataFrame(rows)
+                
+                # Escribir UNA SOLA VEZ sin haber leído la API
+                conn = database.get_connection()
                 conn.update(worksheet="productos", data=df_productos)
                 st.cache_data.clear()
-                st.success("✔ ¡Cambios guardados físicamente con éxito!")
+                st.success("✔ ¡Cambios guardados con éxito!")
                 st.session_state["_forzar_recarga"] = True
                 st.rerun()
             except Exception as e:
-                st.error(f"⚠️ Error al guardar cambios: {e}")
+                st.error(f"⚠️ Error al guardar: {e}")
 
     # ============================================================================
     # 12.5 PANEL DE CONTROL DE ADMINISTRACIÓN - GESTIÓN DE CUPONES
