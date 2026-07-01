@@ -1394,25 +1394,28 @@ if es_admin:
                 
         if st.button("💾 CONFIRMAR Y SINCRONIZAR CAMBIOS DE LA CARTA", use_container_width=True, disabled=not _editar_carta3):
             # Sincronizamos los cambios al almacenamiento de Google Sheets directamente
-            todos_guardados = True
-            for prod_key, info_actualizada in cambios_detectados.items():
-                archivo_subido = st.session_state.get(f"f_up_{prod_key}")
-                ruta_foto = convertir_imagen_a_base64(archivo_subido)
-                    
-                todos_guardados = database.guardar_producto(
-                    db_path=None,
-                    nombre=prod_key,
-                    precio=info_actualizada["precio"],
-                    icono=info_actualizada["icono"],
-                    disponible=info_actualizada["disponible"],
-                    foto_ruta=ruta_foto,
-                    stock=info_actualizada["stock"],
-                    categoria_nombre=info_actualizada["categoria"]
-                ) and todos_guardados
-            if todos_guardados:
-                st.success("✔ ¡Cambios guardados físicamente con éxito!")
-                st.session_state["_forzar_recarga"] = True
-                st.rerun()
+            try:
+                todos_guardados = True
+                for prod_key, info_actualizada in cambios_detectados.items():
+                    archivo_subido = st.session_state.get(f"f_up_{prod_key}")
+                    ruta_foto = convertir_imagen_a_base64(archivo_subido)
+                        
+                    todos_guardados = database.guardar_producto(
+                        db_path=None,
+                        nombre=prod_key,
+                        precio=info_actualizada["precio"],
+                        icono=info_actualizada["icono"],
+                        disponible=info_actualizada["disponible"],
+                        foto_ruta=ruta_foto,
+                        stock=info_actualizada["stock"],
+                        categoria_nombre=info_actualizada["categoria"]
+                    ) and todos_guardados
+                if todos_guardados:
+                    st.success("✔ ¡Cambios guardados físicamente con éxito!")
+                    st.session_state["_forzar_recarga"] = True
+                    st.rerun()
+            except Exception as e:
+                st.error(f"❌ Error al guardar en Google Sheets: {e}. Por favor, inténtalo de nuevo en unos segundos.")
 
     # ============================================================================
     # 12.5 PANEL DE CONTROL DE ADMINISTRACIÓN - GESTIÓN DE CUPONES
