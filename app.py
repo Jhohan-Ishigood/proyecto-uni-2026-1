@@ -356,7 +356,15 @@ if "menu_dinamico" not in st.session_state or st.session_state.get("_forzar_reca
         
     st.session_state["_forzar_recarga"] = False
 
-if "carrito" not in st.session_state:
+    # Limpieza de respaldos locales obsoletos e invalidar caché para forzar carga fresca del Excel
+    import os
+    if os.path.exists("productos_respaldo.json"):
+        try:
+            os.remove("productos_respaldo.json")
+        except Exception:
+            pass
+    st.cache_data.clear()
+    
     st.session_state.carrito = []
 if "total_acumulado" not in st.session_state:
     st.session_state.total_acumulado = 0.0
