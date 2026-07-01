@@ -332,36 +332,21 @@ def puede_editar(rol, seccion):
 # 3. INICIALIZACIÓN DE VARIABLES REACTIVAS DE SESIÓN (ESTADOS DEL SISTEMA)
 # ============================================================================
 # Carga inicial de datos (solo una vez por sesión, o cuando se fuerza recarga)
-if "menu_dinamico" not in st.session_state or st.session_state.get("_forzar_recarga", False):
-    if st.session_state.get("_forzar_recarga", False):
-        st.cache_data.clear() # Limpiar caché local de Streamlit para traer datos frescos de GSheets
-    
-    nuevo_menu = database.obtener_menu()
-    cant_productos = len(nuevo_menu)
-    if nuevo_menu:
-        st.session_state.menu_dinamico = nuevo_menu
-        if cant_productos < 5 and st.session_state.get("mostrar_diagnostico", True):
-            st.info(f"📊 Diagnóstico: {cant_productos} productos cargados desde Google Sheets. "
-                    f"Si esperas más, verifica que la hoja 'productos' tenga todos los datos "
-                    f"y que la columna 'nombre' contenga los nombres de cada producto.")
-    elif "menu_dinamico" not in st.session_state:
-        st.session_state.menu_dinamico = {}
-
-    nuevas_ordenes = database.obtener_ordenes()
-    if nuevas_ordenes:
-        st.session_state.historial_ordenes = nuevas_ordenes
-    elif "historial_ordenes" not in st.session_state:
-        st.session_state.historial_ordenes = []
-
-    nuevas_categorias = database.obtener_categorias()
-    if nuevas_categorias:
-        st.session_state.lista_categorias = ["Todos"] + nuevas_categorias
-    elif "lista_categorias" not in st.session_state:
-        st.session_state.lista_categorias = ["Todos"]
-    
-    st.session_state["_forzar_recarga"] = False
-
+if "menu_dinamico" not in st.session_state:
+    menu = database.obtener_menu()
+    st.session_state.menu_dinamico = menu if menu else {}
+    ordenes = database.obtener_ordenes()
+    st.session_state.historial_ordenes = ordenes if ordenes else []
+    categorias = database.obtener_categorias()
+    st.session_state.lista_categorias = ["Todos"] + categorias if categorias else ["Todos"]
     st.session_state.carrito = []
+
+if st.session_state.get("_forzar_recarga", False):
+    st.session_state.menu_dinamico = database.obtener_menu()
+    st.session_state.historial_ordenes = database.obtener_ordenes()
+    cats = database.obtener_categorias()
+    st.session_state.lista_categorias = ["Todos"] + cats if cats else ["Todos"]
+    st.session_state["_forzar_recarga"] = False
 if "total_acumulado" not in st.session_state:
     st.session_state.total_acumulado = 0.0
 if "pedido_guardado" not in st.session_state:
@@ -1863,7 +1848,6 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                             st.session_state.mesa_seleccionada = mesa_elegida
                             # Cambiar estado en GSheets y vaciar caché DESPUÉS para que se propague
                             database.actualizar_estado_mesa(mesa_elegida, "ocupada")
-                            st.cache_data.clear()
                             st.session_state.pantalla_actual = "catalogo"
                             st.session_state.boleta_emitida = False
                             st.rerun()
@@ -2589,7 +2573,6 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                 if st.session_state.get("tipo_servicio") == "salon" and st.session_state.get("mesa_seleccionada"):
                     try:
                         database.actualizar_estado_mesa(st.session_state.mesa_seleccionada, "ocupada")
-                        st.cache_data.clear()
                     except Exception:
                         pass  # No bloquear la boleta si falla la mesa
 
