@@ -160,8 +160,8 @@ def eliminar_categoria(db_path, nombre):
     except Exception as e:
         st.error(f"Error eliminando categoría en GSheets: {e}")
 
-@st.cache_data(ttl=60)
-def _obtener_menu_cached(ttl=60):
+@st.cache_data(ttl=300)
+def _obtener_menu_cached(ttl=300):
     try:
         conn = get_connection()
         df = conn.read(worksheet="productos", ttl=ttl)
@@ -397,8 +397,8 @@ def eliminar_producto(db_path, nombre):
         st.error(f"Error eliminando producto de GSheets: {e}")
         return False
 
-@st.cache_data(ttl=60)
-def _obtener_ordenes_cached(ttl=60):
+@st.cache_data(ttl=300)
+def _obtener_ordenes_cached(ttl=300):
     try:
         conn = get_connection()
         df = conn.read(worksheet="ordenes", ttl=ttl)
@@ -808,8 +808,8 @@ def incrementar_compra_usuario(email):
 # ============================================================================
 # FUNCIONES DE MESAS
 # ============================================================================
-@st.cache_data(ttl=60)
-def _obtener_mesas_cached(ttl=60):
+@st.cache_data(ttl=120)
+def _obtener_mesas_cached(ttl=120):
     try:
         conn = get_connection()
         df = conn.read(worksheet="mesas", ttl=ttl)
