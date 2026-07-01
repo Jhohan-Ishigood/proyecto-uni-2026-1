@@ -284,44 +284,21 @@ def convertir_imagen_a_base64(archivo_foto, max_dimension=400, calidad=70):
 
 @st.cache_data(show_spinner=False)
 def obtener_src_foto(ruta_foto):
-    """Convierte cualquier fuente de imagen a un objeto PIL Image para que st.image la dibuje de manera infalible sin arrojar UnidentifiedImageError."""
-    # Imagen de respaldo de Pillow: Gris oscuro de 100x100 píxeles
-    FALLBACK_IMAGE = Image.new("RGB", (100, 100), (30, 30, 30))
+    """Convierte una ruta de imagen local a Base64 o la retorna tal cual si es una URL/data URL. Almacenada en caché para extrema velocidad."""
+    PLACEHOLDER_SVG = "data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='8.5' cy='8.5' r='1.5'/><polyline points='21 15 16 10 5 21'/></svg>"
     
     if not ruta_foto:
-        return FALLBACK_IMAGE
+        return PLACEHOLDER_SVG
     
-    # Si ya es una data URL en Base64 — decodificar y convertir a objeto PIL Image
-    if str(ruta_foto).startswith("data:image/"):
-        try:
-            header, data = ruta_foto.split(",", 1)
-            # Limpieza exhaustiva de caracteres invisibles y saltos de línea
-            data_clean = "".join(data.split())
-            # Corregir padding si es necesario
-            data_clean += "=" * (-len(data_clean) % 4)
-            img_bytes = base64.b64decode(data_clean)
-            return Image.open(BytesIO(img_bytes))
-        except Exception as e:
-            print(f"Error decodificando Base64 de {ruta_foto[:30]}: {e}")
-            return FALLBACK_IMAGE
+    # Ya es una data URL en Base64 — retornar directo
+    if ruta_foto.startswith("data:image/"):
+        return ruta_foto
     
-    # Es una URL de Internet — descargar en el servidor y procesar
-    if str(ruta_foto).startswith("http://") or str(ruta_foto).startswith("https://"):
-        try:
-            import urllib.request
-            req = urllib.request.Request(ruta_foto, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=10) as response:
-                img_data = response.read()
-            img = Image.open(BytesIO(img_data))
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
-            img.thumbnail((500, 500), Image.Resampling.LANCZOS)
-            return img
-        except Exception as e:
-            print(f"Error descargando imagen URL {ruta_foto}: {e}")
-            return FALLBACK_IMAGE
+    # Es una URL de Internet (Unsplash, etc.) — el navegador la carga directo
+    if ruta_foto.startswith("http://") or ruta_foto.startswith("https://"):
+        return ruta_foto
         
-    # Es una ruta de archivo local — leer y convertir a Image
+    # Es una ruta de archivo local — convertir a Base64
     if os.path.exists(ruta_foto):
         ruta_completa = ruta_foto
     else:
@@ -329,11 +306,17 @@ def obtener_src_foto(ruta_foto):
     
     if os.path.exists(ruta_completa):
         try:
-            return Image.open(ruta_completa)
+            _, ext = os.path.splitext(ruta_completa)
+            ext = ext.lower().replace(".", "")
+            if ext == "jpg":
+                ext = "jpeg"
+            with open(ruta_completa, "rb") as f:
+                encoded = base64.b64encode(f.read()).decode()
+            return f"data:image/{ext};base64,{encoded}"
         except Exception as e:
-            print(f"Error leyendo imagen local {ruta_completa}: {e}")
+            print(f"Error codificando imagen {ruta_completa}: {e}")
             
-    return FALLBACK_IMAGE
+    return PLACEHOLDER_SVG
 
 def _get_perm(rol, seccion):
     """Devuelve el nivel de permiso: 'oculto', 'ver', o 'editar'."""
@@ -357,32 +340,15 @@ def puede_editar(rol, seccion):
 # 3. INICIALIZACIÓN DE VARIABLES REACTIVAS DE SESIÓN (ESTADOS DEL SISTEMA)
 # ============================================================================
 # Carga inicial de datos (solo una vez por sesión, o cuando se fuerza recarga)
-# Identificar si el menú actual en sesión es el fallback offline por defecto
-es_menu_defecto = False
-if "menu_dinamico" in st.session_state:
-    platos_actuales = set(st.session_state.menu_dinamico.keys())
-    platos_defecto = {"PARILLA DE RES", "ALITAS BBQ", "HAMBURGUESA CLÁSICA", "CHICHA MORADA JARRAS", "COMBO PARRILLERO"}
-    if platos_actuales == platos_defecto or not platos_actuales:
-        es_menu_defecto = True
-
-if "menu_dinamico" not in st.session_state or st.session_state.get("_forzar_recarga", False) or es_menu_defecto:
+if "menu_dinamico" not in st.session_state or st.session_state.get("_forzar_recarga", False):
     if st.session_state.get("_forzar_recarga", False):
         st.cache_data.clear() # Limpiar caché local de Streamlit para traer datos frescos de GSheets
     
     nuevo_menu = database.obtener_menu()
-    # Solo reemplazamos el menú si logramos conectar con GSheets y obtuvimos los productos reales
-    # (sabemos que son reales porque no corresponden exactamente al set de fallback offline)
-    if nuevo_menu:
-        nuevos_platos = set(nuevo_menu.keys())
-        platos_defecto = {"PARILLA DE RES", "ALITAS BBQ", "HAMBURGUESA CLÁSICA", "CHICHA MORADA JARRAS", "COMBO PARRILLERO"}
-        if nuevos_platos != platos_defecto:
-            st.session_state.menu_dinamico = nuevo_menu
-            # También recargar categorías correspondientes al menú real
-            nuevas_categorias = database.obtener_categorias()
-            if nuevas_categorias:
-                st.session_state.lista_categorias = ["Todos"] + nuevas_categorias
-        elif "menu_dinamico" not in st.session_state:
-            st.session_state.menu_dinamico = nuevo_menu
+    if nuevo_menu: # Solo actualizar si la lectura fue exitosa (no vacía)
+        st.session_state.menu_dinamico = nuevo_menu
+    elif "menu_dinamico" not in st.session_state:
+        st.session_state.menu_dinamico = {} # Default vacío inicial solo si no existía antes
 
     nuevas_ordenes = database.obtener_ordenes()
     if nuevas_ordenes:
@@ -390,12 +356,11 @@ if "menu_dinamico" not in st.session_state or st.session_state.get("_forzar_reca
     elif "historial_ordenes" not in st.session_state:
         st.session_state.historial_ordenes = []
 
-    if "lista_categorias" not in st.session_state or st.session_state.lista_categorias == ["Todos"]:
-        nuevas_categorias = database.obtener_categorias()
-        if nuevas_categorias:
-            st.session_state.lista_categorias = ["Todos"] + nuevas_categorias
-        else:
-            st.session_state.lista_categorias = ["Todos", "Parrillas", "Hamburguesas", "Bebidas", "Combos"]
+    nuevas_categorias = database.obtener_categorias()
+    if nuevas_categorias:
+        st.session_state.lista_categorias = ["Todos"] + nuevas_categorias
+    elif "lista_categorias" not in st.session_state:
+        st.session_state.lista_categorias = ["Todos"]
         
     st.session_state["_forzar_recarga"] = False
 
@@ -498,11 +463,9 @@ if "code" in st.query_params:
             else:
                 st.toast(f"¡Hola de nuevo, {nombre}!", icon="👋")
         else:
-            st.toast("⚠️ No se pudo obtener el perfil de Google. Inténtelo nuevamente.", icon="🔒")
+            st.error("Error al obtener el perfil de usuario de Google.")
     else:
-        # Registrar error en consola y alertar con un toast no invasivo al cliente
-        print(f"Error en intercambio de token OAuth: {token_data}")
-        st.toast("⚠️ La sesión de Google expiró. Por favor, vuelva a presionar 'Iniciar Sesión'.", icon="🔑")
+        st.error(f"Error al intercambiar el token con Google. Verifica que el Client Secret en Streamlit Cloud sea correcto. Respuesta: {token_data}")
 
 # Anclaje y sincronización de reloj oficial para Perú (GMT-5)
 zona_peru = timezone(timedelta(hours=-5))
@@ -1293,7 +1256,7 @@ if es_admin:
                             pass
                             
                     if foto_preview_izq:
-                        st.image(foto_preview_izq, use_container_width=True)
+                        st.markdown(f"""<img src="{foto_preview_izq}" style="width:100%; height:120px; object-fit:cover; border-radius:6px; margin-bottom:10px; border: 1px solid #444;">""", unsafe_allow_html=True)
                     
                     # Selector dinámico de secciones para reasignar categorías en caliente
                     cats_izq = [c for c in st.session_state.lista_categorias if c != "Todos"]
@@ -1346,7 +1309,7 @@ if es_admin:
                                 pass
                                 
                         if foto_preview_der:
-                            st.image(foto_preview_der, use_container_width=True)
+                            st.markdown(f"""<img src="{foto_preview_der}" style="width:100%; height:120px; object-fit:cover; border-radius:6px; margin-bottom:10px; border: 1px solid #444;">""", unsafe_allow_html=True)
                         
                         # Selector dinámico de secciones para la columna derecha
                         cats_der = [c for c in st.session_state.lista_categorias if c != "Todos"]
@@ -1390,32 +1353,27 @@ if es_admin:
                 st.session_state["_forzar_recarga"] = True
                 st.rerun()
     
-
-                
         if st.button("💾 CONFIRMAR Y SINCRONIZAR CAMBIOS DE LA CARTA", use_container_width=True, disabled=not _editar_carta3):
-            # Sincronizamos los cambios al almacenamiento de Google Sheets directamente
-            try:
-                todos_guardados = True
-                for prod_key, info_actualizada in cambios_detectados.items():
-                    archivo_subido = st.session_state.get(f"f_up_{prod_key}")
-                    ruta_foto = convertir_imagen_a_base64(archivo_subido)
-                        
-                    todos_guardados = database.guardar_producto(
-                        db_path=None,
-                        nombre=prod_key,
-                        precio=info_actualizada["precio"],
-                        icono=info_actualizada["icono"],
-                        disponible=info_actualizada["disponible"],
-                        foto_ruta=ruta_foto,
-                        stock=info_actualizada["stock"],
-                        categoria_nombre=info_actualizada["categoria"]
-                    ) and todos_guardados
-                if todos_guardados:
-                    st.success("✔ ¡Cambios guardados físicamente con éxito!")
-                    st.session_state["_forzar_recarga"] = True
-                    st.rerun()
-            except Exception as e:
-                st.error(f"❌ Error al guardar en Google Sheets: {e}. Por favor, inténtalo de nuevo en unos segundos.")
+            # Sincronizamos los cambios al almacenamiento de Google Sheets
+            todos_guardados = True
+            for prod_key, info_actualizada in cambios_detectados.items():
+                archivo_subido = st.session_state.get(f"f_up_{prod_key}")
+                ruta_foto = convertir_imagen_a_base64(archivo_subido)
+                    
+                todos_guardados = database.guardar_producto(
+                    db_path=None,
+                    nombre=prod_key,
+                    precio=info_actualizada["precio"],
+                    icono=info_actualizada["icono"],
+                    disponible=info_actualizada["disponible"],
+                    foto_ruta=ruta_foto,
+                    stock=info_actualizada["stock"],
+                    categoria_nombre=info_actualizada["categoria"]
+                ) and todos_guardados
+            if todos_guardados:
+                st.success("✔ ¡Cambios guardados físicamente con éxito!")
+                st.session_state["_forzar_recarga"] = True
+                st.rerun()
 
     # ============================================================================
     # 12.5 PANEL DE CONTROL DE ADMINISTRACIÓN - GESTIÓN DE CUPONES
@@ -2192,10 +2150,11 @@ elif not es_admin_autenticado or (es_admin_autenticado and st.session_state.rol_
                     url_imagen_plato = info.get("foto", "")
                     src_imagen_plato = obtener_src_foto(url_imagen_plato)
                     is_fav = prod in st.session_state.favoritos
-                    try:
-                        st.image(src_imagen_plato, use_container_width=True)
-                    except Exception:
-                        st.warning("📷 Error cargando esta foto.")
+                    st.markdown(f"""
+                        <div style="position:relative;">
+                            <img src="{escapar_html(src_imagen_plato)}" style="width:100%; height:200px; object-fit:cover; border-radius:12px 12px 0px 0px; box-shadow: 0px 4px 12px rgba(0,0,0,0.6); display:block; margin:0; padding:0;">
+                        </div>
+                    """, unsafe_allow_html=True)
                     
                     nuevo_fav = st.checkbox("❤️ Favorito", value=is_fav, key=f"fav_{prod}")
                     if nuevo_fav != is_fav:

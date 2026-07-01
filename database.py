@@ -36,7 +36,7 @@ def _convertir_tipo(valor, tipo, default=None):
 def _hoja_existe(conn, nombre):
     """Retorna True si la hoja ya existe en el spreadsheet."""
     try:
-        df = conn.read(worksheet=nombre, ttl=30)
+        df = conn.read(worksheet=nombre, ttl=1)
         return True  # lectura exitosa → hoja existe
     except Exception as e:
         msg = str(e).lower()
@@ -127,7 +127,7 @@ def crear_categoria(db_path, nombre):
     """Crea una nueva categoría."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="categorias", ttl=30)
+        df = conn.read(worksheet="categorias", ttl=1)
         if df.empty or "nombre" not in df.columns:
             df = pd.DataFrame(columns=["nombre"])
         
@@ -147,13 +147,13 @@ def eliminar_categoria(db_path, nombre):
     try:
         conn = get_connection()
         # 1. Eliminar categoría de la hoja de categorías
-        df_cat = conn.read(worksheet="categorias", ttl=30)
+        df_cat = conn.read(worksheet="categorias", ttl=1)
         if not df_cat.empty and "nombre" in df_cat.columns:
             df_cat = df_cat[df_cat["nombre"].astype(str).str.strip() != nombre.strip()]
             conn.update(worksheet="categorias", data=df_cat)
             
         # 2. Actualizar productos asociados para limpiar su categoría
-        df_prod = conn.read(worksheet="productos", ttl=30)
+        df_prod = conn.read(worksheet="productos", ttl=1)
         if not df_prod.empty and "categoria" in df_prod.columns:
             df_prod.loc[df_prod["categoria"].astype(str).str.strip() == nombre.strip(), "categoria"] = ""
             conn.update(worksheet="productos", data=df_prod)
@@ -180,36 +180,6 @@ def _obtener_menu_cached(ttl=300):
                 foto = _convertir_tipo(row.get("foto"), "str", default="")
                 stock = _convertir_tipo(row.get("stock"), "int", default=0)
                 categoria = _convertir_tipo(row.get("categoria"), "str", default="")
-                
-                # REPARACIÓN AUTOMÁTICA DE IMÁGENES ROTAS:
-                # Normalizar texto para verificar si está vacío, es nulo o ruta local inválida
-                foto_limpia = str(foto or "").strip()
-                if foto_limpia == "nan" or foto_limpia == "None":
-                    foto_limpia = ""
-                    
-                if not foto_limpia or not (foto_limpia.startswith("http://") or foto_limpia.startswith("https://") or foto_limpia.startswith("data:image/")):
-                    nom_lower = nombre.lower()
-                    if "alita" in nom_lower:
-                        foto = "https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=500&auto=format&fit=crop&q=60"
-                    elif "chorizo" in nom_lower:
-                        foto = "https://images.unsplash.com/photo-1532246420286-127bcd803104?w=500&auto=format&fit=crop&q=60"
-                    elif "anticucho" in nom_lower:
-                        foto = "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&auto=format&fit=crop&q=60"
-                    elif "hamburguesa" in nom_lower:
-                        foto = "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60"
-                    elif "cerdo" in nom_lower or "puerco" in nom_lower or "chuleta" in nom_lower:
-                        # Foto deliciosa de costillas o chuleta de cerdo a la parrilla
-                        foto = "https://images.unsplash.com/photo-1544025162-d76694265947?w=500&auto=format&fit=crop&q=60"
-                    elif "inka" in nom_lower or "cola" in nom_lower or "gaseosa" in nom_lower or "pepsi" in nom_lower or "coca" in nom_lower or "fanta" in nom_lower or "bebida" in nom_lower or "chicha" in nom_lower:
-                        foto = "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=500&auto=format&fit=crop&q=60"
-                    elif "bufalo" in nom_lower or "parrilla" in nom_lower or "res" in nom_lower or "lomo" in nom_lower or "bife" in nom_lower:
-                        # Foto de parrilla premium
-                        foto = "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&auto=format&fit=crop&q=60"
-                    else:
-                        # Foto por defecto
-                        foto = "https://images.unsplash.com/photo-1544025162-d76694265947?w=500&auto=format&fit=crop&q=60"
-                else:
-                    foto = foto_limpia
                 
                 menu[nombre] = {
                     "precio": precio,
@@ -305,7 +275,7 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
     """Crea o actualiza un producto en Google Sheets."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="productos", ttl=30)
+        df = conn.read(worksheet="productos", ttl=1)
         if df.empty or "nombre" not in df.columns:
             df = pd.DataFrame(columns=["nombre", "precio", "icono", "disponible", "foto", "stock", "categoria"])
             
@@ -337,17 +307,88 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
             }])
             df = pd.concat([df, new_row], ignore_index=True)
             
-        conn.update(worksheet="productos", data=df)
-        st.cache_data.clear()
+        try:
+            conn.update(worksheet="productos", data=df)
+            st.cache_data.clear()
+        except Exception as e_sheets:
+            # Fallback en archivo local en disco en caso de error 429
+            import json, os
+            prod_resp_path = "productos_respaldo.json"
+            
+            # Cargar respaldos locales existentes
+            locales_dict = {}
+            if os.path.exists(prod_resp_path):
+                try:
+                    with open(prod_resp_path, "r", encoding="utf-8") as f:
+                        locales_dict = json.load(f)
+                except Exception:
+                    pass
+            
+            # Registrar o actualizar el producto local
+            final_foto = foto_ruta if foto_ruta else ("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><path d='M8 14s1.5 2 4 2 4-2 4-2'></path><line x1='9' y1='9' x2='9.01' y2='9'></line><line x1='15' y1='9' x2='15.01' y2='9'></line></svg>")
+            
+            locales_dict[nombre] = {
+                "precio": float(precio),
+                "icono": str(icono or "🍔"),
+                "disponible": bool(disponible),
+                "foto": final_foto,
+                "stock": int(stock),
+                "categoria": str(categoria_nombre or "")
+            }
+            
+            try:
+                with open(prod_resp_path, "w", encoding="utf-8") as f:
+                    json.dump(locales_dict, f, indent=4, ensure_ascii=False)
+            except Exception:
+                pass
+                
+            # Actualizar también de inmediato en la sesión del administrador
+            if "menu_dinamico" in st.session_state:
+                st.session_state.menu_dinamico[nombre] = locales_dict[nombre]
+                
+            st.cache_data.clear()
+            st.toast("⚠️ Conexión saturada: El producto se ha guardado localmente en disco.", icon="💾")
+            
         return True
     except Exception as e:
-        raise e
+        # Fallback de emergencia si ni siquiera pudimos armar el dataframe
+        import json, os
+        prod_resp_path = "productos_respaldo.json"
+        locales_dict = {}
+        if os.path.exists(prod_resp_path):
+            try:
+                with open(prod_resp_path, "r", encoding="utf-8") as f_err:
+                    locales_dict = json.load(f_err)
+            except Exception:
+                pass
+        
+        final_foto = foto_ruta if foto_ruta else "🍔"
+        locales_dict[nombre] = {
+            "precio": float(precio),
+            "icono": str(icono or "🍔"),
+            "disponible": bool(disponible),
+            "foto": final_foto,
+            "stock": int(stock),
+            "categoria": str(categoria_nombre or "")
+        }
+        try:
+            with open(prod_resp_path, "w", encoding="utf-8") as f_err:
+                json.dump(locales_dict, f_err, indent=4, ensure_ascii=False)
+        except Exception:
+            pass
+            
+        if "menu_dinamico" in st.session_state:
+            st.session_state.menu_dinamico[nombre] = locales_dict[nombre]
+            
+        st.cache_data.clear()
+        st.toast("⚠️ Conexión saturada: El producto se ha guardado localmente.", icon="💾")
+        return True
 
 def eliminar_producto(db_path, nombre):
     """Elimina un producto por su nombre."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="productos", ttl=30)
+        df = conn.read(worksheet="productos", ttl=1)
         if not df.empty and "nombre" in df.columns:
             df = df[df["nombre"].astype(str) != nombre]
             conn.update(worksheet="productos", data=df)
@@ -497,7 +538,7 @@ def actualizar_stock_multiple(db_path, actualizaciones_dict):
         df = None
         try:
             # Intentar lectura directa sin caché
-            df = conn.read(worksheet="productos", ttl=30)
+            df = conn.read(worksheet="productos", ttl=1)
         except Exception as e:
             # Fallback en caso de 429: Usar st.session_state.menu_dinamico en memoria libre de red
             menu_cache = st.session_state.get("menu_dinamico")
@@ -537,7 +578,7 @@ def crear_calificacion(db_path, fecha_hora, nro_boleta, calificacion, comentario
     """Registra una calificación del cliente (1-5 estrellas) con comentario opcional."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="calificaciones", ttl=30)
+        df = conn.read(worksheet="calificaciones", ttl=1)
         if df.empty or "nro_boleta" not in df.columns:
             df = pd.DataFrame(columns=["fecha_hora", "nro_boleta", "calificacion", "comentario"])
         
@@ -579,7 +620,7 @@ def registrar_log(db_path, fecha_hora, nivel, mensaje, detalle=""):
     """Registra un evento en la hoja de logs para auditoría."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="logs", ttl=30)
+        df = conn.read(worksheet="logs", ttl=1)
         if df.empty or "mensaje" not in df.columns:
             df = pd.DataFrame(columns=["fecha_hora", "nivel", "mensaje", "detalle"])
         
@@ -632,7 +673,7 @@ def obtener_cupones(ttl=TTL_LECTURA):
 def crear_cupon(codigo, tipo, valor, descripcion, activo=True):
     try:
         conn = get_connection()
-        df = conn.read(worksheet="cupones", ttl=30)
+        df = conn.read(worksheet="cupones", ttl=1)
         if df.empty or "codigo" not in df.columns:
             df = pd.DataFrame(columns=["codigo", "tipo", "valor", "descripcion", "activo"])
         
@@ -657,7 +698,7 @@ def crear_cupon(codigo, tipo, valor, descripcion, activo=True):
 def eliminar_cupon(codigo):
     try:
         conn = get_connection()
-        df = conn.read(worksheet="cupones", ttl=30)
+        df = conn.read(worksheet="cupones", ttl=1)
         if not df.empty and "codigo" in df.columns:
             df_filtered = df[df["codigo"].astype(str).str.strip().str.upper() != codigo.strip().upper()]
             conn.update(worksheet="cupones", data=df_filtered)
@@ -669,7 +710,7 @@ def eliminar_cupon(codigo):
 def actualizar_estado_cupon(codigo, activo):
     try:
         conn = get_connection()
-        df = conn.read(worksheet="cupones", ttl=30)
+        df = conn.read(worksheet="cupones", ttl=1)
         if not df.empty and "codigo" in df.columns:
             mask = df["codigo"].astype(str).str.strip().str.upper() == codigo.strip().upper()
             if mask.any():
@@ -707,7 +748,7 @@ def registrar_usuario(email, nombre, foto):
             return False # Ya existe
 
         conn = get_connection()
-        df = conn.read(worksheet="usuarios", ttl=30)
+        df = conn.read(worksheet="usuarios", ttl=1)
         if df.empty or "email" not in df.columns:
             df = pd.DataFrame(columns=["email", "nombre", "foto", "compras_realizadas", "fecha_registro"])
             
@@ -739,7 +780,7 @@ def registrar_usuario(email, nombre, foto):
 def incrementar_compra_usuario(email):
     try:
          conn = get_connection()
-         df = conn.read(worksheet="usuarios", ttl=30)
+         df = conn.read(worksheet="usuarios", ttl=1)
          if not df.empty and "email" in df.columns:
              mask = df["email"].astype(str).str.strip().str.lower() == email.strip().lower()
              if mask.any():
@@ -823,7 +864,7 @@ def actualizar_estado_mesa(nro_mesa, estado):
     # 2. Intentar actualizar Google Sheets en segundo plano. Si falla (429), no bloqueamos nada
     try:
         conn = get_connection()
-        df = conn.read(worksheet="mesas", ttl=30)
+        df = conn.read(worksheet="mesas", ttl=1)
         if not df.empty and "nro_mesa" in df.columns:
             mask = df["nro_mesa"].astype(int) == int(nro_mesa)
             if mask.any():
@@ -838,7 +879,7 @@ def actualizar_estado_mesa(nro_mesa, estado):
 def agregar_mesa():
     try:
         conn = get_connection()
-        df = conn.read(worksheet="mesas", ttl=30)
+        df = conn.read(worksheet="mesas", ttl=1)
         nueva_mesa = 1
         if not df.empty and "nro_mesa" in df.columns:
             nueva_mesa = int(df["nro_mesa"].max()) + 1
@@ -854,7 +895,7 @@ def agregar_mesa():
 def eliminar_mesa(nro_mesa):
     try:
         conn = get_connection()
-        df = conn.read(worksheet="mesas", ttl=30)
+        df = conn.read(worksheet="mesas", ttl=1)
         if not df.empty and "nro_mesa" in df.columns:
             df = df[df["nro_mesa"].astype(int) != int(nro_mesa)]
             conn.update(worksheet="mesas", data=df)
@@ -879,13 +920,13 @@ def _obtener_reservas_cached(ttl=60):
     except Exception:
         return []
 
-def obtener_reservas(ttl=30):
+def obtener_reservas(ttl=1):
     return _obtener_reservas_cached(ttl=ttl)
 
 def crear_reserva(email, nombre, nro_mesa, fecha, hora, datos_contacto, personas, nombres_invitados):
     try:
         conn = get_connection()
-        df = conn.read(worksheet="reservas", ttl=30)
+        df = conn.read(worksheet="reservas", ttl=1)
         if df.empty or "id" not in df.columns:
             df = pd.DataFrame(columns=["id", "email", "nombre", "nro_mesa", "fecha", "hora", "datos_contacto", "personas", "nombres_invitados"])
         
@@ -919,7 +960,7 @@ def crear_reserva(email, nombre, nro_mesa, fecha, hora, datos_contacto, personas
 def eliminar_reserva(id_reserva):
     try:
         conn = get_connection()
-        df = conn.read(worksheet="reservas", ttl=30)
+        df = conn.read(worksheet="reservas", ttl=1)
         if not df.empty and "id" in df.columns:
             # Convertir IDs a float/int para evitar problemas de tipos de pandas
             df = df[df["id"].astype(float).astype(int) != int(id_reserva)]
@@ -953,7 +994,7 @@ def crear_alerta_salon(nro_mesa, cliente_nombre, tipo_alerta):
     """Crea una alerta de llamado a mesero o cuenta."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="alertas_salon", ttl=30)
+        df = conn.read(worksheet="alertas_salon", ttl=1)
         if df.empty or "nro_mesa" not in df.columns:
             df = pd.DataFrame(columns=["fecha_hora", "nro_mesa", "cliente_nombre", "tipo_alerta", "atendido"])
 
@@ -977,7 +1018,7 @@ def atender_alerta_salon(nro_mesa, tipo_alerta):
     """Elimina la alerta de llamado una vez que el mesero la atiende."""
     try:
         conn = get_connection()
-        df = conn.read(worksheet="alertas_salon", ttl=30)
+        df = conn.read(worksheet="alertas_salon", ttl=1)
         if not df.empty and "nro_mesa" in df.columns:
             df = df[~((df["nro_mesa"].astype(int) == int(nro_mesa)) & (df["tipo_alerta"].astype(str) == str(tipo_alerta)))]
             conn.update(worksheet="alertas_salon", data=df)
