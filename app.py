@@ -423,6 +423,12 @@ if "permisos_roles_v2" not in st.session_state:
     }
     st.session_state.permisos_roles_v2 = True  # marca migración completada
 
+# Inicialización segura de variables del session_state al arranque
+if "lista_categorias" not in st.session_state:
+    st.session_state.lista_categorias = ["Todos"]
+if "categoria_activa" not in st.session_state:
+    st.session_state.categoria_activa = "Todos"
+
 # Defensa contra categorías activas eliminadas
 if st.session_state.categoria_activa not in st.session_state.lista_categorias:
     st.session_state.categoria_activa = "Todos"
