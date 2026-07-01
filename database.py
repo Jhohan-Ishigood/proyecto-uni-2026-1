@@ -377,7 +377,6 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
                 st.session_state.menu_dinamico[nombre] = locales_dict[nombre]
                 
             st.cache_data.clear()
-            st.toast("⚠️ Conexión saturada: El producto se ha guardado localmente en disco.", icon="💾")
             
         return True
     except Exception as e:
@@ -411,7 +410,6 @@ def guardar_producto(db_path, nombre, precio, icono, disponible, foto_ruta, stoc
             st.session_state.menu_dinamico[nombre] = locales_dict[nombre]
             
         st.cache_data.clear()
-        st.toast("⚠️ Conexión saturada: El producto se ha guardado localmente.", icon="💾")
         return True
 
 def eliminar_producto(db_path, nombre):
