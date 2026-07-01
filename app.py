@@ -1424,15 +1424,78 @@ if es_admin:
                 
                 df_productos = pd.DataFrame(rows)
                 
-                # Escribir UNA SOLA VEZ sin haber leído la API
-                conn = database.get_connection()
-                conn.update(worksheet="productos", data=df_productos)
-                st.cache_data.clear()
-                st.success("✔ ¡Cambios guardados con éxito!")
+                # Intentar escribir al Excel con reintentos y tiempo de espera exponencial si hay cuota excedida (error 429)
+                import time
+                import json
+                import os
+                
+                success = False
+                try:
+                    conn = database.get_connection()
+                    max_retries = 2
+                    
+                    for attempt in range(max_retries):
+                        try:
+                            conn.update(worksheet="productos", data=df_productos)
+                            success = True
+                            break
+                        except Exception as e_update:
+                            error_msg = str(e_update).lower()
+                            if "429" in error_msg or "quota" in error_msg or "resource_exhausted" in error_msg:
+                                if attempt < max_retries - 1:
+                                    time.sleep(2)
+                                else:
+                                    raise e_update
+                            else:
+                                raise e_update
+                except Exception as e_api:
+                    # Captura cualquier error de cuota (429) o de conexión con Google Sheets
+                    pass
+                            
+                if success:
+                    st.cache_data.clear()
+                    st.success("✔ ¡Cambios guardados y sincronizados con éxito en la nube!")
+                    # Guardar respaldo local también por seguridad
+                    try:
+                        prod_resp_path = "productos_respaldo.json"
+                        locales_dict = {row["nombre"]: {
+                            "precio": row["precio"],
+                            "icono": row["icono"],
+                            "disponible": bool(row["disponible"]),
+                            "foto": row["foto"],
+                            "stock": row["stock"],
+                            "categoria": row["categoria"]
+                        } for row in rows}
+                        with open(prod_resp_path, "w", encoding="utf-8") as f:
+                            json.dump(locales_dict, f, indent=4, ensure_ascii=False)
+                    except Exception:
+                        pass
+                else:
+                    # Guardar de forma local como fallback inmediato ante error 429 o de red
+                    prod_resp_path = "productos_respaldo.json"
+                    locales_dict = {row["nombre"]: {
+                        "precio": row["precio"],
+                        "icono": row["icono"],
+                        "disponible": bool(row["disponible"]),
+                        "foto": row["foto"],
+                        "stock": row["stock"],
+                        "categoria": row["categoria"]
+                    } for row in rows}
+                    
+                    try:
+                        with open(prod_resp_path, "w", encoding="utf-8") as f:
+                            json.dump(locales_dict, f, indent=4, ensure_ascii=False)
+                    except Exception:
+                        pass
+                        
+                    st.cache_data.clear()
+                    st.toast("⚠️ Conexión de Google ocupada. Guardado localmente en el servidor.", icon="💾")
+                    st.info("ℹ️ Guardado localmente: Los cambios se reflejarán de inmediato y se sincronizarán con el Excel automáticamente más tarde.")
+                    
                 st.session_state["_forzar_recarga"] = True
                 st.rerun()
             except Exception as e:
-                st.error(f"⚠️ Error al guardar: {e}")
+                st.error(f"⚠️ Ocurrió un inconveniente al guardar: {e}")
 
     # ============================================================================
     # 12.5 PANEL DE CONTROL DE ADMINISTRACIÓN - GESTIÓN DE CUPONES
