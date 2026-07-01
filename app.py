@@ -785,16 +785,8 @@ if "mostrar_login_admin" not in st.session_state:
     st.session_state.mostrar_login_admin = False
 
 st.sidebar.markdown("#### ⚙️ GESTIÓN INTERNA")
-col_sidebar_btn1, col_sidebar_btn2 = st.sidebar.columns(2)
-with col_sidebar_btn1:
-    if st.button("INGRESAR ADMIN🤵‍♂️", use_container_width=True, key="btn_toggle_admin_login"):
-        st.session_state.mostrar_login_admin = not st.session_state.mostrar_login_admin
-with col_sidebar_btn2:
-    if st.button("🔄 SINCRONIZAR EXCEL", use_container_width=True, key="btn_manual_sync_excel"):
-        st.cache_data.clear()
-        st.session_state["_forzar_recarga"] = True
-        st.toast("⚡ Solicitando datos frescos de Google Sheets...", icon="🔄")
-        st.rerun()
+if st.sidebar.button("INGRESAR COMO ADMINISTRADOR🤵‍♂️", use_container_width=True, key="btn_toggle_admin_login"):
+    st.session_state.mostrar_login_admin = not st.session_state.mostrar_login_admin
 
 # Inicialización limpia de variables de control de acceso
 usuario_input = ""
