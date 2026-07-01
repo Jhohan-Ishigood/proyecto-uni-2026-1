@@ -1390,112 +1390,29 @@ if es_admin:
                 st.session_state["_forzar_recarga"] = True
                 st.rerun()
     
+
+                
         if st.button("💾 CONFIRMAR Y SINCRONIZAR CAMBIOS DE LA CARTA", use_container_width=True, disabled=not _editar_carta3):
-            try:
-                # Construir DataFrame desde la memoria (sin leer la API de nuevo)
-                rows = []
-                menu_actual = st.session_state.menu_dinamico
-                
-                # Primero, aplicar los cambios del formulario sobre la memoria
-                for prod_key, info_actualizada in cambios_detectados.items():
-                    archivo_subido = st.session_state.get(f"f_up_{prod_key}")
-                    ruta_foto = convertir_imagen_a_base64(archivo_subido)
+            # Sincronizamos los cambios al almacenamiento de Google Sheets directamente
+            todos_guardados = True
+            for prod_key, info_actualizada in cambios_detectados.items():
+                archivo_subido = st.session_state.get(f"f_up_{prod_key}")
+                ruta_foto = convertir_imagen_a_base64(archivo_subido)
                     
-                    if prod_key in menu_actual:
-                        menu_actual[prod_key]["precio"] = float(info_actualizada["precio"])
-                        menu_actual[prod_key]["icono"] = info_actualizada["icono"]
-                        menu_actual[prod_key]["disponible"] = info_actualizada["disponible"]
-                        menu_actual[prod_key]["stock"] = int(info_actualizada["stock"])
-                        menu_actual[prod_key]["categoria"] = info_actualizada["categoria"]
-                        if ruta_foto:
-                            menu_actual[prod_key]["foto"] = ruta_foto
-                
-                # Construir DataFrame con TODOS los productos actualizados
-                for nombre, info in menu_actual.items():
-                    rows.append({
-                        "nombre": nombre,
-                        "precio": float(info.get("precio", 10.0)),
-                        "icono": str(info.get("icono", "🍔")),
-                        "disponible": 1 if info.get("disponible", True) else 0,
-                        "foto": str(info.get("foto", "")),
-                        "stock": int(info.get("stock", 0)),
-                        "categoria": str(info.get("categoria", ""))
-                    })
-                
-                df_productos = pd.DataFrame(rows)
-                
-                # Intentar escribir al Excel con reintentos y tiempo de espera exponencial si hay cuota excedida (error 429)
-                import time
-                import json
-                import os
-                
-                success = False
-                try:
-                    conn = database.get_connection()
-                    max_retries = 2
-                    
-                    for attempt in range(max_retries):
-                        try:
-                            conn.update(worksheet="productos", data=df_productos)
-                            success = True
-                            break
-                        except Exception as e_update:
-                            error_msg = str(e_update).lower()
-                            if "429" in error_msg or "quota" in error_msg or "resource_exhausted" in error_msg:
-                                if attempt < max_retries - 1:
-                                    time.sleep(2)
-                                else:
-                                    raise e_update
-                            else:
-                                raise e_update
-                except Exception as e_api:
-                    # Captura cualquier error de cuota (429) o de conexión con Google Sheets
-                    pass
-                            
-                if success:
-                    st.cache_data.clear()
-                    st.success("✔ ¡Cambios guardados y sincronizados con éxito en la nube!")
-                    # Guardar respaldo local también por seguridad
-                    try:
-                        prod_resp_path = "productos_respaldo.json"
-                        locales_dict = {row["nombre"]: {
-                            "precio": row["precio"],
-                            "icono": row["icono"],
-                            "disponible": bool(row["disponible"]),
-                            "foto": row["foto"],
-                            "stock": row["stock"],
-                            "categoria": row["categoria"]
-                        } for row in rows}
-                        with open(prod_resp_path, "w", encoding="utf-8") as f:
-                            json.dump(locales_dict, f, indent=4, ensure_ascii=False)
-                    except Exception:
-                        pass
-                else:
-                    # Guardar de forma local como fallback inmediato ante error 429 o de red
-                    prod_resp_path = "productos_respaldo.json"
-                    locales_dict = {row["nombre"]: {
-                        "precio": row["precio"],
-                        "icono": row["icono"],
-                        "disponible": bool(row["disponible"]),
-                        "foto": row["foto"],
-                        "stock": row["stock"],
-                        "categoria": row["categoria"]
-                    } for row in rows}
-                    
-                    try:
-                        with open(prod_resp_path, "w", encoding="utf-8") as f:
-                            json.dump(locales_dict, f, indent=4, ensure_ascii=False)
-                    except Exception:
-                        pass
-                        
-                    st.cache_data.clear()
-                    st.toast("⚠️ Conexión de Google ocupada. Guardado localmente en el servidor.", icon="💾")
-                    st.info("ℹ️ Guardado localmente: Los cambios se reflejarán de inmediato y se sincronizarán con el Excel automáticamente más tarde.")
-                    
+                todos_guardados = database.guardar_producto(
+                    db_path=None,
+                    nombre=prod_key,
+                    precio=info_actualizada["precio"],
+                    icono=info_actualizada["icono"],
+                    disponible=info_actualizada["disponible"],
+                    foto_ruta=ruta_foto,
+                    stock=info_actualizada["stock"],
+                    categoria_nombre=info_actualizada["categoria"]
+                ) and todos_guardados
+            if todos_guardados:
+                st.success("✔ ¡Cambios guardados físicamente con éxito!")
                 st.session_state["_forzar_recarga"] = True
                 st.rerun()
-            except Exception as e:
-                st.error(f"⚠️ Ocurrió un inconveniente al guardar: {e}")
 
     # ============================================================================
     # 12.5 PANEL DE CONTROL DE ADMINISTRACIÓN - GESTIÓN DE CUPONES
